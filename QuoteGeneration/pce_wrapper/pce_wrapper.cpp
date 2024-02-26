@@ -88,6 +88,15 @@ bool get_pce_path(
         p_file_path[buf_size - 1] = '\0';  //null terminate the string
         return true;
     }
+    else if (*SGX_ENCLAVE_PATH)
+    {
+        if ((strlen(SGX_ENCLAVE_PATH) + 1 + strlen(PCE_ENCLAVE_NAME) + 1) > buf_size) {
+            return false;
+        }
+        strcpy(p_file_path, SGX_ENCLAVE_PATH);
+        strcat(p_file_path, "/");
+        strcat(p_file_path, PCE_ENCLAVE_NAME);
+    }
     else if(0 != dladdr(__builtin_return_address(0), &dl_info) &&
         NULL != dl_info.dli_fname)
     {

@@ -24,7 +24,7 @@ QAL_Include_Path := -I./ \
                 -I../common/ \
                 -I$(RAPIDJSON_DIR)/
 
-QAL_Cpp_Flags := $(CXXFLAGS) -g -fPIC $(QAL_Include_Path)
+QAL_Cpp_Flags := $(CXXFLAGS) -g -fPIC $(QAL_Include_Path) -DSGX_ENCLAVE_PATH="\"$(SGX_ENCLAVE_PATH)\""
 QAL_C_Flags := $(CFLAGS) -g -fPIC $(QAL_Include_Path)
 
 QAL_Link_Flags := $(COMMON_LDFLAGS) -L$(WARM_Lib_Path) -liwasm  -ldl -lm -lpthread \

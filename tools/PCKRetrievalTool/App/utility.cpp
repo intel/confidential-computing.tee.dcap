@@ -214,9 +214,9 @@ bool load_enclave(const char* enclave_name, sgx_enclave_id_t* p_eid)
     char enclave_path[ProgPathBufferSize] = "";
 #endif
 
+#if defined(_MSC_VER)
     if (!get_program_path(enclave_path, ProgPathBufferSize))
         return false;
-#if defined(_MSC_VER)    
     if (_tcsnlen(enclave_path, ProgPathBufferSize) + _tcsnlen(enclave_name, ProgPathBufferSize) + sizeof(char) > ProgPathBufferSize)
         return false;
     (void)_tcscat_s(enclave_path, ProgPathBufferSize, enclave_name);
@@ -227,6 +227,16 @@ bool load_enclave(const char* enclave_name, sgx_enclave_id_t* p_eid)
     sgx_create_enclave_func_t p_sgx_create_enclave = (sgx_create_enclave_func_t)FINDFUNCTIONSYM(sgx_urts_handle, "sgx_create_enclavea");
 #endif
 #else
+    if (*SGX_ENCLAVE_PATH) {
+        if ((strlen(SGX_ENCLAVE_PATH) + 1 + 1) > ProgPathBufferSize) {
+            return false;
+        }
+        (void)strcpy(enclave_path, SGX_ENCLAVE_PATH);
+        (void)strcat(enclave_path, "/");
+    } else {
+        if (!get_program_path(enclave_path, ProgPathBufferSize))
+            return false;
+    }
     if (strnlen(enclave_path, ProgPathBufferSize) + strnlen(enclave_name, ProgPathBufferSize) + sizeof(char) > ProgPathBufferSize)
         return false;
     (void)strncat(enclave_path, enclave_name, strnlen(enclave_name, ProgPathBufferSize));

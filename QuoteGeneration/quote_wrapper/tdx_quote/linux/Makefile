@@ -56,7 +56,7 @@ Quote_Include_Paths := -I$(SGX_SDK)/include -I../inc -I../../common/inc -I./ \
 
 Quote_C_Flags := $(CFLAGS) -g -MMD -fPIC -Wno-attributes $(Quote_Include_Paths)
 
-Quote_Cpp_Flags := $(CXXFLAGS) -g -MMD -fPIC -Wno-attributes $(Quote_Include_Paths)
+Quote_Cpp_Flags := $(CXXFLAGS) -g -MMD -fPIC -Wno-attributes $(Quote_Include_Paths) -DSGX_ENCLAVE_PATH="\"$(SGX_ENCLAVE_PATH)\""
 Quote_Link_Flags := $(COMMON_LDFLAGS) -g -L$(ROOT_DIR)/build/linux \
                     -L$(PCE_Library_Dir) -lsgx_pce_logic -L$(SGX_SDK)/lib64 \
 					-lsgx_urts -lpthread -ldl

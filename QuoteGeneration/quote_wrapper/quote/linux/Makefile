@@ -51,7 +51,7 @@ Quote_Include_Paths := -I$(SGX_SDK)/include -I../inc -I../../common/inc -I./ -I.
 
 Quote_C_Flags := $(COMMON_FLAGS) -g -fPIC -Wno-attributes $(Quote_Include_Paths)
 
-Quote_Cpp_Flags := $(Quote_C_Flags) -std=c++11
+Quote_Cpp_Flags := $(Quote_C_Flags) -std=c++11 -DSGX_ENCLAVE_PATH="\"$(SGX_ENCLAVE_PATH)\""
 Quote_Link_Flags := $(COMMON_FLAGS) -g -L$(ROOT_DIR)/build/linux -L$(SGX_SDK)/lib64 -lsgx_urts -lpthread -ldl
 
 ifndef DEBUG
