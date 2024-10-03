@@ -113,8 +113,8 @@ namespace intel { namespace sgx { namespace dcap { namespace qgs {
                 sgx_ql_set_logging_callback_t ql_set_logging_callback =
                     (sgx_ql_set_logging_callback_t)dlsym(p_handle, "sgx_ql_set_logging_callback");
                 if (dlerror() == NULL && ql_set_logging_callback) {
-                    // Set log level to SGX_QL_LOG_ERROR
-                    ql_set_logging_callback(sgx_ql_logging_callback, SGX_QL_LOG_ERROR);
+                    ql_set_logging_callback(sgx_ql_logging_callback,
+                                            qgs_debug ? SGX_QL_LOG_INFO : SGX_QL_LOG_ERROR);
                 } else {
                     QGS_LOG_WARN("Failed to set logging callback for the quote provider library.\n");
                 }
@@ -355,8 +355,8 @@ namespace intel { namespace sgx { namespace dcap { namespace qgs {
                 sgx_ql_set_logging_callback_t ql_set_logging_callback =
                     (sgx_ql_set_logging_callback_t)dlsym(p_handle, "sgx_ql_set_logging_callback");
                 if (dlerror() == NULL && ql_set_logging_callback) {
-                    // Set log level to SGX_QL_LOG_ERROR
-                    ql_set_logging_callback(sgx_ql_logging_callback, SGX_QL_LOG_ERROR);
+                    ql_set_logging_callback(sgx_ql_logging_callback,
+                                            qgs_debug ? SGX_QL_LOG_INFO : SGX_QL_LOG_ERROR);
                 } else {
                     QGS_LOG_WARN("Failed to set logging callback for the quote provider library.\n");
                 }
