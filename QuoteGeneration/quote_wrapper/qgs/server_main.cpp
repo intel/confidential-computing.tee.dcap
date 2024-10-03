@@ -85,7 +85,7 @@ int main(int argc, const char* argv[])
     unsigned long int num_threads = 0;
     char *endptr = NULL;
     if (argc > 4) {
-        cout << "Usage: " << argv[0] << "[--no-daemon] [-p=port_number] [-n=number_threads]"
+        cout << "Usage: " << argv[0] << " [--no-daemon] [-p=port_number] [-n=number_threads]"
              << endl;
         exit(1);
     }
@@ -181,7 +181,7 @@ int main(int argc, const char* argv[])
             cout << "thread number [" << num_threads << "] found in cmdline" << endl;
             continue;
         } else {
-            cout << "Usage: " << argv[0] << "[--no-daemon] [-p=port_number] [-n=number_threads]"
+            cout << "Usage: " << argv[0] << " [--no-daemon] [-p=port_number] [-n=number_threads]"
                 << endl;
             exit(1);
         }
