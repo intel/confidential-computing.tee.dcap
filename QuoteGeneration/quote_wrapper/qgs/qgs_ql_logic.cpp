@@ -50,10 +50,10 @@ typedef quote3_error_t (*sgx_ql_set_logging_callback_t)(sgx_ql_logging_callback_
 
 void sgx_ql_logging_callback(sgx_ql_log_level_t level, const char *message) {
     if (level == SGX_QL_LOG_ERROR) {
-        sgx_proc_log_report(1, message);
+        sgx_proc_log_report(1, "%s", message);
 
     } else if (level == SGX_QL_LOG_INFO) {
-        sgx_proc_log_report(3, message);
+        sgx_proc_log_report(3, "%s", message);
     }
 }
 
