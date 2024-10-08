@@ -98,7 +98,8 @@ ENCLAVE_LDFLAGS := -Wl,-z,relro,-z,now,-z,noexecstack -shared \
 				   -Wl,--build-id		\
 				   -Wl,-Bdynamic -L$(SERVTD_ATTEST_BUILD_DIR) -ltdx_verify \
 				   -Wl,-L/lib/x86_64-linux-gnu/ -lc \
-				   -Wl,--version-script=Enclave/linux/qve_migration.lds
+				   -Wl,--version-script=Enclave/linux/qve_migration.lds \
+				   -Wl,--dynamic-linker,
 else
 ENCLAVE_LDFLAGS := -Wl,-z,relro,-z,now,-z,noexecstack -fPIC \
 				   -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles \
@@ -110,7 +111,8 @@ ENCLAVE_LDFLAGS := -Wl,-z,relro,-z,now,-z,noexecstack -fPIC \
 				   -Wl,-pie,-eenclave_entry -Wl,--export-dynamic -Wl,-Map,qve.map \
 				   -Wl,--defsym,__ImageBase=0  \
 				   -Wl,--build-id		\
-				   -Wl,--version-script=Enclave/linux/qve.lds
+				   -Wl,--version-script=Enclave/linux/qve.lds \
+				   -Wl,--dynamic-linker,
 endif
 
 
