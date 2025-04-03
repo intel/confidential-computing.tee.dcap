@@ -54,12 +54,7 @@ Enclave_Include_Paths := -I./ -I$(WARM_Top_Path)/core/iwasm/include \
                          -I$(DCAP_QV_DIR)/appraisal/common \
                          -I$(DCAP_QG_DIR)/common/inc/internal
 
-CC_BELOW_4_9 := $(shell expr "`$(CC) -dumpversion`" \< "4.9")
-ifeq ($(CC_BELOW_4_9), 1)
-	Enclave_Common_Flags := -fstack-protector
-else
-	Enclave_Common_Flags := -fstack-protector-strong
-endif
+Enclave_Common_Flags := -fstack-protector-strong
 Enclave_Common_Flags += -ffreestanding -fvisibility=hidden -fpie -ffunction-sections -fdata-sections $(Enclave_Include_Paths)
 Enclave_Common_Flags += -DPICOJSON_USE_LOCALE=0 -DBUILD_QAE -DSGX_JWT
 
