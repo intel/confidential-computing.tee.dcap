@@ -33,7 +33,7 @@
 TOP_DIR  = ../../..
 SDK_NOT_REQUIRED = 1
 ifeq ($(wildcard $(TOP_DIR)/buildenv.mk),)
-	CXXFLAGS ?= -Wnon-virtual-dtor -std=c++14 -fstack-protector -O2 -D_FORTIFY_SOURCE=2 -UDEBUG -DNDEBUG \
+	CXXFLAGS ?= -Wnon-virtual-dtor -std=c++14 -fstack-protector-strong -O2 -D_FORTIFY_SOURCE=2 -UDEBUG -DNDEBUG \
 		-ffunction-sections -fdata-sections -Wall -Wextra -Winit-self -Wpointer-arith -Wreturn-type -Waddress \
 		-Wsequence-point -Wformat-security -Wmissing-include-dirs -Wfloat-equal -Wundef -Wshadow -Wcast-align \
 		-Wconversion -Wredundant-decls -DITT_ARCH_IA64 -fcf-protection

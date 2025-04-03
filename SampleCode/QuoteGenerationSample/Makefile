@@ -104,11 +104,7 @@ Enclave_Cpp_Files := Enclave/Enclave.cpp
 Enclave_Include_Paths := -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx
 
 CC_BELOW_4_9 := $(shell expr "`$(CC) -dumpversion`" \< "4.9")
-ifeq ($(CC_BELOW_4_9), 1)
-        Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -ffunction-sections -fdata-sections -fstack-protector
-else
-        Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -ffunction-sections -fdata-sections -fstack-protector-strong
-endif
+Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -ffunction-sections -fdata-sections
 Enclave_C_Flags += $(Enclave_Include_Paths)
 Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++11 -nostdinc++
 
