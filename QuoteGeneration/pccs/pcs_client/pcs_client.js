@@ -66,7 +66,9 @@ async function do_request(url, options) {
       if (!options.headers) {
         options.headers = {};
       }
-      options.headers['Ocp-Apim-Subscription-Key'] = Config.get('ApiKey');
+      if (Config.get('ApiKey') != "") {
+        options.headers['Ocp-Apim-Subscription-Key'] = Config.get('ApiKey');
+      }
     }
 
     // global opitons ( proxy, timeout, etc)
@@ -128,8 +130,11 @@ export async function getCerts(enc_ppid, pceid) {
       pceid: pceid,
     },
     method: 'GET',
-    headers: { 'Ocp-Apim-Subscription-Key': Config.get('ApiKey') },
+    headers: {}
   };
+  if (Config.get('ApiKey') != "") {
+    options.headers['Ocp-Apim-Subscription-Key'] = Config.get('ApiKey');
+  }
 
   return do_request(Config.get('uri') + 'pckcerts', options);
 }
@@ -142,10 +147,13 @@ export async function getCertsWithManifest(platform_manifest, pceid) {
     },
     method: 'POST',
     headers: {
-      'Ocp-Apim-Subscription-Key': Config.get('ApiKey'),
       'Content-Type': 'application/json',
     },
   };
+
+  if (Config.get('ApiKey') != "") {
+    options.headers['Ocp-Apim-Subscription-Key'] = Config.get('ApiKey');
+  }
 
   return do_request(Config.get('uri') + 'pckcerts', options);
 }
