@@ -64,9 +64,12 @@ servtd_attest_error_t get_quote(const void* p_tdx_report,
 }
 
 servtd_attest_error_t verify_quote_integrity(
-    const void* p_quote, uint32_t quote_size, const void* root_pub_key,
-    uint32_t root_pub_key_size, void* p_tdx_servtd_suppl_data,
-    uint32_t* p_tdx_servtd_suppl_data_size) 
+                        const void* p_quote,
+                        uint32_t quote_size,
+                        const void* root_pub_key,
+                        uint32_t root_pub_key_size,
+                        void* p_tdx_servtd_suppl_data,
+                        uint32_t* p_tdx_servtd_suppl_data_size)
 {
     uint8_t verify_status = 0;
 
@@ -86,9 +89,52 @@ servtd_attest_error_t verify_quote_integrity(
     }
     // only verify quote's integrity
     verify_status = do_verify_quote_integrity(
-        (const uint8_t*)p_quote, quote_size, (const uint8_t*)root_pub_key,
-        root_pub_key_size, (uint8_t*)p_tdx_servtd_suppl_data,
-        (uint32_t*)p_tdx_servtd_suppl_data_size);
+                        (const uint8_t*)p_quote,
+                        quote_size,
+                        (const uint8_t*)root_pub_key,
+                        root_pub_key_size,
+                        NULL,
+                        (uint8_t*)p_tdx_servtd_suppl_data,
+                        (uint32_t*)p_tdx_servtd_suppl_data_size);
+    return verify_status;
+}
+
+servtd_attest_error_t verify_quote_integrity_ex(
+                        const void* p_quote,
+                        uint32_t quote_size,
+                        const void* root_pub_key,
+                        uint32_t root_pub_key_size,
+                        const tdx_ql_qv_collateral_t *p_quote_collateral,
+                        void* p_tdx_servtd_suppl_data,
+                        uint32_t* p_tdx_servtd_suppl_data_size)
+{
+    uint8_t verify_status = 0;
+
+    if (NULL == p_quote || quote_size < sizeof(sgx_quote4_t))
+    {
+        return SERVTD_ATTEST_ERROR_UNEXPECTED;
+    }
+
+    if (NULL == p_tdx_servtd_suppl_data || NULL == p_tdx_servtd_suppl_data_size)
+    {
+        return SERVTD_ATTEST_ERROR_UNEXPECTED;
+    }
+
+    if (NULL == root_pub_key)
+    {
+        return SERVTD_ATTEST_ERROR_UNEXPECTED;
+    }
+
+    // only verify quote's integrity
+    verify_status = do_verify_quote_integrity(
+                        (const uint8_t*)p_quote,
+                        quote_size,
+                        (const uint8_t*)root_pub_key,
+                        root_pub_key_size,
+                        p_quote_collateral,
+                        (uint8_t*)p_tdx_servtd_suppl_data,
+                        (uint32_t*)p_tdx_servtd_suppl_data_size);
+
     return verify_status;
 }
 

@@ -33,6 +33,7 @@
 #define _SERVTD_COMMON_H_
 
 #include <stdint.h>
+#include <time.h>
 #include "sgx_quote_5.h"
 #include "sgx_attributes.h"
 #include "sgx_qve_def.h"
@@ -50,6 +51,7 @@
 #define GET_QUOTE_SERVICE_UNAVAILABLE 0x8000000000000001
 #define MISCSELECTMASK_LEN 4
 #define ATTRIBUTESELECTMASK_LEN 16
+#define TCB_STATUS_LEN  32
 
 struct servtd_tdx_quote_hdr {
     /* Quote version, filled by TD */
@@ -80,6 +82,8 @@ struct servtd_tdx_quote_suppl_data {
         sgx_measurement_t          mr_signer;            /*   698    32 */
         sgx_prod_id_t              isv_prod_id;          /*   730     2 */
         sgx_isv_svn_t              isv_svn;              /*   732     2 */
+        time_t                     tcb_date;             /*   734     64 */
+        char                       tcb_status[TCB_STATUS_LEN];           /*   798     32 */
 };
 
 static const unsigned SERVTD_HEADER_SIZE = 4;

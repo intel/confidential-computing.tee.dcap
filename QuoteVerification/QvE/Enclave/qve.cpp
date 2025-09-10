@@ -67,6 +67,9 @@
 #include "servtd_qve_utils.h"
 #include "tdx_verify.h"
 #include "servtd_com.h"
+#define memset_s(a,b,c,d) memset(a,c,d)
+#define memcpy_s(a,b,c,d) (memcpy(a,c,b) && 0)
+#define sgx_is_within_enclave(a,b) (1)
 #define EXPORT_API __attribute__ ((visibility("default")))
 #define SGX_TD_VERIFY_ERROR(x)              (0x000000FF&(x))
 #endif //SGX_TRUSTED
@@ -1063,6 +1066,18 @@ static quote3_error_t servtd_set_quote_supplemental_data(
             p_servtd_suppl_data->sgx_tcb_components[i] = sgx_svn[i].getSvn();
         }
     }
+
+    p_servtd_suppl_data->tcb_date = tcb.getTcbDate();
+
+    auto st = tcb.getStatus();
+    uint32_t len = st.length() + 1;
+
+    if (len > TCB_STATUS_LEN)
+        return SGX_QL_ERROR_UNEXPECTED;
+
+    strncpy(p_servtd_suppl_data->tcb_status, st.c_str(), st.length());
+    p_servtd_suppl_data->tcb_status[st.length()] = '\0';
+
     // Get Tdx Module major version
     p_servtd_suppl_data->tdx_module_major_ver = quote.getTeeTcbSvn()[1];
     uint8_t matchedTcbLevel = 0;
@@ -1763,6 +1778,7 @@ quote3_error_t sgx_qve_verify_quote(
     }
     unsigned char fmspc_from_quote[FMSPC_SIZE] = { 0 };
     unsigned char ca_from_quote[CA_SIZE] = { 0 };
+    bool collateral_flag = false;
 
     if(p_quote_collateral == NULL) {
 
@@ -1778,6 +1794,8 @@ quote3_error_t sgx_qve_verify_quote(
         {
             return SGX_QL_UNABLE_TO_GET_COLLATERAL;
         }
+
+        collateral_flag = true;
 
     }
 
@@ -1805,12 +1823,6 @@ quote3_error_t sgx_qve_verify_quote(
          p_quote_collateral->version != QVE_COLLATERAL_VERSION3 &&
          p_quote_collateral->version != QVE_COLLATERAL_VERSOIN31 &&
          p_quote_collateral->version != QVE_COLLATERAL_VERSION4) {
-#ifdef SERVTD_ATTEST
-		if(p_quote_collateral != NULL) {
-			tdx_att_free_collateral((tdx_ql_qve_collateral_t*)p_quote_collateral);
-			p_quote_collateral = NULL;
-		}
-#endif
 
         return SGX_QL_COLLATERAL_VERSION_NOT_SUPPORTED;
     }
@@ -2133,7 +2145,7 @@ quote3_error_t sgx_qve_verify_quote(
         }
     }
 #else
-	if(p_quote_collateral != NULL) {
+	if(p_quote_collateral != NULL && collateral_flag) {
 			tdx_att_free_collateral((tdx_ql_qve_collateral_t*)p_quote_collateral);
 			p_quote_collateral = NULL;
 	}
@@ -2163,6 +2175,7 @@ uint8_t do_verify_quote_integrity(
 		uint32_t quote_size,
 		const uint8_t * root_pub_key,
 		uint32_t root_pub_key_size,
+        const tdx_ql_qv_collateral_t *p_quote_collateral,
 		uint8_t *p_td_report_body,
 		uint32_t * p_td_report_body_size) {
 
@@ -2175,19 +2188,20 @@ uint8_t do_verify_quote_integrity(
 	}
 
 
-	quote3_error_t ret = sgx_qve_verify_quote(p_quote,
-			quote_size,
-			NULL,
-			1, //expiration_check_date, just set to 1 to pass sanity check
-			&collateral_expiration_status,
-			&quote_verification_result,
-			NULL, // qve report
-			0,    // supplemental data size
-			NULL, // supplemental data
-            root_pub_key,
-            root_pub_key_size,
-			p_td_report_body,
-			p_td_report_body_size);
+	quote3_error_t ret = sgx_qve_verify_quote(
+                            p_quote,
+                            quote_size,
+                            p_quote_collateral,
+                            1, //expiration_check_date, just set to 1 to pass sanity check
+                            &collateral_expiration_status,
+                            &quote_verification_result,
+                            NULL, // qve report
+                            0,    // supplemental data size
+                            NULL, // supplemental data
+                            root_pub_key,
+                            root_pub_key_size,
+                            p_td_report_body,
+                            p_td_report_body_size);
 
 			return SGX_TD_VERIFY_ERROR(ret);
 }
