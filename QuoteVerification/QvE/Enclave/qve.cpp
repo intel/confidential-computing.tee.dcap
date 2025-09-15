@@ -1780,15 +1780,11 @@ quote3_error_t sgx_qve_verify_quote(
     unsigned char ca_from_quote[CA_SIZE] = { 0 };
     bool collateral_flag = false;
 
+    if (SGX_QL_SUCCESS != get_fmspc_ca_from_quote(p_quote, quote_size, fmspc_from_quote, FMSPC_SIZE, ca_from_quote, CA_SIZE) {
+        return SGX_QL_ERROR_INVALID_PARAMETER;
+    }
+
     if(p_quote_collateral == NULL) {
-
-        quote3_error_t retrieve_fmspc_ret;
-        retrieve_fmspc_ret = get_fmspc_ca_from_quote(p_quote, quote_size, fmspc_from_quote, FMSPC_SIZE, ca_from_quote, CA_SIZE);
-        if(retrieve_fmspc_ret != SGX_QL_SUCCESS)
-        {
-            return SGX_QL_ERROR_INVALID_PARAMETER;
-        }
-
         tdx_verify_error_t coll_ret = tdx_att_get_collateral((const uint8_t *) fmspc_from_quote, FMSPC_SIZE, (const char *)ca_from_quote, (tdx_ql_qve_collateral_t**)&p_quote_collateral);
         if(coll_ret != TDX_VERIFY_SUCCESS)
         {
