@@ -15,6 +15,8 @@ RUN DEBIAN_FRONTEND=noninteractive \
     apt-get update -yq \
     && apt-get upgrade -yq \
     && apt-get install -yq --no-install-recommends \
+        libssl-dev \
+        file \
         build-essential \
         ca-certificates \
         curl \
@@ -29,17 +31,21 @@ RUN DEBIAN_FRONTEND=noninteractive \
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 
 # Set NVM_DIR so we can use it in subsequent commands
-ENV NVM_DIR /root/.nvm
+ENV NVM_DIR=/root/.nvm
 
 # Install specific version of Node using nvm
 # Source nvm in each RUN command to ensure it's available
 RUN . "$NVM_DIR/nvm.sh" && nvm install $NODE_VERSION && nvm use $NODE_VERSION
 
 # Set PATH to include the node and npm binaries
-ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 
 # Clone the specific branch or tag 
 RUN git clone --recurse-submodules https://github.com/intel/SGXDataCenterAttestationPrimitives.git -b ${DCAP_VERSION} --depth 1
+
+# Provide expected OpenSSL headers path for the Intel Makefile
+RUN mkdir -p /SGXDataCenterAttestationPrimitives/prebuilt/openssl/inc/openssl \
+ && ln -s /usr/include/openssl/* /SGXDataCenterAttestationPrimitives/prebuilt/openssl/inc/openssl/
 
 # Build libPCKCertSelection library
 WORKDIR /SGXDataCenterAttestationPrimitives/tools/PCKCertSelection/
@@ -62,6 +68,14 @@ ARG NODE_VERSION
 
 # Create user and group before copying files
 ARG USER=pccs
+
+RUN apt-get update -yq \
+    && apt-get install -yq --no-install-recommends \
+       libssl3 \
+       ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN useradd -M -U -r ${USER} -s /bin/false
 
 # Copy only necessary files from builder stage
