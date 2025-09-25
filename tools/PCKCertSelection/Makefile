@@ -82,7 +82,7 @@ $(PROJECTS): $(BIN_DIR)
 $(BIN_DIR):
 	$(PCKCERTSEL_VERBOSE)mkdir -p $@
 
-$(ZIPFILE):
+$(ZIPFILE): $(PROJECTS)
 	bash pack.sh
 	$(PCKCERTSEL_VERBOSE)echo "$@ : done"
 	$(PCKCERTSEL_VERBOSE)echo

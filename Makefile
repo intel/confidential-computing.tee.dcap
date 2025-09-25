@@ -48,7 +48,7 @@ PCKRetrievalTool: QuoteGeneration
 	$(MAKE) -C tools/PCKRetrievalTool
 
 SGXPlatformRegistration:
-	$(MAKE) -C tools/SGXPlatformRegistration
+	$(MAKE) -j1 -C tools/SGXPlatformRegistration
 
 WinPle:
 	$(MAKE) -C driver/win/PLE
