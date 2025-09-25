@@ -184,7 +184,7 @@ __attribute__((visibility("default"))) servtd_attest_error_t verify_quote_integr
             uint32_t* p_tdx_servtd_suppl_data_size);
 
 /**
- * Advanced version of `verify_quote_integrity`, which add more parameters, and extend the servtd_tdx_quote_suppl_data structure
+ * This is an advanced version of verify_quote_integrity that adds quote verification collateral support and extends the servtd_tdx_quote_suppl_data structure
  *
  * @param p_quote [in] pointer to the input buffer for td_quote
  * @param quote_size [in] length of p_quote(in bytes), should be the real size of ServTD td quote
