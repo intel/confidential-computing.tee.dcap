@@ -1808,6 +1808,13 @@ quote3_error_t sgx_qve_verify_quote(
         expiration_check_date <= 0 ||
         (p_qve_report_info != NULL && !sgx_is_within_enclave(p_qve_report_info, sizeof(*p_qve_report_info))) ||
         (p_supplemental_data == NULL && supplemental_data_size != 0)) {
+
+#ifdef SERVTD_ATTEST
+        if(p_quote_collateral != NULL && collateral_flag) {
+			tdx_att_free_collateral((tdx_ql_qve_collateral_t*)p_quote_collateral);
+			p_quote_collateral = NULL;
+	    }
+#endif
         //one or more invalid parameters
         //
         return SGX_QL_ERROR_INVALID_PARAMETER;
@@ -1819,6 +1826,13 @@ quote3_error_t sgx_qve_verify_quote(
          p_quote_collateral->version != QVE_COLLATERAL_VERSION3 &&
          p_quote_collateral->version != QVE_COLLATERAL_VERSOIN31 &&
          p_quote_collateral->version != QVE_COLLATERAL_VERSION4) {
+
+#ifdef SERVTD_ATTEST
+        if(p_quote_collateral != NULL && collateral_flag) {
+			tdx_att_free_collateral((tdx_ql_qve_collateral_t*)p_quote_collateral);
+			p_quote_collateral = NULL;
+	    }
+#endif
 
         return SGX_QL_COLLATERAL_VERSION_NOT_SUPPORTED;
     }
