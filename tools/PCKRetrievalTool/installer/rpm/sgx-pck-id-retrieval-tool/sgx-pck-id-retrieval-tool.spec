@@ -56,7 +56,7 @@ find %{?buildroot} | sort | \
 awk '$0 !~ last "/" {print last} {last=$0} END {print last}' | \
 sed -e "s#^%{?buildroot}##" | \
 grep -v "^%{_install_path}" >> %{_specdir}/list-%{name} || :
-sed -i 's#^/etc/rad.conf#%config &#' %{_specdir}/list-%{name}
+echo "%config %{_install_path}/network_setting.conf" >> %{_specdir}/list-%{name}
 
 %files -f %{_specdir}/list-%{name}
 
