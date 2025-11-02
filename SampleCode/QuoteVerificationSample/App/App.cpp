@@ -409,6 +409,7 @@ int ecdsa_quote_verification(vector<uint8_t> quote, bool use_qve)
         else
         {
             log("Error: App: tee_verify_quote failed: 0x%04x", dcap_ret);
+            ret = -1;
             goto cleanup;
         }
 
