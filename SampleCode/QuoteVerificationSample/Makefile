@@ -163,8 +163,8 @@ Enclave_Cpp_Objects := $(sort $(Enclave_Cpp_Files:.cpp=.o))
 
 Enclave_Name := enclave.so
 Signed_Enclave_Name := enclave.signed.so
-Enclave_Config_File := Enclave/Enclave.config.xml
-Enclave_Test_Key := Enclave/Enclave_private_sample.pem
+Enclave_Config_File := Enclave/linux/Enclave.config.xml
+Enclave_Test_Key := Enclave/linux/Enclave_private_sample.pem
 
 ifeq ($(SGX_DEBUG), 1)
 	Build_Mode = HW_DEBUG

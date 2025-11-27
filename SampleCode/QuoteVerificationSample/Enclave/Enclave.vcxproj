@@ -76,11 +76,13 @@
       <AdditionalOptions>/IGNORE:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
-      <Command>"$(SGXSDKInstallPath)bin\x64\release\sgx_sign.exe" sign -key "Enclave_private_sample.pem" -enclave "$(OutDir)Enclave.dll" -out "$(OutDir)Enclave.signed.dll" -config "Enclave.config.xml"</Command>
-      <Message>sign the enclave</Message>
+      <Command>"$(SGXSDKInstallPath)bin\x64\release\sgx_sign.exe" gendata -enclave "$(OutDir)Enclave.dll" -out "$(OutDir)Enclave.hex" -config "win\Enclave.config.xml"
+"$(SGXSDKInstallPath)bin\x64\release\sgx_sign.exe" sign -key "win\Enclave_private_sample.pem" -enclave "$(OutDir)Enclave.dll" -out "$(OutDir)Enclave.signed.dll" -config "win\Enclave.config.xml"
+</Command>
+      <Message>generate the enclave signing material and sign the enclave</Message>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>if not exist "$(SolutionDir)Enclave\Enclave_private_sample.pem" ("$(SGXSDKInstallPath)bin\win32\Release\ippRsaTool.exe" -genrsa "$(SolutionDir)Enclave\Enclave_private_sample.pem")</Command>
+      <Command>if not exist "$(SolutionDir)Enclave\win\Enclave_private_sample.pem" ("$(SGXSDKInstallPath)bin\win32\Release\ippRsaTool.exe" -genrsa "$(SolutionDir)Enclave\win\Enclave_private_sample.pem")</Command>
       <Message>Generate enclave test key</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -113,20 +115,26 @@
       <AdditionalOptions>/IGNORE:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
-      <Command>"$(SGXSDKInstallPath)bin\x64\release\sgx_sign.exe" gendata -enclave "$(OutDir)Enclave.dll" -out "$(OutDir)Enclave.hex" -config "Enclave.config.xml"</Command>
-      <Message>generate the enclave signing material</Message>
+      <Command>"$(SGXSDKInstallPath)bin\x64\release\sgx_sign.exe" gendata -enclave "$(OutDir)Enclave.dll" -out "$(OutDir)Enclave.hex" -config "win\Enclave.config.xml"
+"$(SGXSDKInstallPath)bin\x64\release\sgx_sign.exe" sign -key "win\Enclave_private_sample.pem" -enclave "$(OutDir)Enclave.dll" -out "$(OutDir)Enclave.signed.dll" -config "win\Enclave.config.xml"
+</Command>
+      <Message>generate the enclave signing material and sign the enclave</Message>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Message>Generate enclave test key</Message>
+      <Command>if not exist "$(SolutionDir)Enclave\win\Enclave_private_sample.pem" ("$(SGXSDKInstallPath)bin\win32\Release\ippRsaTool.exe" -genrsa "$(SolutionDir)Enclave\win\Enclave_private_sample.pem")</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <CustomBuild Include="Enclave.edl">
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">"$(SGXSDKInstallPath)bin\win32\release\sgx_edger8r.exe" --trusted "Enclave.edl" --search-path "$(SGXSDKInstallPath)include"</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Creating proxy/bridge routines</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectName)_t.h;$(ProjectName)_t.c;%(Outputs)</Outputs>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Enclave.config.xml;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">win\Enclave.config.xml;%(AdditionalInputs)</AdditionalInputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">"$(SGXSDKInstallPath)bin\win32\release\sgx_edger8r.exe" --trusted "Enclave.edl" --search-path "$(SGXSDKInstallPath)include"</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Creating proxy/bridge routines</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectName)_t.h;$(ProjectName)_t.c;%(Outputs)</Outputs>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Enclave.config.xml;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">win\Enclave.config.xml;%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
@@ -138,10 +146,10 @@
     <ClInclude Include="Enclave_t.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Enclave_private_sample.pem" />
+    <None Include="win\Enclave_private_sample.pem" />
   </ItemGroup>
   <ItemGroup>
-    <Xml Include="Enclave.config.xml" />
+    <Xml Include="win\Enclave.config.xml" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

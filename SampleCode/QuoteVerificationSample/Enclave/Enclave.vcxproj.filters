@@ -30,12 +30,12 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Enclave_private_sample.pem">
+    <None Include="win\Enclave_private_sample.pem">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Xml Include="Enclave.config.xml">
+    <Xml Include="win\Enclave.config.xml">
       <Filter>Resource Files</Filter>
     </Xml>
   </ItemGroup>
