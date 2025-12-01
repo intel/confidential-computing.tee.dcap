@@ -947,7 +947,8 @@ tdx_attest_error_t tdx_att_extend(
 {
 #ifdef TDX_CMD_EXTEND_RTMR
     int devfd = -1;
-    struct tdx_extend_rtmr_req req;
+    char tdx_attest_extend_path[128];
+
     if (!p_rtmr_event || p_rtmr_event->version != 1) {
         return TDX_ATTEST_ERROR_INVALID_PARAMETER;
     }
@@ -958,7 +959,9 @@ tdx_attest_error_t tdx_att_extend(
         return TDX_ATTEST_ERROR_INVALID_PARAMETER;
     }
 
-    devfd = open(TDX_ATTEST_DEV_PATH, O_RDWR | O_SYNC);
+    snprintf(tdx_attest_extend_path, 128,
+		    "/sys/devices/virtual/misc/tdx_guest/measurements/rtmr%d:sha384", p_rtmr_event->rtmr_index );
+    devfd = open(tdx_attest_extend_path, O_WRONLY);
     if (-1 == devfd) {
         TDX_TRACE;
         return TDX_ATTEST_ERROR_DEVICE_FAILURE;
@@ -966,9 +969,7 @@ tdx_attest_error_t tdx_att_extend(
 
     static_assert(TDX_EXTEND_RTMR_DATA_LEN == sizeof(p_rtmr_event->extend_data),
                   "rtmr extend size mismatch!");
-    req.index = (uint8_t)p_rtmr_event->rtmr_index;
-    memcpy(req.data, p_rtmr_event->extend_data, TDX_EXTEND_RTMR_DATA_LEN);
-    if (-1 == ioctl(devfd, TDX_CMD_EXTEND_RTMR, &req)) {
+    if (TDX_EXTEND_RTMR_DATA_LEN != write(devfd, p_rtmr_event->extend_data, TDX_EXTEND_RTMR_DATA_LEN)) {
         TDX_TRACE;
         close(devfd);
         if (EINVAL == errno) {
