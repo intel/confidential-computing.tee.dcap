@@ -4,11 +4,27 @@ import requests
 import json
 import binascii
 from urllib import parse
-from OpenSSL import crypto
+
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
+# Prefer pycryptography for cert verification if new
+# enough, but fallback to pyopenssl
+try:
+    # 'verification' module available from >= 42.0.0, but
+    # the required 'ExtensionPolicy' API is from >= 45.0.0
+    from cryptography.x509 import verification
+    if not hasattr(verification, 'ExtensionPolicy'):
+        verification = None
+    else:
+        crypto = None
+except ImportError:
+    verification = None
+
+if verification is None:
+    from OpenSSL import crypto
+
 from pypac import PACSession
 from platform import system
 from lib.intelsgx.credential import Credentials
@@ -132,17 +148,34 @@ class PCS:
         return True
 
     def verify_cert_trust(self, pychain, pycerts):
-        store= self.init_cert_store(pychain)
+        if verification is not None:
+            store= verification.Store(pychain)
 
-        for pycert in pycerts:
-            store_ctx= crypto.X509StoreContext(
-                store, crypto.X509.from_cryptography(pycert))
-            try:
-                store_ctx.verify_certificate()
-            except crypto.X509StoreContextError as e:
-                # Printing or logging the error details
-                print(e)
-                return False
+            builder= verification.PolicyBuilder().store(store)
+            builder= builder.extension_policies(
+                ee_policy=verification.ExtensionPolicy.permit_all(),
+                ca_policy=verification.ExtensionPolicy.webpki_defaults_ca())
+
+            verifier= builder.build_client_verifier()
+            for pycert in pycerts:
+                try:
+                    verifier.verify(pycert,[])
+                except verification.VerificationError as e:
+                    # Printing or logging the error details
+                    print(e)
+                    return False
+        else:
+            store= self.init_cert_store(pychain)
+
+            for pycert in pycerts:
+                store_ctx= crypto.X509StoreContext(
+                    store, crypto.X509.from_cryptography(pycert))
+                try:
+                    store_ctx.verify_certificate()
+                except crypto.X509StoreContextError as e:
+                    # Printing or logging the error details
+                    print(e)
+                    return False
 
         return True
 
