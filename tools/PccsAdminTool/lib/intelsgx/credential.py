@@ -1,4 +1,7 @@
-import keyring
+try:
+    import keyring
+except:
+    keyring = None
 import getpass
 
 class Credentials:
@@ -8,11 +11,12 @@ class Credentials:
 
     def get_admin_token(self):
         admin_token = ""
-        try:
-            print("Please note: A prompt may appear asking for your keyring password to access stored credentials.")
-            admin_token = keyring.get_password(self.APPNAME, self.KEY_ADMINTOKEN)
-        except keyring.errors.KeyringError as ke:
-            admin_token = ""
+        if keyring is not None:
+            try:
+                print("Please note: A prompt may appear asking for your keyring password to access stored credentials.")
+                admin_token = keyring.get_password(self.APPNAME, self.KEY_ADMINTOKEN)
+            except keyring.errors.KeyringError as ke:
+                admin_token = ""
         
         while admin_token is None or admin_token == '':
             admin_token = getpass.getpass(prompt="Please input your administrator password for PCCS service:")
@@ -25,21 +29,23 @@ class Credentials:
         return admin_token
 
     def set_admin_token(self, token):
-        try:
-            print("Please note: A prompt may appear asking for your keyring password to access stored credentials.")
-            keyring.set_password(self.APPNAME, self.KEY_ADMINTOKEN, token)
-        except keyring.errors.PasswordSetError as ke:
-            print("Failed to store admin token.")
-            return False
+        if keyring is not None:
+            try:
+                print("Please note: A prompt may appear asking for your keyring password to access stored credentials.")
+                keyring.set_password(self.APPNAME, self.KEY_ADMINTOKEN, token)
+            except keyring.errors.PasswordSetError as ke:
+                print("Failed to store admin token.")
+                return False
         return True
 
     def get_pcs_api_key(self):
         pcs_api_key = ""
-        try:
-            print("Please note: A prompt may appear asking for your keyring password to access stored credentials.")
-            pcs_api_key = keyring.get_password(self.APPNAME, self.KEY_PCS_APIKEY)
-        except keyring.errors.KeyringError as ke:
-            pcs_api_key = ""
+        if keyring is not None:
+            try:
+                print("Please note: A prompt may appear asking for your keyring password to access stored credentials.")
+                pcs_api_key = keyring.get_password(self.APPNAME, self.KEY_PCS_APIKEY)
+            except keyring.errors.KeyringError as ke:
+                pcs_api_key = ""
         
         while pcs_api_key is None or pcs_api_key == '':
             pcs_api_key = getpass.getpass(prompt="Please input ApiKey for Intel PCS:")
@@ -52,10 +58,11 @@ class Credentials:
         return pcs_api_key
 
     def set_pcs_api_key(self, apikey):
-        try:
-            print("Please note: A prompt may appear asking for your keyring password to access stored credentials.")
-            keyring.set_password(self.APPNAME, self.KEY_PCS_APIKEY, apikey)
-        except keyring.errors.PasswordSetError as ke:
-            print("Failed to store PCS API key.")
-            return False
+        if keyring is not None:
+            try:
+                print("Please note: A prompt may appear asking for your keyring password to access stored credentials.")
+                keyring.set_password(self.APPNAME, self.KEY_PCS_APIKEY, apikey)
+            except keyring.errors.PasswordSetError as ke:
+                print("Failed to store PCS API key.")
+                return False
         return True
