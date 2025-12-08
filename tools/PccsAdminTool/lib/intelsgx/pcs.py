@@ -24,7 +24,14 @@ except ImportError:
     verification = None
 
 if verification is None:
-    from OpenSSL import crypto
+    try:
+        from OpenSSL import crypto
+    except ModuleNotFoundError:
+        # Fallback to spawning 'openssl' binary if
+        # pyopenssl is not available
+        crypto = None
+        import tempfile
+        import subprocess
 
 from pypac import PACSession
 from platform import system
@@ -165,7 +172,7 @@ class PCS:
                     # Printing or logging the error details
                     print(e)
                     return False
-        else:
+        elif crypto is not None:
             store= self.init_cert_store(pychain)
 
             for pycert in pycerts:
@@ -177,6 +184,23 @@ class PCS:
                     # Printing or logging the error details
                     print(e)
                     return False
+        else:
+            with tempfile.NamedTemporaryFile("wb") as chainfile:
+                for cert in pychain:
+                    chainfile.write(cert.public_bytes(serialization.Encoding.PEM))
+                chainfile.flush()
+
+                for cert in pycerts:
+                    with tempfile.NamedTemporaryFile("wb") as certfile:
+                        certfile.write(cert.public_bytes(serialization.Encoding.PEM))
+                        certfile.flush()
+
+                        try:
+                            subprocess.check_call(["openssl", "verify",
+                                                   "-CAfile", chainfile.name, certfile.name],
+                                                  stdout=subprocess.DEVNULL)
+                        except subprocess.CalledProcessError as e:
+                            return False
 
         return True
 
