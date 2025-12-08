@@ -100,11 +100,6 @@ class PCS:
         # Copy our list so we don't modify the original
         pychain= pychain_in[:]
 
-        # PyOpenSSL doesn't have methods for verifying a CRL issuer,
-        # so we need to translate from it to cryptography.
-
-        crl= pycrl.to_cryptography()
-
         # The chain_pem is our CRL issuer and the CA for the issuer.
         # Verify that first.
 
@@ -117,13 +112,13 @@ class PCS:
 
         signer_key= pycert.get_pubkey().to_cryptography_key()
 
-        if not crl.is_signature_valid(signer_key):
+        if not pycrl.is_signature_valid(signer_key):
             self.error("Could not verify CRL signature")
             return False
 
         # Check the crl issuer
 
-        if pycrl.get_issuer() != pycert.get_subject():
+        if pycrl.issuer != pycert.get_subject():
             self.error("CRL issuer doesn't match issuer chain")
             return False
 
@@ -515,10 +510,10 @@ class PCS:
         crl= response.content
         if self.ApiVersion<3:
             crl_str= str(crl, dec)
-            pycrl= crypto.load_crl(crypto.FILETYPE_PEM, crl)
+            pycrl= x509.load_pem_x509_crl(crl)
         else:
             crl_str= binascii.hexlify(crl).decode(dec)
-            pycrl= crypto.load_crl(crypto.FILETYPE_ASN1, crl)
+            pycrl= x509.load_der_x509_crl(crl)
 
         if not self.verify_crl_trust(pychain, pycrl):
             self.error("Could not validate certificate using trust chain")
