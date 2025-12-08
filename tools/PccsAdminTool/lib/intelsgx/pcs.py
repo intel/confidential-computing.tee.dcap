@@ -5,6 +5,10 @@ import json
 import binascii
 from urllib import parse
 from OpenSSL import crypto
+from cryptography import x509
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec
 from pypac import PACSession
 from platform import system
 from lib.intelsgx.credential import Credentials
@@ -15,6 +19,9 @@ from pkg_resources import parse_version
 certBegin= '-----BEGIN CERTIFICATE-----'
 certEnd= '-----END CERTIFICATE-----'
 certEndOffset= len(certEnd)
+
+def CN(name):
+    return name.get_attributes_for_oid(x509.NameOID.COMON_NAME)[0].value
 
 class PCS:
     BaseUrl= ''
@@ -92,7 +99,7 @@ class PCS:
         store= crypto.X509Store()
         
         for tcert in pychain:
-            store.add_cert(tcert)
+            store.add_cert(crypto.X509.from_cryptography(tcert))
 
         return store
 
@@ -110,7 +117,7 @@ class PCS:
 
         # Now verify the CRL signature
 
-        signer_key= pycert.get_pubkey().to_cryptography_key()
+        signer_key= pycert.public_key()
 
         if not pycrl.is_signature_valid(signer_key):
             self.error("Could not verify CRL signature")
@@ -118,7 +125,7 @@ class PCS:
 
         # Check the crl issuer
 
-        if pycrl.issuer != pycert.get_subject():
+        if pycrl.issuer != pycert.subject:
             self.error("CRL issuer doesn't match issuer chain")
             return False
 
@@ -128,7 +135,8 @@ class PCS:
         store= self.init_cert_store(pychain)
 
         for pycert in pycerts:
-            store_ctx= crypto.X509StoreContext(store, pycert)
+            store_ctx= crypto.X509StoreContext(
+                store, crypto.X509.from_cryptography(pycert))
             try:
                 store_ctx.verify_certificate()
             except crypto.X509StoreContextError as e:
@@ -160,22 +168,21 @@ class PCS:
         sig= bytes([0x30,len(r)+len(s)+4,2,len(r)]) + r + bytes([2,len(s)]) + s
 
         try:
-            crypto.verify(pycert, sig, msg, "sha256")
-        except crypto.Error as e:
+            pycert.public_key().verify(
+                sig, msg, ec.ECDSA(hashes.SHA256()))
+        except InvalidSignature as e:
             self.error('Signature verification failed: {:s}'.format(str(e)))
             return False
 
         return True
 
     def pem_to_pycert(self, cert_pem):
-        return crypto.load_certificate(crypto.FILETYPE_PEM, cert_pem)
+        return x509.load_pem_x509_certificate(cert_pem.encode("utf-8"))
 
     def pems_to_pycerts(self, certs_pem):
         pycerts= []
         for cert_pem in certs_pem:
-            pycerts.append(
-                crypto.load_certificate(crypto.FILETYPE_PEM, cert_pem)
-            )
+            pycerts.append(self.pem_to_pycert(cert_pem))
         return pycerts
 
     def parse_chain_pem(self, chain_pem):
@@ -208,9 +215,9 @@ class PCS:
             cert0= chain_in[0]
             cert1= chain_in[1]
 
-            if cert0.get_subject() == cert1.get_issuer():
+            if cert0.subject == cert1.issuer:
                 return chain_in
-            elif cert1.get_subject() == cert0.get_issuer():
+            elif cert1.subject == cert0.issuer:
                 chain_in.reverse()
                 return chain_in
             else:
@@ -223,7 +230,7 @@ class PCS:
         for i in range(1, len(chain_in)):
             cert= chain_in[i]
             pcert= chain_in[i-1]
-            if cert.get_issuer() != pcert.get_subject():
+            if cert.issuer != pcert.subject:
                 sorted= False
                 break
 
@@ -239,10 +246,10 @@ class PCS:
         rootidx= -1
         for i in range(0, len(chain)):
             cert= chain[i]
-            subject= cert.get_subject()
-            issuer= cert.get_issuer()
-            cert_subjects[subject.CN]= cert
-            print("cert: {:s} <- {:s}" . format(subject.CN, issuer.CN))
+            subject= cert.subject
+            issuer= cert.issuer
+            cert_subjects[CN(subject)]= cert
+            print("cert: {:s} <- {:s}" . format(CN(subject), CN(issuer)))
 
             if subject == issuer:
                 if len(sorted_chain) > 0:
@@ -261,8 +268,8 @@ class PCS:
         issuer_to= {}
 
         for cert in chain:
-            issuer= cert.get_issuer().CN
-            subject= cert.get_subject().CN
+            issuer= CN(cert.issuer)
+            subject= CN(cert.subject)
 
             if issuer in issued_by:
                 self.error('multiple certs issued by same cert in chain')
@@ -279,7 +286,7 @@ class PCS:
 
         if len(sorted_chain) > 0:
             for cert in chain:
-                issuer= cert.get_issuer().CN
+                issuer= CN(cert.issuer)
                 if issuer not in issued_by:
                     if len(sorted_chain) > 0:
                         self.error('multiple certs with no issuer')
@@ -295,7 +302,7 @@ class PCS:
         cert= sorted_chain[0]
 
         while len(sorted_chain) < lchain:
-            issuer_subject= cert.get_subject().der()
+            issuer_subject= CN(cert.subject)
 
             if issuer_subject not in issuer_to:
                 self.error('cert in chain with no issuer')
