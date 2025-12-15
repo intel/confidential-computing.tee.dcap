@@ -8,7 +8,7 @@ Homepage: https://github.com/intel/SGXDataCenterAttestationPrimitives
 
 Package: libsgx-dcap-default-qpl
 Architecture: amd64
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, libcurl4 (>= 7.16.2)
 Description: Intel(R) Software Guard Extensions Default Quote Provider Library
 
 Package: libsgx-dcap-default-qpl-dev
