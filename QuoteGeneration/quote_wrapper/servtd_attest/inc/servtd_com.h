@@ -84,6 +84,8 @@ struct servtd_tdx_quote_suppl_data {
         sgx_isv_svn_t              isv_svn;              /*   732     2 */
         time_t                     tcb_date;             /*   734     64 */
         char                       tcb_status[TCB_STATUS_LEN];           /*   798     32 */
+        time_t                     qe_tcb_date;          /*   830     64 */
+        char                       qe_tcb_status[TCB_STATUS_LEN];        /*   894     32 */
 };
 
 static const unsigned SERVTD_HEADER_SIZE = 4;

@@ -62,6 +62,8 @@
 #ifdef SERVTD_ATTEST
 #ifndef SGX_TRUSTED
 #define SGX_TRUSTED
+#include "TimeUtils.h"
+#include <algorithm>
 #endif
 #include "servtd_utils.h"
 #include "servtd_qve_utils.h"
@@ -957,6 +959,18 @@ static quote3_error_t qve_get_collateral_dates(const CertificateChain* p_cert_ch
 }
 #ifdef SERVTD_ATTEST
 
+constexpr const char* tcbStatusToString(TcbStatus status)
+{
+    switch (status) {
+        case TcbStatus::UpToDate:                     return "UpToDate";
+        case TcbStatus::ConfigurationNeeded:          return "ConfigurationNeeded";
+        case TcbStatus::OutOfDate:                    return "OutOfDate";
+        case TcbStatus::OutOfDateConfigurationNeeded: return "OutOfDateConfigurationNeeded";
+        case TcbStatus::Revoked:                      return "Revoked";
+        default:                                      return "Unknown";
+    }
+}
+
 /**
     * @brief Get the matching QE TCB level based on ISVSVN
     * @param enclaveIdentity The QE identity
@@ -1050,7 +1064,7 @@ static quote3_error_t servtd_set_quote_supplemental_data(
                  p_fmspc_size) != 0) {
         return SGX_QL_ERROR_UNEXPECTED;
     }
-    // get TCB date of TCB level in TCB Info
+    // get platform TCB date and TCB level in TCB Info
     //
     auto tcb = getMatchingTcbLevel(tcb_info_obj, pckCert, quote);
     auto tdx_svn = tcb.getTdxTcbComponents();
@@ -1070,13 +1084,32 @@ static quote3_error_t servtd_set_quote_supplemental_data(
     p_servtd_suppl_data->tcb_date = tcb.getTcbDate();
 
     auto st = tcb.getStatus();
-    uint32_t len = st.length() + 1;
+    size_t len = st.length();
 
-    if (len > TCB_STATUS_LEN)
+    if (len > TCB_STATUS_LEN - 1)
         return SGX_QL_ERROR_UNEXPECTED;
 
-    strncpy(p_servtd_suppl_data->tcb_status, st.c_str(), st.length());
-    p_servtd_suppl_data->tcb_status[st.length()] = '\0';
+    std::copy_n(st.c_str(), len, p_servtd_suppl_data->tcb_status);
+    p_servtd_suppl_data->tcb_status[len] = '\0';
+
+    // Get QE TCB date and TCB status
+    struct tm qe_date = qe_tcb_info.getTcbDate();
+    p_servtd_suppl_data->qe_tcb_date = ::mktime(&qe_date);
+    if (p_servtd_suppl_data->qe_tcb_date == -1) {
+        return SGX_QL_ERROR_UNEXPECTED;
+    }
+
+    auto qe_st = qe_tcb_info.getTcbStatus();
+    const char* qe_status_str = tcbStatusToString(qe_st);
+    size_t qe_status_len = strlen(qe_status_str);
+
+    if (qe_status_len > TCB_STATUS_LEN - 1) {
+        return SGX_QL_ERROR_UNEXPECTED;
+    }
+
+    std::copy_n(qe_status_str, qe_status_len, p_servtd_suppl_data->qe_tcb_status);
+
+    p_servtd_suppl_data->qe_tcb_status[qe_status_len] = '\0';
 
     // Get Tdx Module major version
     p_servtd_suppl_data->tdx_module_major_ver = quote.getTeeTcbSvn()[1];
