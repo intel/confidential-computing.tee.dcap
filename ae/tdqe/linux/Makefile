@@ -30,11 +30,14 @@
 #
 
 
-TOP_DIR := ../../../..
-include $(TOP_DIR)/ae/buildenv.mk
+TOP_DIR := ../../../QuoteGeneration
+include $(TOP_DIR)/../ae/dep/buildenv.mk
 
 AENAME := tdqe
 SONAME := $(AENAME).so
+SIGNED_TDQE_NAME := libsgx_$(AENAME)$(if $(FIPS),-fips).signed.so
+TDQE_CONFIG_FILE := config$(if $(FIPS),.fips).xml
+TDQE_KEY_FILE := ../../dep/dcap_ae_test_key.pem
 
 TCRYPTO_LIB_NAME := sgx_tcrypto
 
@@ -44,8 +47,8 @@ INCLUDE := -I$(SGX_SDK)/include                        \
            -I$(COMMON_DIR)/inc/internal                \
            -I$(COMMON_DIR)/inc/internal/linux          \
            -I$(TOP_DIR)/ae/inc/internal                \
-           -I../../../common/inc                       \
-           -I../../../../pce_wrapper/inc               \
+           -I$(TOP_DIR)/quote_wrapper/common/inc                       \
+           -I$(TOP_DIR)/pce_wrapper/inc               \
            -I..                                        \
            -I.
 
@@ -58,11 +61,15 @@ OBJ := $(SRC:.cpp=.o)
 OBJS := $(sort $(OBJ) version.o)
 
 .PHONY: all
-all: $(SONAME)
+all: $(SONAME) $(SIGNED_TDQE_NAME)
 
 $(SONAME): $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) -nostdlib -nodefaultlibs -nostartfiles -Wl,-soname=libsgx_${AENAME}.signed.so.$(call get_major_version,TDQE_VERSION) $(LDTFLAGS) -fno-exceptions -fno-rtti
 	$(STRIP) --strip-unneeded --remove-section=.comment --remove-section=.note $@
+
+$(SIGNED_TDQE_NAME): $(SONAME) $(TDQE_CONFIG_FILE) $(TDQE_KEY_FILE)
+	@$(SGX_ENCLAVE_SIGNER) sign -key $(TDQE_KEY_FILE) -enclave $< -out $@ -config $(TDQE_CONFIG_FILE)
+	@echo "SIGN =>  $@"
 
 quoting_enclave_tdqe.o: $(AENAME)_t.c
 
@@ -78,6 +85,7 @@ clean:
 	@$(RM) *.so
 	@$(RM) *.map
 	@$(RM) *_t.*
+	@$(RM) *.signed.so
 
 .PHONY: rebuild
 rebuild:

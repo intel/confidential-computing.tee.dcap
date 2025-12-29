@@ -30,12 +30,15 @@
 #
 
 
-TOP_DIR := ../../../..
+TOP_DIR := ../../../QuoteGeneration
 MITIGATION-CVE-2020-0551 := LOAD
-include $(TOP_DIR)/ae/buildenv.mk
+include $(TOP_DIR)/../ae/dep/buildenv.mk
 
-AENAME := qe3
+AENAME := id_enclave
 SONAME := $(AENAME).so
+SIGNED_IDE_NAME := libsgx_$(AENAME)$(if $(FIPS),-fips).signed.so
+IDE_CONFIG_FILE := config$(if $(FIPS),.fips).xml
+IDE_KEY_FILE := ../../dep/dcap_ae_test_key.pem
 
 TCRYPTO_LIB_NAME := sgx_tcrypto
 
@@ -44,32 +47,36 @@ INCLUDE := -I$(SGX_SDK)/include                        \
            -I$(SGX_SDK)/include/libcxx                 \
            -I$(COMMON_DIR)/inc/internal                \
            -I$(COMMON_DIR)/inc/internal/linux          \
-           -I$(TOP_DIR)/ae/inc/internal                \
-           -I../../inc                                 \
-           -I../../../common/inc                       \
-           -I../../../../pce_wrapper/inc               \
+           -I$(TOP_DIR)/../ae/dep/inc/internal                \
+           -I$(TOP_DIR)/quote_wrapper/quote/inc                                 \
+           -I$(TOP_DIR)/quote_wrapper/common/inc                       \
+           -I$(TOP_DIR)/pce_wrapper/inc               \
            -I..                                        \
            -I.
 
 EXTERNAL_LIB = $(EXTERNAL_LIB_NO_CRYPTO) -lsgx_tcxx -l$(TCRYPTO_LIB_NAME)
 
 vpath %.cpp .. .
-SRC := quoting_enclave_3.cpp
+SRC := $(AENAME).cpp
 
 OBJ := $(SRC:.cpp=.o)
 OBJS := $(sort $(OBJ) version.o)
 
 .PHONY: all
-all: $(SONAME)
+all: $(SONAME) $(SIGNED_IDE_NAME)
 
 $(SONAME): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) -nostdlib -nodefaultlibs -nostartfiles -Wl,-soname=libsgx_${AENAME}.signed.so.$(call get_major_version,QE3_VERSION) $(LDTFLAGS) -fno-exceptions -fno-rtti
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) -nostdlib -nodefaultlibs -nostartfiles -Wl,-soname=libsgx_${AENAME}.signed.so.$(call get_major_version,IDE_VERSION) $(LDTFLAGS) -fno-exceptions -fno-rtti
 	$(STRIP) --strip-unneeded --remove-section=.comment --remove-section=.note $@
 
-quoting_enclave_3.o: $(AENAME)_t.c
+$(SIGNED_IDE_NAME): $(SONAME) $(IDE_CONFIG_FILE) $(IDE_KEY_FILE)
+	@$(SGX_ENCLAVE_SIGNER) sign -key $(IDE_KEY_FILE) -enclave $< -out $@ -config $(IDE_CONFIG_FILE)
+
+
+$(AENAME).o: $(AENAME)_t.c
 
 %.o:%.cpp
-	$(CXX) $(CXXFLAGS) $(INCLUDE) $(DEFINES) -fno-exceptions -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(INCLUDE) -fno-exceptions -c $< -o $@
 
 $(AENAME)_t.c: ../$(AENAME).edl
 	@$(SGX_EDGER8R) --trusted $<
@@ -80,6 +87,7 @@ clean:
 	@$(RM) *.so
 	@$(RM) *.map
 	@$(RM) *_t.*
+	@$(RM) *.signed.so
 
 .PHONY: rebuild
 rebuild:

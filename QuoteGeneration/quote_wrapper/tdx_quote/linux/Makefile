@@ -36,10 +36,10 @@ include $(TOP_DIR)/buildenv.mk
 PCE_Library_Dir := $(TOP_DIR)/pce_wrapper/linux
 PCE_Library := $(PCE_Library_Dir)/libsgx_pce_logic.so
 
-TDQE_Dir := ../enclave/linux
+TDQE_Dir := ../../../../ae/tdqe/linux
 TDQE_Signed_Name := $(TDQE_Dir)/libsgx_tdqe.signed.so
 
-ID_ENCLAVE_Dir := ../../quote/id_enclave/linux
+ID_ENCLAVE_Dir := ../../../../ae/id_enclave/linux
 ID_ENCLAVE_Signed_Name := $(ID_ENCLAVE_Dir)/libsgx_id_enclave.signed.so
 
 ######## Quote Settings ########
@@ -50,7 +50,7 @@ Quote_C_Files := tdqe_u.c id_enclave_u.c se_thread.c se_trace.c
 Quote_Cpp_Files := $(wildcard ../*.cpp)
 
 Quote_Include_Paths := -I$(SGX_SDK)/include -I../inc -I../../common/inc -I./ \
-                       -I../enclave -I$(TOP_DIR)/pce_wrapper/inc \
+                       -I../../../../ae/tdqe -I$(TOP_DIR)/pce_wrapper/inc \
 					   -I$(COMMON_DIR)/inc/internal \
 					   -I$(COMMON_DIR)/inc/internal/linux
 
@@ -88,12 +88,12 @@ $(BUILD_DIR):
 
 ######## Quote Objects ########
 
-tdqe_u.c: $(SGX_EDGER8R) ../enclave/tdqe.edl
-	$(SGX_EDGER8R) --untrusted ../enclave/tdqe.edl --search-path ../enclave
+tdqe_u.c: $(SGX_EDGER8R) ../../../../ae/tdqe/tdqe.edl
+	$(SGX_EDGER8R) --untrusted ../../../../ae/tdqe/tdqe.edl --search-path ../../../../ae/tdqe
 	@echo "GEN  =>  $@"
 
-id_enclave_u.c: $(SGX_EDGER8R) ../../quote/id_enclave/id_enclave.edl
-	$(SGX_EDGER8R) --untrusted ../../quote/id_enclave/id_enclave.edl
+id_enclave_u.c: $(SGX_EDGER8R) $(ID_ENCLAVE_Dir)/../id_enclave.edl
+	$(SGX_EDGER8R) --untrusted $(ID_ENCLAVE_Dir)/../id_enclave.edl
 	@echo "GEN  =>  $@"
 
 %.o: %.c

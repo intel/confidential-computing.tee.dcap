@@ -33,10 +33,10 @@
 TOP_DIR = ../../..
 include $(TOP_DIR)/buildenv.mk
 
-QE3_Dir := ../enclave/linux
+QE3_Dir := ../../../../ae/qe3/linux
 QE3_Signed_Name := $(QE3_Dir)/libsgx_qe3.signed.so
 
-ID_ENCLAVE_Dir := ../id_enclave/linux
+ID_ENCLAVE_Dir := ../../../../ae/id_enclave/linux
 ID_ENCLAVE_Signed_Name := $(ID_ENCLAVE_Dir)/libsgx_id_enclave.signed.so
 
 ######## Quote Settings ########
@@ -47,7 +47,7 @@ vpath %.cpp .. .
 Quote_C_Files := qe3_u.c id_enclave_u.c se_thread.c se_trace.c
 Quote_Cpp_Files := qe_logic.cpp sgx_ql_core_wrapper.cpp
 
-Quote_Include_Paths := -I$(SGX_SDK)/include -I../inc -I../../common/inc -I./ -I../enclave -I$(TOP_DIR)/pce_wrapper/inc -I$(COMMON_DIR)/inc/internal -I$(COMMON_DIR)/inc/internal/linux
+Quote_Include_Paths := -I$(SGX_SDK)/include -I../inc -I../../common/inc -I./ -I$(QE3_Dir)/.. -I$(TOP_DIR)/pce_wrapper/inc -I$(COMMON_DIR)/inc/internal -I$(COMMON_DIR)/inc/internal/linux
 
 Quote_C_Flags := $(COMMON_FLAGS) -g -fPIC -Wno-attributes $(Quote_Include_Paths)
 
@@ -75,12 +75,12 @@ install_lib: $(Quote_Name) | $(BUILD_DIR)
 
 ######## Quote Objects ########
 
-qe3_u.c: $(SGX_EDGER8R) ../enclave/qe3.edl
-	$(SGX_EDGER8R) --untrusted ../enclave/qe3.edl --search-path ../enclave
+qe3_u.c: $(SGX_EDGER8R) $(QE3_Dir)/../qe3.edl
+	$(SGX_EDGER8R) --untrusted $(QE3_Dir)/../qe3.edl --search-path $(QE3_Dir)/..
 	@echo "GEN  =>  $@"
 
-id_enclave_u.c: $(SGX_EDGER8R) ../id_enclave/id_enclave.edl
-	$(SGX_EDGER8R) --untrusted ../id_enclave/id_enclave.edl
+id_enclave_u.c: $(SGX_EDGER8R) $(ID_ENCLAVE_Dir)/../id_enclave.edl
+	$(SGX_EDGER8R) --untrusted $(ID_ENCLAVE_Dir)/../id_enclave.edl
 	@echo "GEN  =>  $@"
 
 qe_logic.o : qe3_u.c id_enclave_u.c

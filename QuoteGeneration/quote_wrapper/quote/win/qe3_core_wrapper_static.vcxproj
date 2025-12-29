@@ -93,7 +93,7 @@
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;QE3_CORE_WRAPPER_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\common\inc;..\..\..\pce_wrapper\inc;..\enclave;..\..\..\common\inc\internal;..\..\..\common\inc\internal\win;..\..\ae\inc;..\..\ae\inc\internal</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\common\inc;..\..\..\pce_wrapper\inc;..\..\..\..\ae\qe3;..\..\..\common\inc\internal;..\..\..\common\inc\internal\win;..\..\..\..\ae\dep\inc;..\..\..\..\ae\dep\inc\internal</AdditionalIncludeDirectories>
       <InterproceduralOptimization>NoIPO</InterproceduralOptimization>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -110,14 +110,14 @@
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
     </Link>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\enclave\qe3.edl --search-path ..\..\..\common\inc --untrusted
-"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\id_enclave\id_enclave.edl --search-path ..\..\..\common\inc --untrusted</Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\..\..\ae\qe3\qe3.edl --search-path ..\..\..\common\inc --untrusted
+"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\..\..\ae\id_enclave\id_enclave.edl --search-path ..\..\..\common\inc --untrusted</Command>
     </PreBuildEvent>
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
     </ProjectReference>
     <Lib>
-      <AdditionalDependencies>sgx_urts.lib;sgx_pce_wrapper_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>sgx_urtsd.lib;sgx_pce_wrapper_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SGXSDKInstallPath)bin\$(Platform)\$(Configuration);$(SolutionDir)\$(Configuration)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
@@ -127,7 +127,7 @@
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;_USRDLL;QE3_CORE_WRAPPER_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\common\inc;..\..\..\pce_wrapper\inc;..\enclave;..\..\..\common\inc\internal;..\..\..\common\inc\internal\win;..\..\ae\inc;..\..\ae\inc\internal</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\common\inc;..\..\..\pce_wrapper\inc;..\..\..\..\ae\qe3;..\..\..\common\inc\internal;..\..\..\common\inc\internal\win;..\..\..\..\ae\dep\inc;..\..\..\..\ae\dep\inc\internal</AdditionalIncludeDirectories>
       <InterproceduralOptimization>NoIPO</InterproceduralOptimization>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -144,12 +144,12 @@
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
     </Link>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\enclave\qe3.edl --search-path ..\..\..\common\inc --untrusted
-"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\id_enclave\id_enclave.edl --search-path ..\..\..\common\inc --untrusted</Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\..\..\ae\qe3\qe3.edl --search-path ..\..\..\common\inc --untrusted
+"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\..\..\ae\id_enclave\id_enclave.edl --search-path ..\..\..\common\inc --untrusted</Command>
     </PreBuildEvent>
     <Lib>
-      <AdditionalDependencies>sgx_urts.lib;sgx_pce_wrapper_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(SolutionDir)$(Platform)\$(Configuration);$(SGXSDKInstallPath)bin\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>sgx_urtsd.lib;sgx_pce_wrapper_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SGXSDKInstallPath)bin\$(Platform)\$(Configuration);$(SolutionDir)$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
     </Lib>
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
@@ -163,7 +163,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;QE3_CORE_WRAPPER_EXPORTS;DISABLE_TRACE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\common\inc;..\..\..\pce_wrapper\inc;..\enclave;..\..\..\common\inc\internal;..\..\..\common\inc\internal\win;..\..\ae\inc;..\..\ae\inc\internal</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\common\inc;..\..\..\pce_wrapper\inc;..\..\..\..\ae\qe3;..\..\..\common\inc\internal;..\..\..\common\inc\internal\win;..\..\..\..\ae\dep\inc;..\..\..\..\ae\dep\inc\internal</AdditionalIncludeDirectories>
       <InterproceduralOptimization>NoIPO</InterproceduralOptimization>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -188,8 +188,8 @@
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
     </ProjectReference>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\enclave\qe3.edl --search-path ..\..\..\common\inc --untrusted
-"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\id_enclave\id_enclave.edl --search-path ..\..\..\common\inc --untrusted</Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\..\..\ae\qe3\qe3.edl --search-path ..\..\..\common\inc --untrusted
+"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\..\..\ae\id_enclave\id_enclave.edl --search-path ..\..\..\common\inc --untrusted</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -200,7 +200,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;_USRDLL;QE3_CORE_WRAPPER_EXPORTS;DISABLE_TRACE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\common\inc;..\..\..\pce_wrapper\inc;..\enclave;..\..\..\common\inc\internal;..\..\..\common\inc\internal\win;..\..\ae\inc;..\..\ae\inc\internal</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\common\inc;..\..\..\pce_wrapper\inc;..\..\..\..\ae\qe3;..\..\..\common\inc\internal;..\..\..\common\inc\internal\win;..\..\..\..\ae\dep\inc;..\..\..\..\ae\dep\inc\internal</AdditionalIncludeDirectories>
       <InterproceduralOptimization>NoIPO</InterproceduralOptimization>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -218,12 +218,12 @@
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
     </Link>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\enclave\qe3.edl --search-path ..\..\..\common\inc --untrusted
-"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\id_enclave\id_enclave.edl --search-path ..\..\..\common\inc --untrusted</Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\..\..\ae\qe3\qe3.edl --search-path ..\..\..\common\inc --untrusted
+"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\..\..\ae\id_enclave\id_enclave.edl --search-path ..\..\..\common\inc --untrusted</Command>
     </PreBuildEvent>
     <Lib>
       <AdditionalDependencies>sgx_urts.lib;sgx_pce_wrapper_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(SolutionDir)$(Platform)\$(Configuration);$(SGXSDKInstallPath)bin\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SGXSDKInstallPath)bin\$(Platform)\$(Configuration);$(SolutionDir)$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
     </Lib>
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
@@ -252,7 +252,7 @@
     <ClCompile Include="..\sgx_ql_core_wrapper.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="..\enclave\qe3.edl">
+    <CustomBuild Include="..\..\..\..\ae\qe3\qe3.edl">
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
       </Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Creating untrusted proxy/bridge routines</Message>
@@ -272,7 +272,7 @@
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\id_enclave\id_enclave.edl" />
+    <None Include="..\..\..\..\ae\id_enclave\id_enclave.edl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -31,14 +31,16 @@
 
 CUR_MKFILE:= $(lastword $(MAKEFILE_LIST))
 
-.PHONY: all clean QvE dcap_quoteverify tee_appraisal_tool
+QVE_DIR := ../ae/QvE
 
-all: QvE dcap_quoteverify
+.PHONY: all clean $(QVE_DIR) dcap_quoteverify tee_appraisal_tool
 
-QvE:
-	$(MAKE) -C QvE
+all: $(QVE_DIR) dcap_quoteverify
 
-dcap_quoteverify: QvE
+$(QVE_DIR):
+	$(MAKE) -C $(QVE_DIR)
+
+dcap_quoteverify: $(QVE_DIR)
 	$(MAKE) -C dcap_quoteverify/linux
 
 tee_appraisal_tool:
@@ -46,7 +48,7 @@ tee_appraisal_tool:
 
 clean:
 	$(MAKE) -C dcap_quoteverify/linux clean
-	$(MAKE) -C QvE clean
+	$(MAKE) -C $(QVE_DIR) clean
 	$(MAKE) -C appraisal/tee_appraisal_tool clean
 
 rebuild:

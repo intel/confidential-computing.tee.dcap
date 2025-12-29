@@ -127,7 +127,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;ID_ENCLAVE_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\inc;..\..\..\..\common\inc\internal;..\..\..\..\common\inc\internal\win;..\..\..\common\inc;..\..\..\..\pce_wrapper\inc;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\QuoteGeneration\quote_wrapper\quote\inc;..\..\..\QuoteGeneration\common\inc\internal;..\..\..\QuoteGeneration\common\inc\internal\win;..\..\..\QuoteGeneration\quote_wrapper\common\inc;..\..\..\QuoteGeneration\pce_wrapper\inc;..</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
       <StringPooling>true</StringPooling>
@@ -166,7 +166,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;ID_ENCLAVE_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\inc;..\..\..\..\common\inc\internal;..\..\..\..\common\inc\internal\win;..\..\..\common\inc;..\..\..\..\pce_wrapper\inc;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\QuoteGeneration\quote_wrapper\quote\inc;..\..\..\QuoteGeneration\common\inc\internal;..\..\..\QuoteGeneration\common\inc\internal\win;..\..\..\QuoteGeneration\quote_wrapper\common\inc;..\..\..\QuoteGeneration\pce_wrapper\inc;..</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
       <StringPooling>true</StringPooling>
@@ -206,7 +206,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;ID_ENCLAVE_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\inc;..\..\..\..\common\inc\internal;..\..\..\..\common\inc\internal\win;..\..\..\common\inc;..\..\..\..\pce_wrapper\inc;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\QuoteGeneration\quote_wrapper\quote\inc;..\..\..\QuoteGeneration\common\inc\internal;..\..\..\QuoteGeneration\common\inc\internal\win;..\..\..\QuoteGeneration\quote_wrapper\common\inc;..\..\..\QuoteGeneration\pce_wrapper\inc;..</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
       <StringPooling>true</StringPooling>
@@ -244,7 +244,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;ID_ENCLAVE_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\inc;..\..\..\..\common\inc\internal;..\..\..\..\common\inc\internal\win;..\..\..\common\inc;..\..\..\..\pce_wrapper\inc;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\QuoteGeneration\quote_wrapper\quote\inc;..\..\..\QuoteGeneration\common\inc\internal;..\..\..\QuoteGeneration\common\inc\internal\win;..\..\..\QuoteGeneration\quote_wrapper\common\inc;..\..\..\QuoteGeneration\pce_wrapper\inc;..</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <SupportJustMyCode>false</SupportJustMyCode>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -281,7 +281,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;ID_ENCLAVE_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\inc;..\..\..\..\common\inc\internal;..\..\..\..\common\inc\internal\win;..\..\..\common\inc;..\..\..\..\pce_wrapper\inc;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\QuoteGeneration\quote_wrapper\quote\inc;..\..\..\QuoteGeneration\common\inc\internal;..\..\..\QuoteGeneration\common\inc\internal\win;..\..\..\QuoteGeneration\quote_wrapper\common\inc;..\..\..\QuoteGeneration\pce_wrapper\inc;..</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <SupportJustMyCode>false</SupportJustMyCode>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -322,7 +322,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;ID_ENCLAVE_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\inc;..\..\..\..\common\inc\internal;..\..\..\..\common\inc\internal\win;..\..\..\common\inc;..\..\..\..\pce_wrapper\inc;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\QuoteGeneration\quote_wrapper\quote\inc;..\..\..\QuoteGeneration\common\inc\internal;..\..\..\QuoteGeneration\common\inc\internal\win;..\..\..\QuoteGeneration\quote_wrapper\common\inc;..\..\..\QuoteGeneration\pce_wrapper\inc;..</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
       <StringPooling>true</StringPooling>

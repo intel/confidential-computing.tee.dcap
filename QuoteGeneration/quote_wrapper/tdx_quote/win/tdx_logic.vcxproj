@@ -95,7 +95,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;TDXLOGIC_EXPORTS;_WINDOWS;_USRDLL;DISABLE_TRACE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\common\inc;..\enclave;..\..\..\pce_wrapper\inc;..\..\..\common\inc\internal;..\..\..\common\inc\internal\win;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\common\inc;..\..\..\..\ae\tdqe;..\..\..\pce_wrapper\inc;..\..\..\common\inc\internal;..\..\..\common\inc\internal\win;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -112,8 +112,8 @@
       <AdditionalLibraryDirectories>$(OutDir);$(SGXSDKInstallPath)bin\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\enclave\tdqe.edl --search-path ..\..\..\common\inc --untrusted 
-"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\quote\id_enclave\id_enclave.edl --search-path ..\..\..\common\inc --untrusted </Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\..\..\ae\tdqe\tdqe.edl --search-path ..\..\..\common\inc --untrusted 
+"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\..\..\ae\id_enclave\id_enclave.edl --search-path ..\..\..\common\inc --untrusted </Command>
     </PreBuildEvent>
     <PostBuildEvent>
       <Command>"C:\Program Files (x86)\Windows Kits\10\bin\$(PlatformTarget)\apivalidator.exe"  -driverpackagepath:"$(TargetPath)" -SupportedApiXmlFiles:"C:\Program Files (x86)\Windows Kits\10\build\universalDDIs\$(PlatformTarget)\UniversalDDIs.xml" -ModuleWhiteListXmlFiles:"C:\Program Files (x86)\Windows Kits\10\build\universalDDIs\$(PlatformTarget)\ModuleWhiteList.xml" &gt;"$(OutDir)api_validator_log.txt"  2&gt;&amp;1</Command>
@@ -126,7 +126,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>SE_DEBUG;_DEBUG;_WINDOWS;_USRDLL;TDXLOGIC_EXPORTS;WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\common\inc;..\enclave;..\..\..\pce_wrapper\inc;..\..\..\common\inc\internal;..\..\..\common\inc\internal\win;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\common\inc;..\..\..\..\ae\tdqe;..\..\..\pce_wrapper\inc;..\..\..\common\inc\internal;..\..\..\common\inc\internal\win;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -141,8 +141,8 @@
       <AdditionalLibraryDirectories>$(OutDir);$(SGXSDKInstallPath)bin\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\enclave\tdqe.edl --search-path ..\..\..\common\inc --untrusted 
-"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\quote\id_enclave\id_enclave.edl --search-path ..\..\..\common\inc --untrusted </Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\..\..\ae\tdqe\tdqe.edl --search-path ..\..\..\common\inc --untrusted 
+"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\..\..\ae\id_enclave\id_enclave.edl --search-path ..\..\..\common\inc --untrusted </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -152,7 +152,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>SE_DEBUG;_DEBUG;_WINDOWS;_USRDLL;TDXLOGIC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\common\inc;..\enclave;..\..\..\pce_wrapper\inc;..\..\..\common\inc\internal;..\..\..\common\inc\internal\win;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\common\inc;..\..\..\..\ae\tdqe;..\..\..\pce_wrapper\inc;..\..\..\common\inc\internal;..\..\..\common\inc\internal\win;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -167,8 +167,8 @@
       <AdditionalLibraryDirectories>$(OutDir);$(SGXSDKInstallPath)bin\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\enclave\tdqe.edl --search-path ..\..\..\common\inc --untrusted 
-"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\quote\id_enclave\id_enclave.edl --search-path ..\..\..\common\inc --untrusted </Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\..\..\ae\tdqe\tdqe.edl --search-path ..\..\..\common\inc --untrusted 
+"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\..\..\ae\id_enclave\id_enclave.edl --search-path ..\..\..\common\inc --untrusted </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -180,7 +180,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;TDXLOGIC_EXPORTS;_WINDOWS;_USRDLL;DISABLE_TRACE;WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\common\inc;..\enclave;..\..\..\pce_wrapper\inc;..\..\..\common\inc\internal;..\..\..\common\inc\internal\win;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\common\inc;..\..\..\..\ae\tdqe;..\..\..\pce_wrapper\inc;..\..\..\common\inc\internal;..\..\..\common\inc\internal\win;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -197,8 +197,8 @@
       <AdditionalLibraryDirectories>$(OutDir);$(SGXSDKInstallPath)bin\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\enclave\tdqe.edl --search-path ..\..\..\common\inc --untrusted 
-"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\quote\id_enclave\id_enclave.edl --search-path ..\..\..\common\inc --untrusted </Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\..\..\ae\tdqe\tdqe.edl --search-path ..\..\..\common\inc --untrusted 
+"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\..\..\..\ae\id_enclave\id_enclave.edl --search-path ..\..\..\common\inc --untrusted </Command>
     </PreBuildEvent>
     <PostBuildEvent>
       <Command>"C:\Program Files (x86)\Windows Kits\10\bin\$(PlatformTarget)\apivalidator.exe"  -driverpackagepath:"$(TargetPath)" -SupportedApiXmlFiles:"C:\Program Files (x86)\Windows Kits\10\build\universalDDIs\$(PlatformTarget)\UniversalDDIs.xml" -ModuleWhiteListXmlFiles:"C:\Program Files (x86)\Windows Kits\10\build\universalDDIs\$(PlatformTarget)\ModuleWhiteList.xml" &gt;"$(OutDir)api_validator_log.txt"  2&gt;&amp;1</Command>
@@ -241,7 +241,7 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="..\enclave\tdqe.edl">
+    <CustomBuild Include="..\..\..\..\ae\tdqe\tdqe.edl">
       <FileType>Document</FileType>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Creating untrusted proxy/bridge routines</Message>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Creating untrusted proxy/bridge routines</Message>

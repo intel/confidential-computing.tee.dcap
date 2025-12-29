@@ -28,11 +28,11 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{23FC13E9-0485-42B6-A8EC-5A8AC00065AB}</ProjectGuid>
+    <ProjectGuid>{FA74E16C-93BA-4722-8B06-434F57C0E6D0}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>qe3</RootNamespace>
+    <RootNamespace>tdqe</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.18362.0</WindowsTargetPlatformVersion>
-    <ProjectName>qe3</ProjectName>
+    <ProjectName>tdqe</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -101,21 +101,27 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
+    <PostBuildEventUseInBuild>false</PostBuildEventUseInBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='CVE-2020-0551-CF-Release|x64'">
     <LinkIncremental>false</LinkIncremental>
+    <PostBuildEventUseInBuild>false</PostBuildEventUseInBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='CVE-2020-0551-Load-Release|x64'">
     <LinkIncremental>false</LinkIncremental>
+    <PostBuildEventUseInBuild>false</PostBuildEventUseInBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <PostBuildEventUseInBuild>false</PostBuildEventUseInBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>false</LinkIncremental>
+    <PostBuildEventUseInBuild>false</PostBuildEventUseInBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <PostBuildEventUseInBuild>false</PostBuildEventUseInBuild>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -125,15 +131,14 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>false</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;QE3_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;TDQE_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\inc;..\..\..\..\common\inc\internal;..\..\..\..\common\inc\internal\win;..\..\..\common\inc;..\..\..\..\pce_wrapper\inc;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\QuoteGeneration\quote_wrapper\tdx_quote\inc;..\..\..\QuoteGeneration\common\inc\internal;..\..\..\QuoteGeneration\common\inc\internal\win;..\..\..\QuoteGeneration\quote_wrapper\common\inc;..\..\..\QuoteGeneration\pce_wrapper\inc;..</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>false</ExceptionHandling>
       <FloatingPointExceptions>false</FloatingPointExceptions>
-      <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -146,13 +151,13 @@
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <NoEntryPoint>true</NoEntryPoint>
       <GenerateMapFile>true</GenerateMapFile>
-      <AdditionalOptions>/PDBALTPATH:qe3.pdb %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/PDBALTPATH:tdqe.pdb %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\..\common\inc\internal</AdditionalIncludeDirectories>
     </ResourceCompile>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\qe3.edl  --trusted</Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\tdqe.edl  --trusted</Command>
     </PreBuildEvent>
     <PostBuildEvent>
       <Command>
@@ -167,16 +172,15 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>false</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;QE3_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;TDQE_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\inc;..\..\..\..\common\inc\internal;..\..\..\..\common\inc\internal\win;..\..\..\common\inc;..\..\..\..\pce_wrapper\inc;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\QuoteGeneration\quote_wrapper\tdx_quote\inc;..\..\..\QuoteGeneration\common\inc\internal;..\..\..\QuoteGeneration\common\inc\internal\win;..\..\..\QuoteGeneration\quote_wrapper\common\inc;..\..\..\QuoteGeneration\pce_wrapper\inc;..</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>false</ExceptionHandling>
       <FloatingPointExceptions>false</FloatingPointExceptions>
       <AdditionalOptions>/Qspectre-load-cf</AdditionalOptions>
-      <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -189,13 +193,13 @@
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <NoEntryPoint>true</NoEntryPoint>
       <GenerateMapFile>true</GenerateMapFile>
-      <AdditionalOptions>/PDBALTPATH:qe3.pdb %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/PDBALTPATH:tdqe.pdb %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\..\common\inc\internal</AdditionalIncludeDirectories>
     </ResourceCompile>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\qe3.edl  --trusted</Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\tdqe.edl  --trusted</Command>
     </PreBuildEvent>
     <PostBuildEvent>
       <Command>
@@ -210,16 +214,15 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>false</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;QE3_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;TDQE_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\inc;..\..\..\..\common\inc\internal;..\..\..\..\common\inc\internal\win;..\..\..\common\inc;..\..\..\..\pce_wrapper\inc;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\QuoteGeneration\quote_wrapper\tdx_quote\inc;..\..\..\QuoteGeneration\common\inc\internal;..\..\..\QuoteGeneration\common\inc\internal\win;..\..\..\QuoteGeneration\quote_wrapper\common\inc;..\..\..\QuoteGeneration\pce_wrapper\inc;..</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>false</ExceptionHandling>
       <FloatingPointExceptions>false</FloatingPointExceptions>
       <AdditionalOptions>/Qspectre-load</AdditionalOptions>
-      <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -232,13 +235,13 @@
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <NoEntryPoint>true</NoEntryPoint>
       <GenerateMapFile>true</GenerateMapFile>
-      <AdditionalOptions>/PDBALTPATH:qe3.pdb %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/PDBALTPATH:tdqe.pdb %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\..\common\inc\internal</AdditionalIncludeDirectories>
     </ResourceCompile>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\qe3.edl  --trusted</Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\tdqe.edl  --trusted</Command>
     </PreBuildEvent>
     <PostBuildEvent>
       <Command>
@@ -251,9 +254,9 @@
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;QE3_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;TDQE_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\inc;..\..\..\..\common\inc\internal;..\..\..\..\common\inc\internal\win;..\..\..\common\inc;..\..\..\..\pce_wrapper\inc;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\QuoteGeneration\quote_wrapper\tdx_quote\inc;..\..\..\QuoteGeneration\common\inc\internal;..\..\..\QuoteGeneration\common\inc\internal\win;..\..\..\QuoteGeneration\quote_wrapper\common\inc;..\..\..\QuoteGeneration\pce_wrapper\inc;..</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <SupportJustMyCode>false</SupportJustMyCode>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -263,7 +266,6 @@
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <FloatingPointExceptions>false</FloatingPointExceptions>
-      <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -276,11 +278,15 @@
       <NoEntryPoint>true</NoEntryPoint>
     </Link>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\qe3.edl  --trusted</Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\tdqe.edl  --trusted</Command>
     </PreBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\..\common\inc\internal</AdditionalIncludeDirectories>
     </ResourceCompile>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -288,9 +294,9 @@
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;QE3_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;TDQE_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\inc;..\..\..\..\common\inc\internal;..\..\..\..\common\inc\internal\win;..\..\..\common\inc;..\..\..\..\pce_wrapper\inc;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\QuoteGeneration\quote_wrapper\tdx_quote\inc;..\..\..\QuoteGeneration\common\inc\internal;..\..\..\QuoteGeneration\common\inc\internal\win;..\..\..\QuoteGeneration\quote_wrapper\common\inc;..\..\..\QuoteGeneration\pce_wrapper\inc;..</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <SupportJustMyCode>false</SupportJustMyCode>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -300,7 +306,6 @@
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <FloatingPointExceptions>false</FloatingPointExceptions>
-      <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -311,10 +316,10 @@
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <OptimizeReferences>true</OptimizeReferences>
       <NoEntryPoint>true</NoEntryPoint>
-      <AdditionalOptions>/PDBALTPATH:qe3.pdb %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/PDBALTPATH:tdqe.pdb %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\qe3.edl  --trusted</Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\tdqe.edl  --trusted</Command>
     </PreBuildEvent>
     <PostBuildEvent>
       <Command>
@@ -332,15 +337,14 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>false</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;QE3_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;TDQE_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\inc;..\..\..\..\common\inc\internal;..\..\..\..\common\inc\internal\win;..\..\..\common\inc;..\..\..\..\pce_wrapper\inc;..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;$(SGXSDKInstallPath)\include\tlibc;$(SGXSDKInstallPath)\include\libc++;.;..\..\..\QuoteGeneration\quote_wrapper\tdx_quote\inc;..\..\..\QuoteGeneration\common\inc\internal;..\..\..\QuoteGeneration\common\inc\internal\win;..\..\..\QuoteGeneration\quote_wrapper\common\inc;..\..\..\QuoteGeneration\pce_wrapper\inc;..</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>false</ExceptionHandling>
       <FloatingPointExceptions>false</FloatingPointExceptions>
-      <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -357,20 +361,24 @@
       <AdditionalIncludeDirectories>..\..\..\common\inc\internal</AdditionalIncludeDirectories>
     </ResourceCompile>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\qe3.edl  --trusted</Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" ..\tdqe.edl  --trusted</Command>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\qe3.h" />
+    <ClInclude Include="..\quoting_enclave_tdqe.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\quoting_enclave_3.cpp" />
+    <ClCompile Include="..\quoting_enclave_tdqe.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\qe3.edl" />
+    <None Include="..\tdqe.edl" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="qe3.rc">
+    <ResourceCompile Include="tdqe.rc">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\..\..\..\common\inc\internal</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\..\..\..\common\inc\internal</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\..\..\common\inc\internal</AdditionalIncludeDirectories>

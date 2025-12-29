@@ -62,9 +62,9 @@ LDTFLAGS += -Wl,-Map=out.map -Wl,--undefined=version -Wl,--gc-sections
 LDTFLAGS_NO_CRYPTO += -Wl,-Map=out.map -Wl,--undefined=version -Wl,--gc-sections
 
 
-vpath %.cpp $(COMMON_DIR)/src:$(LINUX_PSW_DIR)/ae/common
+vpath %.cpp $(COMMON_DIR)/src:$(LINUX_PSW_DIR)/../ae/dep/common
 
 .PHONY : version
 
-version.o: $(TOP_DIR)/ae/common/version.cpp
-	$(CXX) $(CXXFLAGS) -fno-exceptions -fno-rtti $(INCLUDE) $(DEFINES) -c $(TOP_DIR)/ae/common/version.cpp -o $@
+version.o: $(TOP_DIR)/../ae/dep/common/version.cpp
+	$(CXX) $(CXXFLAGS) -fno-exceptions -fno-rtti $(INCLUDE) $(DEFINES) -c $(TOP_DIR)/../ae/dep/common/version.cpp -o $@

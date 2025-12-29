@@ -36,9 +36,9 @@ INCLUDE += -I$(SGX_SDK)/include         \
            -I$(COMMON_DIR)/inc/internal \
            -I$(COMMON_DIR)/inc/internal/linux
 
-INCLUDE += -I$(ROOT_DIR)/ae/common \
-           -I$(ROOT_DIR)/ae/inc    \
-           -I$(ROOT_DIR)/ae/inc/internal
+INCLUDE += -I$(ROOT_DIR)/../ae/dep/common \
+           -I$(ROOT_DIR)/../ae/dep/inc    \
+           -I$(ROOT_DIR)/../ae/dep/inc/internal
 
 CXXFLAGS += -fPIC -Werror -g
 
@@ -50,7 +50,7 @@ vpath %.c $(COMMON_DIR)/src
 
 pce_wrapper.o: pce_u.c
 
-pce_u.c: ${ROOT_DIR}/ae/pce/pce.edl
+pce_u.c: ${ROOT_DIR}/../ae/dep/pce/pce.edl
 	@$(SGX_EDGER8R) --untrusted --untrusted-dir . $<
 
 C_SRC := pce_u.c se_trace.c se_thread.c

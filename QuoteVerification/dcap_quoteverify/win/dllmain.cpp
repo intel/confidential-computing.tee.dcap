@@ -47,7 +47,11 @@
 #include "sgx_pce.h"
 #include "sgx_dcap_qv_internal.h"
 
+#ifndef _DEBUG
 #define SGX_URTS_LIB_FILE_NAME "sgx_urts.dll"
+#else
+#define SGX_URTS_LIB_FILE_NAME "sgx_urtsd.dll"
+#endif
 #define SGX_QL_QUOTE_CONFIG_LIB_FILE_NAME "dcap_quoteprov.dll"
 
 HINSTANCE g_qpl_handle = NULL;

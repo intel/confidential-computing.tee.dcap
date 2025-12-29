@@ -79,7 +79,7 @@ CXXFLAGS += -std=c++17
 App_Cpp_Files := $(wildcard App/linux/*.cpp App/*.cpp)
 App_Include_Paths := -I$(SGX_SDK)/include -I ./App/inc
 App_Include_Paths += -I ../../QuoteGeneration/common/inc/internal 
-App_Include_Paths += -I ../../QuoteGeneration/ae/inc/internal -I ../SGXPlatformRegistration/include
+App_Include_Paths += -I ../../ae/dep/inc/internal -I ../SGXPlatformRegistration/include
 
 App_C_Flags := $(COMMON_FLAGS) -fPIC -Wno-attributes $(App_Include_Paths)
 
@@ -106,11 +106,11 @@ all: $(App_Name)
 ######## App Objects ########
 
 App/pce_u.c: 
-	cd App && $(SGX_EDGER8R) --untrusted ../../../QuoteGeneration/ae/pce/pce.edl 
+	cd App && $(SGX_EDGER8R) --untrusted ../../../ae/dep/pce/pce.edl 
 	@echo "GEN  =>  $@"
 
 App/id_enclave_u.c: 
-	cd App && $(SGX_EDGER8R) --untrusted ../../../QuoteGeneration/quote_wrapper/quote//id_enclave/id_enclave.edl
+	cd App && $(SGX_EDGER8R) --untrusted ../../../ae/id_enclave/id_enclave.edl
 	echo "GEN  =>  $@"
 
 App/id_enclave_u.o: App/id_enclave_u.c

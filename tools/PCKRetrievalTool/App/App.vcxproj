@@ -58,7 +58,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\..\QuoteGeneration\ae\inc\internal;$(SolutionDir)..\..\QuoteGeneration\common\inc\internal;$(SolutionDir)\..\SGXPlatformRegistration\include;$(SGXSDKInstallPath)\include;inc;$(SolutionDir)..\..\driver\win;$(SolutionDir)..\..\driver\win\WinLeProxyUMDF;$(SolutionDir)..\..\driver\win\WinLeProxyUMDF\FLC_Enclave;$(SolutionDir)..\..\\QuoteGeneration\common\inc\internal\win;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\ae\dep\inc\internal;$(SolutionDir)..\..\QuoteGeneration\common\inc\internal;$(SolutionDir)\..\SGXPlatformRegistration\include;$(SGXSDKInstallPath)\include;inc;$(SolutionDir)..\..\driver\win;$(SolutionDir)..\..\driver\win\WinLeProxyUMDF;$(SolutionDir)..\..\driver\win\WinLeProxyUMDF\FLC_Enclave;$(SolutionDir)..\..\\QuoteGeneration\common\inc\internal\win;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
       <ControlFlowGuard>Guard</ControlFlowGuard>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
@@ -80,8 +80,8 @@
       <LinkLibraryDependencies>Yes\</LinkLibraryDependencies>
     </ProjectReference>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" --untrusted ..\..\..\QuoteGeneration\ae\pce\pce.edl --search-path "$(SGXSDKInstallPath)\include; ..\..\..\QuoteGeneration\ae\pce" --untrusted 
-"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" --untrusted ..\..\..\QuoteGeneration\quote_wrapper\quote\id_enclave\id_enclave.edl --search-path "$(SGXSDKInstallPath)\include; ..\..\..\QuoteGeneration\quote_wrapper\quote\id_enclave" --untrusted </Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" --untrusted ..\..\..\ae\dep\pce\pce.edl --search-path "$(SGXSDKInstallPath)\include; ..\..\..\ae\dep\pce" --untrusted 
+"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" --untrusted ..\..\..\ae\id_enclave\id_enclave.edl --search-path "$(SGXSDKInstallPath)\include; ..\..\..\ae\id_enclave" --untrusted </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -93,7 +93,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\..\QuoteGeneration\ae\inc\internal;$(SolutionDir)..\..\QuoteGeneration\common\inc\internal;$(SolutionDir)\..\SGXPlatformRegistration\include;$(SGXSDKInstallPath)\include;inc;$(SolutionDir)..\..\driver\win;$(SolutionDir)..\..\driver\win\WinLeProxyUMDF;$(SolutionDir)..\..\driver\win\WinLeProxyUMDF\FLC_Enclave;$(SolutionDir)..\..\\QuoteGeneration\common\inc\internal\win;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\ae\dep\inc\internal;$(SolutionDir)..\..\QuoteGeneration\common\inc\internal;$(SolutionDir)\..\SGXPlatformRegistration\include;$(SGXSDKInstallPath)\include;inc;$(SolutionDir)..\..\driver\win;$(SolutionDir)..\..\driver\win\WinLeProxyUMDF;$(SolutionDir)..\..\driver\win\WinLeProxyUMDF\FLC_Enclave;$(SolutionDir)..\..\\QuoteGeneration\common\inc\internal\win;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ControlFlowGuard>Guard</ControlFlowGuard>
       <TreatWarningAsError>true</TreatWarningAsError>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -113,8 +113,8 @@
       <Command>copy ..\network_setting.conf  $(OutDir)</Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" --untrusted ..\..\..\QuoteGeneration\ae\pce\pce.edl --search-path "$(SGXSDKInstallPath)\include; ..\..\..\QuoteGeneration\ae\pce" --untrusted 
-"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" --untrusted ..\..\..\QuoteGeneration\quote_wrapper\quote\id_enclave\id_enclave.edl --search-path "$(SGXSDKInstallPath)\include; ..\..\..\QuoteGeneration\quote_wrapper\quote\id_enclave" --untrusted </Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" --untrusted ..\..\..\ae\dep\pce\pce.edl --search-path "$(SGXSDKInstallPath)\include; ..\..\..\ae\dep\pce" --untrusted 
+"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" --untrusted ..\..\..\ae\id_enclave\id_enclave.edl --search-path "$(SGXSDKInstallPath)\include; ..\..\..\ae\id_enclave" --untrusted </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

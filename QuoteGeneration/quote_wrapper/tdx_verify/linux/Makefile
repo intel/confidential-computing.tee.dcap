@@ -30,6 +30,8 @@
 
 ######## Basic Settings ########
 TOP_DIR  = ../../..
+QV_QVE_AE_DIR = $(TOP_DIR)/../ae/QvE
+QV_QVE_INC_DIR = $(QV_QVE_AE_DIR)/Include
 include $(TOP_DIR)/buildenv.mk
 
 ######## Tdx_Verify Settings ########
@@ -39,7 +41,7 @@ INCLUDE :=  -I. \
 			-I$(TOP_DIR)/quote_wrapper/servtd_attest/inc \
 			-I$(TOP_DIR)/quote_wrapper/common/inc \
 			-I$(TOP_DIR)/../QuoteVerification/dcap_quoteverify/inc \
-			-I$(TOP_DIR)/../QuoteVerification/QvE/Include  \
+			-I$(QV_QVE_INC_DIR)  \
 			-I../../qgs_msg_lib/inc \
 			-I../../../pce_wrapper/inc
 

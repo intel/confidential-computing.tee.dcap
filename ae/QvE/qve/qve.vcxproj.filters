@@ -14,7 +14,7 @@
     <CustomBuild Include="qve.edl" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="qve_test_key.pem" />
+    <None Include="..\..\dep\dcap_ae_test_key.pem" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Resource Files">

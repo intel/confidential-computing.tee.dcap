@@ -30,12 +30,15 @@
 #
 
 
-TOP_DIR := ../../../..
+TOP_DIR := ../../../QuoteGeneration
 MITIGATION-CVE-2020-0551 := LOAD
-include $(TOP_DIR)/ae/buildenv.mk
+include $(TOP_DIR)/../ae/dep/buildenv.mk
 
-AENAME := id_enclave
+AENAME := qe3
 SONAME := $(AENAME).so
+SIGNED_QE3_NAME := libsgx_$(AENAME)$(if $(FIPS),-fips).signed.so
+QE3_CONFIG_FILE := config$(if $(FIPS),.fips).xml
+QE3_KEY_FILE := ../../dep/dcap_ae_test_key.pem
 
 TCRYPTO_LIB_NAME := sgx_tcrypto
 
@@ -45,32 +48,34 @@ INCLUDE := -I$(SGX_SDK)/include                        \
            -I$(COMMON_DIR)/inc/internal                \
            -I$(COMMON_DIR)/inc/internal/linux          \
            -I$(TOP_DIR)/ae/inc/internal                \
-           -I../../inc                                 \
-           -I../../../common/inc                       \
-           -I../../../../pce_wrapper/inc               \
+           -I$(TOP_DIR)/quote_wrapper/quote/inc                                 \
+           -I$(TOP_DIR)/quote_wrapper/common/inc       \
+           -I$(TOP_DIR)/pce_wrapper/inc               \
            -I..                                        \
            -I.
 
 EXTERNAL_LIB = $(EXTERNAL_LIB_NO_CRYPTO) -lsgx_tcxx -l$(TCRYPTO_LIB_NAME)
 
 vpath %.cpp .. .
-SRC := $(AENAME).cpp
+SRC := quoting_enclave_3.cpp
 
 OBJ := $(SRC:.cpp=.o)
 OBJS := $(sort $(OBJ) version.o)
 
 .PHONY: all
-all: $(SONAME)
+all: $(SONAME) $(SIGNED_QE3_NAME)
 
 $(SONAME): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) -nostdlib -nodefaultlibs -nostartfiles -Wl,-soname=libsgx_${AENAME}.signed.so.$(call get_major_version,IDE_VERSION) $(LDTFLAGS) -fno-exceptions -fno-rtti
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) -nostdlib -nodefaultlibs -nostartfiles -Wl,-soname=libsgx_${AENAME}.signed.so.$(call get_major_version,QE3_VERSION) $(LDTFLAGS) -fno-exceptions -fno-rtti
 	$(STRIP) --strip-unneeded --remove-section=.comment --remove-section=.note $@
 
+$(SIGNED_QE3_NAME): $(SONAME) $(QE3_CONFIG_FILE) $(QE3_KEY_FILE)
+	@$(SGX_ENCLAVE_SIGNER) sign -key $(QE3_KEY_FILE) -enclave $< -out $@ -config $(QE3_CONFIG_FILE)
 
-$(AENAME).o: $(AENAME)_t.c
+quoting_enclave_3.o: $(AENAME)_t.c
 
 %.o:%.cpp
-	$(CXX) $(CXXFLAGS) $(INCLUDE) -fno-exceptions -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(INCLUDE) $(DEFINES) -fno-exceptions -c $< -o $@
 
 $(AENAME)_t.c: ../$(AENAME).edl
 	@$(SGX_EDGER8R) --trusted $<
@@ -81,6 +86,7 @@ clean:
 	@$(RM) *.so
 	@$(RM) *.map
 	@$(RM) *_t.*
+	@$(RM) *.signed.so
 
 .PHONY: rebuild
 rebuild:

@@ -93,7 +93,7 @@
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;PCE_WRAPPER_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\parser;..\..\parser\win;..\..\common\inc\internal;..\..\common\inc\internal\win;..\..\ae\inc;..\..\ae\inc\internal;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\parser;..\..\parser\win;..\..\common\inc\internal;..\..\common\inc\internal\win;..\..\..\ae\dep\inc;..\..\..\ae\dep\inc\internal;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <InterproceduralOptimization>NoIPO</InterproceduralOptimization>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -110,7 +110,7 @@
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
     </Link>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" --untrusted ..\..\ae\pce\pce.edl --search-path "$(SGXSDKInstallPath)\include; ..\..\ae\pce" --untrusted </Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" --untrusted ..\..\..\ae\dep\pce\pce.edl --search-path "$(SGXSDKInstallPath)\include; ..\..\..\ae\dep\pce" --untrusted </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -119,7 +119,7 @@
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;_USRDLL;PCE_WRAPPER_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\parser;..\..\parser\win;..\..\common\inc\internal;..\..\common\inc\internal\win;..\..\ae\inc;..\..\ae\inc\internal;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\parser;..\..\parser\win;..\..\common\inc\internal;..\..\common\inc\internal\win;..\..\..\ae\dep\inc;..\..\..\ae\dep\inc\internal;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <InterproceduralOptimization>NoIPO</InterproceduralOptimization>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -136,7 +136,7 @@
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
     </Link>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" --untrusted ..\..\ae\pce\pce.edl --search-path "$(SGXSDKInstallPath)\include; ..\..\ae\pce" --untrusted </Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" --untrusted ..\..\..\ae\dep\pce\pce.edl --search-path "$(SGXSDKInstallPath)\include; ..\..\..\ae\dep\pce" --untrusted </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -147,7 +147,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;PCE_WRAPPER_EXPORTS;DISABLE_TRACE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\parser;..\..\parser\win;..\..\common\inc\internal;..\..\common\inc\internal\win;..\..\ae\inc;..\..\ae\inc\internal;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\parser;..\..\parser\win;..\..\common\inc\internal;..\..\common\inc\internal\win;..\..\..\ae\dep\inc;..\..\..\ae\dep\inc\internal;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <InterproceduralOptimization>NoIPO</InterproceduralOptimization>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -165,7 +165,7 @@
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
     </Link>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" --untrusted ..\..\ae\pce\pce.edl --search-path "$(SGXSDKInstallPath)\include; ..\..\ae\pce" --untrusted </Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" --untrusted ..\..\..\ae\dep\pce\pce.edl --search-path "$(SGXSDKInstallPath)\include; ..\..\..\ae\dep\pce" --untrusted </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -176,7 +176,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;_USRDLL;PCE_WRAPPER_EXPORTS;DISABLE_TRACE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\parser;..\..\parser\win;..\..\common\inc\internal;..\..\common\inc\internal\win;..\..\ae\inc;..\..\ae\inc\internal;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SGXSDKInstallPath)\include;.;..\inc;..\..\parser;..\..\parser\win;..\..\common\inc\internal;..\..\common\inc\internal\win;..\..\..\ae\dep\inc;..\..\..\ae\dep\inc\internal;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <InterproceduralOptimization>NoIPO</InterproceduralOptimization>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -194,7 +194,7 @@
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
     </Link>
     <PreBuildEvent>
-      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" --untrusted ..\..\ae\pce\pce.edl --search-path "$(SGXSDKInstallPath)\include; ..\..\ae\pce" --untrusted </Command>
+      <Command>"$(SGXSDKInstallPath)\bin\win32\Release\sgx_edger8r.exe" --untrusted ..\..\..\ae\dep\pce\pce.edl --search-path "$(SGXSDKInstallPath)\include; ..\..\..\ae\dep\pce" --untrusted </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

@@ -323,7 +323,7 @@ static bool check_hex_crl(char *crl, uint32_t size)
 
     //only check length = size-1, as the last item may be nul terminator
     for (uint32_t i = 0; i < size - 1; i++) {
-        if (!isxdigit(crl[i])) {
+        if (!isxdigit(static_cast<unsigned char>(crl[i]))) {
             return false;
         }
     }

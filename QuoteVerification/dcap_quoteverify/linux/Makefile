@@ -7,7 +7,7 @@
 include ../../buildenv.mk
 
 INSTALL_PATH 		?= /usr/lib/x86_64-linux-gnu
-QVE_SRC_PATH		:= $(DCAP_QV_DIR)/QvE
+QVE_SRC_PATH		:= ../../../ae/QvE
 DCAP_QPL_DIR := $(DCAP_QG_DIR)/qpl
 
 QVL_LIB_INC		+= -I$(PREBUILD_OPENSSL_PATH)/inc -I$(QVE_SRC_PATH)/Include
@@ -50,10 +50,10 @@ QVL_VERIFY_CPP_OBJS_STATIC := $(QVL_VERIFY_CPP_SRCS:.cpp=_s.o)
 QVL_VERIFY_C_OBJS := $(QVL_VERIFY_C_SRCS:.c=.o)
 QVL_LIB_COMMON_OBJS := sgx_base64.o ec_key.o
 
-QVE_CPP_SRC ?= $(QVE_SRC_PATH)/Enclave/qve.cpp
-QVE_CPP_OBJ ?= $(QVE_SRC_PATH)/Enclave/untrusted_qve.o
-QVE_LOGIC_CPP_SRC ?= $(QVE_SRC_PATH)/Enclave/qve_logic.cpp
-QVE_LOGIC_CPP_OBJ ?= $(QVE_SRC_PATH)/Enclave/untrusted_qve_logic.o
+QVE_CPP_SRC ?= $(QVE_SRC_PATH)/qve/qve.cpp
+QVE_CPP_OBJ ?= $(QVE_SRC_PATH)/qve/untrusted_qve.o
+QVE_LOGIC_CPP_SRC ?= $(QVE_SRC_PATH)/qve/qve_logic.cpp
+QVE_LOGIC_CPP_OBJ ?= $(QVE_SRC_PATH)/qve/untrusted_qve_logic.o
 
 QVL_VERIFY_LIB_NAME := libsgx_dcap_quoteverify
 QVL_VERIFY_LIB_NAME_Dynamic := $(QVL_VERIFY_LIB_NAME).so
@@ -97,8 +97,8 @@ run: all
 
 ######## QVL Library Objects ########
 
-qve_u.h: $(QVE_SRC_PATH)/Enclave/qve.edl $(SGX_EDGER8R)
-	@$(SGX_EDGER8R) --untrusted $< $(addprefix --search-path ,$(QVE_SRC_PATH)/Enclave $(SGX_SDK)/include $(addprefix $(SGXSSL_PACKAGE_PATH)/include/,. $(if $(FIPS),,no)filefunc))
+qve_u.h: $(QVE_SRC_PATH)/qve/qve.edl $(SGX_EDGER8R)
+	@$(SGX_EDGER8R) --untrusted $< $(addprefix --search-path ,$(QVE_SRC_PATH)/qve $(SGX_SDK)/include $(addprefix $(SGXSSL_PACKAGE_PATH)/include/,. $(if $(FIPS),,no)filefunc))
 	@echo "GEN  =>  $@"
 
 qve_u.c : qve_u.h

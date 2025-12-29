@@ -1,7 +1,7 @@
 # Copyright(c) 2011-2019 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 
-include ../../buildenv.mk
+include ../../../QuoteVerification/buildenv.mk
 
 print-%  : ; @echo $* = $($*)
 
@@ -16,15 +16,15 @@ DEST_PATH := $(BUILD_PATH)/release
 APPRAISAL_COMMON_PATH := $(MKFILE_PATH)/../../appraisal/common
 GTEST_PATH := $(EXTERNAL_PATH)/gtest/build
 
-SRC_PATH := $(MKFILE_PATH)/../Enclave
+SRC_PATH := $(MKFILE_PATH)/../qve
 TEST_PATH := $(MKFILE_PATH)/src
 MOCK_PATH := $(MKFILE_PATH)/src/mock
 
 INCLUDE := -I$(INCLUDE_PATH) -I$(SRC_PATH) -I$(MOCK_PATH) -I$(PREBUILD_OPENSSL_PATH)/inc\
-					-I$(MKFILE_PATH)/../../QVL/Src/AttestationLibrary/src \
-                    -I$(MKFILE_PATH)/../../QVL/Src/AttestationLibrary/include \
-                    -I$(MKFILE_PATH)/../../QVL/Src/AttestationParsers/include \
-                    -I$(MKFILE_PATH)/../../QVL/Src/AttestationCommons/include \
+					-I$(MKFILE_PATH)/../../../QuoteVerification/QVL/Src/AttestationLibrary/src \
+                    -I$(MKFILE_PATH)/../../../QuoteVerification/QVL/Src/AttestationLibrary/include \
+                    -I$(MKFILE_PATH)/../../../QuoteVerification/QVL/Src/AttestationParsers/include \
+                    -I$(MKFILE_PATH)/../../../QuoteVerification/QVL/Src/AttestationCommons/include \
                     -isystem$(SGX_SDK)/include \
 					-isystem$(EXTERNAL_PATH)/jwt-cpp/include
 

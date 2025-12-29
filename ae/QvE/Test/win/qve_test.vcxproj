@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\Enclave\qve_logic.cpp" />
+    <ClCompile Include="..\..\qve\qve_logic.cpp" />
     <ClCompile Include="..\src\mock\CertificateChainStub.cpp" />
     <ClCompile Include="..\src\mock\CertificateStub.cpp" />
     <ClCompile Include="..\src\mock\CrlStoreStub.cpp" />
@@ -78,7 +78,7 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>$(SolutionDir)QuoteVerification\package\include;$(SolutionDir)QuoteVerification\QVL\Src\AttestationLibrary\src;$(SolutionDir)QuoteVerification\QVL\Src\AttestationCommons\include;$(SolutionDir)QuoteVerification\QvE\Test\src\mock;$(SolutionDir)QuoteVerification\QvE\Include;$(SolutionDir)QuoteVerification\QvE\Enclave;$(SolutionDir)QuoteVerification\QVL\Src\AttestationParsers\include;$(SolutionDir)QuoteVerification\QVL\Src\AttestationLibrary\include;$(SolutionDir)external\gtest\src\googletest\include;$(SolutionDir)external\gtest\src\googlemock\include;$(SGXSDKInstallPath)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)QuoteVerification\package\include;$(SolutionDir)QuoteVerification\QVL\Src\AttestationLibrary\src;$(SolutionDir)QuoteVerification\QVL\Src\AttestationCommons\include;$(SolutionDir)ae\QvE\Test\src\mock;$(SolutionDir)ae\QvE\Include;$(SolutionDir)ae\QvE\qve;$(SolutionDir)QuoteVerification\QVL\Src\AttestationParsers\include;$(SolutionDir)QuoteVerification\QVL\Src\AttestationLibrary\include;$(SolutionDir)external\gtest\src\googletest\include;$(SolutionDir)external\gtest\src\googlemock\include;$(SGXSDKInstallPath)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <SupportJustMyCode>true</SupportJustMyCode>
@@ -123,7 +123,7 @@ cmake --build . --config Release</Command>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(SolutionDir)QuoteVerification\package\include;$(SolutionDir)QuoteVerification\QVL\Src\AttestationLibrary\src;$(SGXSDKInstallPath)include;$(SolutionDir)QuoteVerification\QvE\Enclave;$(SolutionDir)QuoteVerification\QvE\include;$(SolutionDir)QuoteVerification\QvE\Test\src\mock;$(SolutionDir)QuoteVerification\QVL\Src\AttestationCommons\include;$(SolutionDir)QuoteVerification\QVL\Src\AttestationLibrary\include;$(SolutionDir)external\gtest\src\googlemock\include;$(SolutionDir)external\gtest\src\googletest\include;$(SolutionDir)QuoteVerification\QVL\Src\AttestationParsers\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)QuoteVerification\package\include;$(SolutionDir)QuoteVerification\QVL\Src\AttestationLibrary\src;$(SGXSDKInstallPath)include;$(SolutionDir)ae\QvE\qve;$(SolutionDir)ae\QvE\include;$(SolutionDir)ae\QvE\Test\src\mock;$(SolutionDir)QuoteVerification\QVL\Src\AttestationCommons\include;$(SolutionDir)QuoteVerification\QVL\Src\AttestationLibrary\include;$(SolutionDir)external\gtest\src\googlemock\include;$(SolutionDir)external\gtest\src\googletest\include;$(SolutionDir)QuoteVerification\QVL\Src\AttestationParsers\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
