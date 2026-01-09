@@ -1,8 +1,8 @@
 asn1>=2.4.1
 cryptography>=41.0.7,<44
 keyring>=23.0.0
+packaging>=14.0
 pyOpenSSL>=23.2.0,<24.3.0
 pypac>=0.14.0
 Requests>=2.31.0
-setuptools>=65.5.1,<81
 urllib3>=1.26.18
