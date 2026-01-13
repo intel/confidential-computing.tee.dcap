@@ -1,38 +1,8 @@
 /*
- * Copyright (C) 2011-2021 Intel Corporation. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in
- *     the documentation and/or other materials provided with the
- *     distribution.
- *   * Neither the name of Intel Corporation nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
+ * Copyright(c) 2011-2025 Intel Corporation
+ * SPDX-License-Identifier: BSD-3-Clause
  */
-/** File: pccs_response_object.h
- *
- * Description: Header file of PccsResponseObject class and its sub-classes
- *
- */
+
 #ifndef PCCSRESPONSEOBJECT_H_
 #define PCCSRESPONSEOBJECT_H_
 #pragma once
@@ -74,6 +44,9 @@ private:
 public:
     PckCertResponseObject() {}
     ~PckCertResponseObject() {}
+    PckCertResponseObject(const PckCertResponseObject&) = delete;
+    PckCertResponseObject& operator=(const PckCertResponseObject&) = delete;
+
     string get_tcbm() {
         string tcbm = this->get_header_key_value(intelpcs::SGX_TCBM);
         return tcbm.empty() ? this->get_body_key_value(azurepccs::SGX_TCBM) : tcbm;
@@ -92,6 +65,9 @@ private:
 public:
     PckCrlResponseObject() {}
     ~PckCrlResponseObject() {}
+    PckCrlResponseObject(const PckCrlResponseObject&) = delete;
+    PckCrlResponseObject& operator=(const PckCrlResponseObject&) = delete;
+
     string get_pckcrl_issuer_chain() {
         return this->get_header_key_value(intelpcs::CRL_ISSUER_CHAIN);
     }
@@ -105,6 +81,9 @@ private:
 public:
     TcbInfoResponseObject() {}
     ~TcbInfoResponseObject() {}
+    TcbInfoResponseObject(const TcbInfoResponseObject&) = delete;
+    TcbInfoResponseObject& operator=(const TcbInfoResponseObject&) = delete;
+
     string get_tcbinfo_issuer_chain() {
         string chain = this->get_header_key_value(intelpcs::SGX_TCB_INFO_ISSUER_CHAIN);
         if (!chain.empty())
@@ -127,6 +106,9 @@ private:
 public:
     QeIdentityResponseObject() {}
     ~QeIdentityResponseObject() {}
+    QeIdentityResponseObject(const QeIdentityResponseObject&) = delete;
+    QeIdentityResponseObject& operator=(const QeIdentityResponseObject&) = delete;
+
     string get_enclave_id_issuer_chain() {
         return this->get_header_key_value(intelpcs::ENCLAVE_ID_ISSUER_CHAIN);
     }
@@ -140,6 +122,9 @@ private:
 public:
     QveIdentityResponseObject() {}
     ~QveIdentityResponseObject() {}
+    QveIdentityResponseObject(const QveIdentityResponseObject&) = delete;
+    QveIdentityResponseObject& operator=(const QveIdentityResponseObject&) = delete;
+
     string get_enclave_id_issuer_chain() {
         return this->get_header_key_value(intelpcs::ENCLAVE_ID_ISSUER_CHAIN);
     }

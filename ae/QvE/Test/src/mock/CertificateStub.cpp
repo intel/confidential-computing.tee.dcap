@@ -96,6 +96,7 @@ namespace intel { namespace sgx { namespace dcap { namespace parser { namespace 
 // Protected
 
     Certificate::Certificate(const std::string &pem)
+        : Certificate()
     {
         _pem = pem;
     }

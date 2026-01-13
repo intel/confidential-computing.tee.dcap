@@ -38,6 +38,10 @@ namespace intel { namespace sgx { namespace dcap { namespace parser { namespace 
     }
 
     IdentityTcbLevel::IdentityTcbLevel(const ::rapidjson::Value &tcbLevel)
+        : _isvSvn(0),
+          _tcbDate(0),
+          _tcbStatus(TcbStatus::UpToDate),
+          _advisoryIds()
     {
 
     }

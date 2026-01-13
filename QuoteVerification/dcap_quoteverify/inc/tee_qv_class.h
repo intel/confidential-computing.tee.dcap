@@ -17,6 +17,11 @@ extern "C" {
 
 class tee_qv_base {
 public:
+    // Non-copyable polymorphic base class
+    tee_qv_base() = default;
+    tee_qv_base(const tee_qv_base&) = delete;
+    tee_qv_base& operator=(const tee_qv_base&) = delete;
+
     virtual quote3_error_t tee_verify_evidence(
         const uint8_t *p_quote,
         uint32_t quote_size,
@@ -86,6 +91,11 @@ public:
 
 class sgx_qv : public tee_qv_base {
 public:
+    // Non-copyable polymorphic class
+    sgx_qv() = default;
+    sgx_qv(const sgx_qv&) = delete;
+    sgx_qv& operator=(const sgx_qv&) = delete;
+
     virtual quote3_error_t tee_verify_evidence(
         const uint8_t *p_quote,
         uint32_t quote_size,
@@ -154,7 +164,10 @@ public:
 class sgx_qv_trusted : public sgx_qv {
 public:
 
+    sgx_qv_trusted() = default;
     virtual ~sgx_qv_trusted();
+    sgx_qv_trusted(const sgx_qv_trusted&) = delete;
+    sgx_qv_trusted& operator=(const sgx_qv_trusted&) = delete;
 
     virtual quote3_error_t tee_verify_evidence(
         const uint8_t *p_quote,
@@ -204,6 +217,9 @@ private:
 
 class tdx_qv : public sgx_qv {
 public:
+    tdx_qv() = default;
+    tdx_qv(const tdx_qv&) = delete;
+    tdx_qv& operator=(const tdx_qv&) = delete;
 
     virtual quote3_error_t tee_get_verification_endorsement(
         const char *fmspc,
@@ -218,6 +234,9 @@ public:
 
 class tdx_qv_trusted : public sgx_qv_trusted {
 public:
+    tdx_qv_trusted() = default;
+    tdx_qv_trusted(const tdx_qv_trusted&) = delete;
+    tdx_qv_trusted& operator=(const tdx_qv_trusted&) = delete;
 
     virtual quote3_error_t tee_get_verification_endorsement(
         const char *fmspc,
