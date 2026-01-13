@@ -1,15 +1,15 @@
 /*
- * Copyright(c) 2011-2025 Intel Corporation 
+ * Copyright(c) 2011-2026 Intel Corporation 
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #define STRFILEVER    "1.24.100.2"
-#define COPYRIGHT      "Copyright (C) 2025 Intel Corporation"
+#define COPYRIGHT      "Copyright\xA9 2026 Intel Corporation"
 #define FILEVER        1,24,100,2
 #define PRODUCTVER     1,24,100,2
 #define STRPRODUCTVER  "1.24.100.2"
 #define COMPANYNAME    "Intel Corporation"
-#define PRODUCTNAME    "Intel® Software Guard Extensions"
+#define PRODUCTNAME    "Intel\xAE Software Guard Extensions"
 
 #define DEFAULT_QPL_VERSION          "1.13.110.0"
 #define QUOTE_VERIFIER_VERSION       "1.13.103.0"
