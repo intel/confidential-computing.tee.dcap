@@ -853,19 +853,23 @@ td_attributes_ok(bundle) if {
 }
 
 td_attributes_ok(bundle) if {
+	bundle.policy.reference.tdx_attributes
+
+	provided_mask := object.get(bundle.policy.reference, "tdx_attributes_mask", "00000000FFFFFFFF")
+
 	hex2int := {
 		"0": 0, "1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7,
 		"8": 8, "9": 9, "A": 10, "B": 11, "C": 12, "D": 13, "E": 14, "F": 15,
 	}
 	value := split(upper(bundle.report.measurement.tdx_attributes), "")
 	policy := split(upper(bundle.policy.reference.tdx_attributes), "")
-	mask := split(upper(bundle.policy.reference.tdx_attributes_mask), "")
+	mask := split(upper(provided_mask), "")
 	equal_num := count({i |
 		mask[i]
 		bits.and(hex2int[value[i]], hex2int[mask[i]]) == bits.and(hex2int[policy[i]], hex2int[mask[i]])
 	})
-	orig_num := count(mask)
-	equal_num == orig_num
+
+	equal_num == count(mask)
 }
 
 # Appraise optional guest td xfam
@@ -877,19 +881,23 @@ td_xfam_ok(bundle) if {
 }
 
 td_xfam_ok(bundle) if {
+	bundle.policy.reference.tdx_xfam
+
+	provided_mask := object.get(bundle.policy.reference, "tdx_xfam_mask", "FFFFFFFFFFFFFFFF")
+
 	hex2int := {
 		"0": 0, "1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7,
 		"8": 8, "9": 9, "A": 10, "B": 11, "C": 12, "D": 13, "E": 14, "F": 15,
 	}
 	value := split(upper(bundle.report.measurement.tdx_xfam), "")
 	policy := split(upper(bundle.policy.reference.tdx_xfam), "")
-	mask := split(upper(bundle.policy.reference.tdx_xfam_mask), "")
+	mask := split(upper(provided_mask), "")
 	equal_num := count({i |
 		mask[i]
 		bits.and(hex2int[value[i]], hex2int[mask[i]]) == bits.and(hex2int[policy[i]], hex2int[mask[i]])
 	})
-	orig_num := count(mask)
-	equal_num == orig_num
+
+	equal_num == count(mask)
 }
 
 # Appraise guest td tdx_mrconfigid, tdx_mrowner, tdx_mrownerconfig and tdx_mrtd
