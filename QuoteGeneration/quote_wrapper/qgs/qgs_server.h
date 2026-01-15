@@ -34,6 +34,7 @@
 
 #include <stdint.h>
 #include <boost/asio.hpp>
+#include <boost/asio/deadline_timer.hpp>
 #include <boost/scoped_ptr.hpp>
 
 #if BOOST_VERSION >= 108700
