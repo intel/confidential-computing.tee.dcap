@@ -43,7 +43,7 @@ if [ -c /dev/sgx_provision -o -c /dev/sgx/provision ]; then
         # the sgx_provision device file.
         groupadd sgx_prv
 
-        if ! which udevadm &> /dev/null; then
+        if ! command -v udevadm &> /dev/null; then
             exit 0
         fi
         udevadm control --reload || :
