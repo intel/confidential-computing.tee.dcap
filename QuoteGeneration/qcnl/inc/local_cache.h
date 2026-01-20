@@ -361,12 +361,28 @@ protected:
         cache_locations[4] = "/tmp/";
 
         string application_name("/.dcap-qcnl/");
+
         for (auto &cache_location : cache_locations) {
             if (cache_location != 0 && strcmp(cache_location, "") != 0) {
                 string dirname = cache_location + application_name;
-                if (make_dir(dirname))
+                struct stat buf {};
+                int rc = stat(dirname.c_str(), &buf);
+                if (rc == 0 && S_ISDIR(buf.st_mode)) {
                     cache_dir_ = dirname;
-                return;
+                    qcnl_log(SGX_QL_LOG_INFO, "[QCNL] Found existing cache directory: %s\n", dirname.c_str());
+                    return;
+                }
+            }
+        }
+
+        for (auto &cache_location : cache_locations) {
+            if (cache_location != 0 && strcmp(cache_location, "") != 0) {
+                string dirname = cache_location + application_name;
+                if (make_dir(dirname)) {
+                    cache_dir_ = dirname;
+                    qcnl_log(SGX_QL_LOG_INFO, "[QCNL] Created new cache directory: %s\n", dirname.c_str());
+                    return;
+                }
             }
         }
     }
