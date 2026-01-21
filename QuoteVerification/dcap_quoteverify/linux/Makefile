@@ -27,8 +27,13 @@ QVL_VERIFY_INC	:= -I$(QVE_SRC_PATH)/Include \
 
 QPL_BASE64_CPP_DEP	:= $(DCAP_QPL_DIR)/sgx_base64.d
 
-SGX_COMMON_CFLAGS	+= -g -fPIC -Wno-attributes -USGX_TRUSTED
-SGX_COMMON_CXXFLAGS	+= -g -fPIC -USGX_TRUSTED
+SGX_COMMON_CFLAGS	+= $(CFLAGS) -g -fPIC -Wno-attributes -USGX_TRUSTED
+SGX_COMMON_CXXFLAGS	+= $(CXXFLAGS) -g -fPIC -USGX_TRUSTED
+
+ifeq ($(CC_NO_LESS_THAN_8), 1)
+    SGX_COMMON_CFLAGS += -fcf-protection=none
+    SGX_COMMON_CXXFLAGS += -fcf-protection=none
+endif
 
 QVL_LIB_OBJS := $(QVL_LIB_FILES:.cpp=_untrusted.o)
 QVL_PARSER_OBJS := $(QVL_PARSER_FILES:.cpp=_untrusted.o)
@@ -69,8 +74,11 @@ QAL_OBJS := $(sort $(QAL_CPP_OBJS) $(QAL_C_OBJS))
 QAL_Static_Lib_Name := libdcap_qal.a
 WARM_Lib_Path := $(DCAP_EXTERNAL_DIR)/wasm-micro-runtime/product-mini/platforms/linux/build/
 LDUFLAGS += -L$(WARM_Lib_Path) -liwasm
+
 ifeq ($(DEBUG), 1)
-LDUFLAGS += -fsanitize=undefined
+	SGX_COMMON_CFLAGS += -fsanitize=undefined
+	SGX_COMMON_CXXFLAGS += -fsanitize=undefined
+	LDUFLAGS += -fsanitize=undefined
 endif
 
 .PHONY: all run

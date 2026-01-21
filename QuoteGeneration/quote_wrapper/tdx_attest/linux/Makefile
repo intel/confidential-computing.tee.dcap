@@ -1,56 +1,52 @@
 #
-# Copyright (C) 2011-2022 Intel Corporation. All rights reserved.
+# Copyright(c) 2011-2026 Intel Corporation
 #
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-#   * Redistributions of source code must retain the above copyright
-#     notice, this list of conditions and the following disclaimer.
-#   * Redistributions in binary form must reproduce the above copyright
-#     notice, this list of conditions and the following disclaimer in
-#     the documentation and/or other materials provided with the
-#     distribution.
-#   * Neither the name of Intel Corporation nor the names of its
-#     contributors may be used to endorse or promote products derived
-#     from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
+# SPDX-License-Identifier: BSD-3-Clause
 #
 
 ######## Basic Settings ########
 TOP_DIR  = ../../..
 SDK_NOT_REQUIRED = 1
 ifeq ($(wildcard $(TOP_DIR)/buildenv.mk),)
-	CFLAGS ?= -Wjump-misses-init -Wstrict-prototypes -Wunsuffixed-float-constants -fstack-protector -O2 \
-		-D_FORTIFY_SOURCE=2 -UDEBUG -DNDEBUG -ffunction-sections -fdata-sections -Wall -Wextra -Winit-self \
-		-Wpointer-arith -Wreturn-type -Waddress -Wsequence-point -Wformat-security -Wmissing-include-dirs \
-		-Wfloat-equal -Wundef -Wshadow -Wcast-align -Wconversion -Wredundant-decls -DITT_ARCH_IA64 -fcf-protection
-	CXXFLAGS ?= -Wnon-virtual-dtor -std=c++14 -fstack-protector -O2 -D_FORTIFY_SOURCE=2 -UDEBUG -DNDEBUG \
-		-ffunction-sections -fdata-sections -Wall -Wextra -Winit-self -Wpointer-arith -Wreturn-type -Waddress \
-		-Wsequence-point -Wformat-security -Wmissing-include-dirs -Wfloat-equal -Wundef -Wshadow -Wcast-align \
-		-Wconversion -Wredundant-decls -DITT_ARCH_IA64 -fcf-protection
+	COMMON_FLAGS = -ffunction-sections -fdata-sections \
+	-fstack-protector-strong -D_GLIBCXX_ASSERTIONS -Wall -Wextra -Winit-self -Wpointer-arith -Wreturn-type \
+    -Waddress -Wsequence-point -Wformat-security -Wmissing-include-dirs -Wfloat-equal -Wundef -Wshadow \
+    -Wcast-align -Wconversion -Wredundant-decls -Wimplicit-fallthrough -DITT_ARCH_IA64 -fcf-protection \
+	-fstack-clash-protection
+
+	CC_VERSION := $(shell $(CC) -dumpversion)
+	CC_VERSION_MAJOR := $(shell echo $(CC_VERSION) | cut -f1 -d.)
+	CC_VERSION_MINOR := $(shell echo $(CC_VERSION) | cut -f2 -d.)
+	CC_NO_LESS_THAN_12 := $(shell [ $(CC_VERSION_MAJOR) -ge 12 ] && echo 1 || echo 0)
+
+	ifeq ($(CC_NO_LESS_THAN_12), 1)
+		FORTIFY_SOURCE_VAL:= 3
+	else
+		FORTIFY_SOURCE_VAL:= 2
+	endif
+
+	ifdef DEBUG
+		COMMON_FLAGS += -O0 -ggdb -DDEBUG -UNDEBUG -DSE_DEBUG_LEVEL=SE_TRACE_DEBUG -DDEBUG_MODE=1
+	else
+		COMMON_FLAGS += -O2 -UDEBUG -DNDEBUG -D_FORTIFY_SOURCE=$(FORTIFY_SOURCE_VAL)
+	endif
+
+	CFLAGS = $(COMMON_FLAGS) -Wjump-misses-init -Wstrict-prototypes -Wunsuffixed-float-constants
+	CXXFLAGS = $(COMMON_FLAGS) -Wnon-virtual-dtor -std=c++14
+
 	COMMON_LDFLAGS ?= -Wl,-z,relro,-z,now,-z,noexecstack
 	BUILD_DIR ?= ../out
+	SGX_VER ?= 1.0
 	SGX_MAJOR_VER ?= 1
 	CP ?= cp
 	MKDIR ?= mkdir
+	LN ?= ln -sf
 else
 	include $(TOP_DIR)/buildenv.mk
 endif
 
-
+CFLAGS += -fPIC -Werror
+CXXFLAGS += -fPIC -Werror
 
 ######## Tdx_Attest Settings ########
 QGS_MSG_LFLAGS = -L../../qgs_msg_lib/linux -lqgs_msg
@@ -63,7 +59,7 @@ ifeq ($(V3_DRIVER), 1)
     CFLAGS += -DV3_DRIVER
 endif
 
-Tdx_Attest_C_Flags := $(CFLAGS) -g -MMD -fPIC -Wno-attributes $(Tdx_Attest_Include_Paths)
+Tdx_Attest_C_Flags := $(CFLAGS) -g -MMD -Wno-attributes $(Tdx_Attest_Include_Paths)
 
 LDUFLAGS := $(COMMON_LDFLAGS)
 LDUFLAGS += -Wl,--version-script=tdx_attest.lds -Wl,--gc-sections -g
@@ -88,7 +84,7 @@ install_lib: $(Tdx_Attest_Name) | $(BUILD_DIR)
 ######## Tdx_Attest Objects ########
 $(Tdx_Attest_Name): $(Tdx_Attest_C_Objects)
 	make -C ../../qgs_msg_lib/linux CXXFLAGS="$(CXXFLAGS)"
-	$(CC) $^ -shared -shared -Wl,-soname=$@.$(SGX_MAJOR_VER) $(QGS_MSG_LFLAGS) $(LDUFLAGS) -o $@
+	$(CC) $^ -shared -Wl,-soname=$@.$(SGX_MAJOR_VER) $(QGS_MSG_LFLAGS) $(LDUFLAGS) -o $@
 	@echo "LINK =>  $@"
 
 $(Tdx_Attest_C_Objects): %.o: %.c

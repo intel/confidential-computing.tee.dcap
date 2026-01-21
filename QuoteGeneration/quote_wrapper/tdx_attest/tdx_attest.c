@@ -546,11 +546,12 @@ static tdx_attest_error_t configfs_get_quote(
         return TDX_ATTEST_ERROR_BUSY;
     }
 
-    *pp_quote = realloc(p_quote_buf, quote_size);
-    if (!*pp_quote) {
+    void *temp = realloc(p_quote_buf, quote_size);
+    if (!temp) {
         free(p_quote_buf);
         return TDX_ATTEST_ERROR_OUT_OF_MEMORY;
     }
+    *pp_quote = temp;
 
     if (p_quote_size) {
         *p_quote_size = quote_size;

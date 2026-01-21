@@ -125,34 +125,19 @@ LIB_SYM			:= $(LIB_NAME).sym
 
 ####### Build Flags ##############
 
-# debug mode
-DEBUG_FLAGS := -m64 -O0 -g
+CXXFLAGS += -m64 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -Werror -Wno-overloaded-virtual $(LIB_INCLUDE_PATHS)
+CXXFLAGS += -UPCK_CERT_SELECTION_WITH_COMPONENT
 
-# release mode
-RELEASE_FLAGS := -m64 -O2 $(COMMON_FLAGS)
-
-# basic library c build flags
-C_FLAGS	:= -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -Werror -Wno-overloaded-virtual $(LIB_INCLUDE_PATHS)
-C_FLAGS += -UPCK_CERT_SELECTION_WITH_COMPONENT
-
-# link flags, link openssl crypto
-LINK_FLAGS := -shared -L$(OPENSSL_LIB) -lcrypto -lpthread -ldl
+# Link flags
+LINK_FLAGS := -m64 -shared $(COMMON_LDFLAGS) -L$(OPENSSL_LIB) -lcrypto -lpthread -ldl
 LINK_FLAGS += -Wl,--version-script=pck_cert_selection.lds -Wl,--gc-sections
 
-# debug/release switch
-# release build is built with debug flags and stripped
-ifeq ($(DEBUG), 1)
-        C_FLAGS += $(DEBUG_FLAGS)
-        LINK_FLAGS += $(DEBUG_FLAGS)
-        STRIP_CMD = echo "\t Debug mode - no strip"
-else
-        C_FLAGS += $(RELEASE_FLAGS)
-        LINK_FLAGS += $(DEBUG_FLAGS)
+# Strip only in RELEASE builds
+ifndef DEBUG
         STRIP_CMD = strip -s
+else
+        STRIP_CMD = echo "\t Debug mode - no strip"
 endif
-
-# c++ flags
-CPP_FLAGS	:= $(C_FLAGS) -std=c++14
 
 
 ####### Build Targets ##############
@@ -165,37 +150,37 @@ all: $(BIN_DIR) $(LIB_NAME)
 # local source files compiling
 %.o: %.cpp
 	$(PCKCERTSEL_VERBOSE)echo "Compiling $<..."
-	$(PCKCERTSEL_VERBOSE)$(CXX) $(CPP_FLAGS) -c $< -o $@
+	$(PCKCERTSEL_VERBOSE)$(CXX) $(CXXFLAGS) -c $< -o $@
 	$(PCKCERTSEL_VERBOSE)echo "\t -> $@ done"
 
 # parser source files compiling
 %.o: $(PARSERS_DIR)/%.cpp
 	$(PCKCERTSEL_VERBOSE)echo "Compiling $<..."
-	$(PCKCERTSEL_VERBOSE)$(CXX) $(CPP_FLAGS) -c $< -o $@
+	$(PCKCERTSEL_VERBOSE)$(CXX) $(CXXFLAGS) -c $< -o $@
 	$(PCKCERTSEL_VERBOSE)echo "\t -> $@ done"
 
 # x509 source files compiling
 %.o: $(X509_DIR)/%.cpp
 	$(PCKCERTSEL_VERBOSE)echo "Compiling $<..."
-	$(PCKCERTSEL_VERBOSE)$(CXX) $(CPP_FLAGS) -c $< -o $@
+	$(PCKCERTSEL_VERBOSE)$(CXX) $(CXXFLAGS) -c $< -o $@
 	$(PCKCERTSEL_VERBOSE)echo "\t -> $@ done"
 
 # helpers source files compiling
 %.o: $(HELPERS_DIR)/%.cpp
 	$(PCKCERTSEL_VERBOSE)echo "Compiling $<..."
-	$(PCKCERTSEL_VERBOSE)$(CXX) $(CPP_FLAGS) -c $< -o $@
+	$(PCKCERTSEL_VERBOSE)$(CXX) $(CXXFLAGS) -c $< -o $@
 	$(PCKCERTSEL_VERBOSE)echo "\t -> $@ done"
 
 # json source files compiling
 %.o: $(JSON_DIR)/%.cpp
 	$(PCKCERTSEL_VERBOSE)echo "Compiling $<..."
-	$(PCKCERTSEL_VERBOSE)$(CXX) $(CPP_FLAGS) -c $< -o $@
+	$(PCKCERTSEL_VERBOSE)$(CXX) $(CXXFLAGS) -c $< -o $@
 	$(PCKCERTSEL_VERBOSE)echo "\t -> $@ done"
 
 # utils source files compiling
 %.o: $(UTILS_DIR)/%.cpp
 	$(PCKCERTSEL_VERBOSE)echo "Compiling $<..."
-	$(PCKCERTSEL_VERBOSE)$(CXX) $(CPP_FLAGS) -c $< -o $@
+	$(PCKCERTSEL_VERBOSE)$(CXX) $(CXXFLAGS) -c $< -o $@
 	$(PCKCERTSEL_VERBOSE)echo "\t -> $@ done"
 
 # build library - link into output dir

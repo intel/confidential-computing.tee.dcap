@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2011-2025 Intel Corporation
+# Copyright(c) 2011-2026 Intel Corporation
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -65,25 +65,24 @@ ENCLAVE_INC_PATH := -IInclude -IEnclave -I$(QVE_DIR) -I$(DCAP_QG_DIR)/quote_wrap
 ifdef SERVTD_ATTEST
 	ENCLAVE_INC_PATH += -I$(DCAP_QV_DIR)/dcap_quoteverify/inc -I$(DCAP_QG_DIR)/quote_wrapper/tdx_verify -I$(DCAP_QG_DIR)/quote_wrapper/td_migration/inc -I../../prebuilt/openssl/inc \
 			    -I$(DCAP_QG_DIR)/quote_wrapper/servtd_attest/inc
-ifeq ($(DEBUG), 1)
-	ENCLAVE_CFLAGS += -O0 -ggdb -g
+	ifeq ($(DEBUG), 1)
+		ENCLAVE_CFLAGS += -O0 -ggdb -g
+	endif
 endif
-endif
+
 
 ifdef SERVTD_ATTEST
 ENCLAVE_CFLAGS += $(ENCLAVE_INC_PATH) -fPIC -D_FORTIFY_SOURCE=$(FORTIFY_SOURCE_VAL)
 else
 ENCLAVE_CFLAGS += $(ENCLAVE_INC_PATH) -fpie -fpic -D_FORTIFY_SOURCE=$(FORTIFY_SOURCE_VAL)
 endif
+
 ifneq ($(DEBUG), 1)
     ENCLAVE_CFLAGS += -ffunction-sections -fdata-sections
 endif
-CC_BELOW_4_9 := $(shell expr "`$(CC) -dumpversion`" \< "4.9")
-ifeq ($(CC_BELOW_4_9), 1)
-	ENCLAVE_CFLAGS += -fstack-protector
-else
-	ENCLAVE_CFLAGS += -fstack-protector-strong
-endif
+
+
+ENCLAVE_CFLAGS += -fstack-protector-strong -fstack-clash-protection
 
 ENCLAVE_CXXFLAGS += $(ENCLAVE_CFLAGS) -std=c++17 -DSGX_TRUSTED -DSGX_JWT -DPICOJSON_USE_LOCALE=0
 

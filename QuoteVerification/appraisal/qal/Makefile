@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2011-2025 Intel Corporation
+# Copyright(c) 2011-2026 Intel Corporation
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -34,6 +34,8 @@ QAL_Link_Flags := $(COMMON_LDFLAGS) -L$(WARM_Lib_Path) -liwasm  -ldl -lm -lpthre
 WASM_CONFIG ?= -DCMAKE_BUILD_TYPE=Release
 ifeq ($(DEBUG), 1)
     WASM_CONFIG := -DCMAKE_BUILD_TYPE=Debug
+	QAL_Cpp_Flags += -fsanitize=undefined
+    QAL_C_Flags += -fsanitize=undefined
     QAL_Link_Flags += -fsanitize=undefined
 endif
 # Disable HW bound check to allow potential usage with other languages, such as Golang, Java

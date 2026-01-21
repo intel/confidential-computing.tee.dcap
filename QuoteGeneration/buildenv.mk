@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2011-2025 Intel Corporation
+# Copyright(c) 2011-2026 Intel Corporation
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -7,9 +7,6 @@
 BUILDENV_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 include $(BUILDENV_DIR)/version.mk
-
-# If the value of _FORTIFY_SOURCE is greater than 2, use the value, else use 2.
-FORTIFY_SOURCE_VAL:= $(lastword $(sort $(word 2,$(subst =, ,$(filter -D_FORTIFY_SOURCE=%,$(CFLAGS)))) 2))
 
 CP    := cp -f
 LN    := ln -sf
@@ -64,19 +61,41 @@ INCLUDE :=
 CUR_DIR := $(realpath $(call parent-dir,$(lastword $(wordlist 2,$(words $(MAKEFILE_LIST)),x $(MAKEFILE_LIST)))))
 
 CET_FLAGS :=
-CC_VERSION := $(shell $(CC) -dumpversion)
-CC_NO_LESS_THAN_8 := $(shell expr $(CC_VERSION) \>\= "8")
-ifeq ($(CC_NO_LESS_THAN_8), 1)
-    CET_FLAGS += -fcf-protection
+
+# Compiler detection
+define check_compiler
+    $(shell $(1) -dM -E - < /dev/null 2>/dev/null | grep -q $(2) && echo 1 || echo 0)
+endef
+
+IS_CLANG := $(call check_compiler,$(CC),__clang__)
+IS_GCC := $(call check_compiler,$(CC),__GNUC__)
+
+ifeq ($(IS_CLANG), 1)
+    # For Clang: parse --version
+    CC_VERSION_FULL := $(shell $(CC) --version | head -n1)
+    CC_VERSION := $(shell echo "$(CC_VERSION_FULL)" | sed -n 's/.*clang version \([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')
+else
+    # For GCC: -dumpversion
+    CC_VERSION := $(shell $(CC) -dumpversion)
 endif
 
-# turn on stack protector for SDK
-CC_BELOW_4_9 := $(shell expr "`$(CC) -dumpversion`" \< "4.9")
-ifeq ($(CC_BELOW_4_9), 1)
-    COMMON_FLAGS += -fstack-protector
+CC_VERSION_MAJOR := $(shell echo $(CC_VERSION) | cut -f1 -d.)
+CC_VERSION_MINOR := $(shell echo $(CC_VERSION) | cut -f2 -d.)
+CC_NO_LESS_THAN_7 := $(shell [ $(CC_VERSION_MAJOR) -ge 7 ] && echo 1 || echo 0)
+CC_NO_LESS_THAN_8 := $(shell [ $(CC_VERSION_MAJOR) -ge 8 ] && echo 1 || echo 0)
+CC_NO_LESS_THAN_9 := $(shell [ $(CC_VERSION_MAJOR) -ge 9 ] && echo 1 || echo 0)
+CC_NO_LESS_THAN_11 := $(shell [ $(CC_VERSION_MAJOR) -ge 11 ] && echo 1 || echo 0)
+CC_NO_LESS_THAN_12 := $(shell [ $(CC_VERSION_MAJOR) -ge 12 ] && echo 1 || echo 0)
+
+
+ifeq ($(IS_GCC)$(CC_NO_LESS_THAN_12), 11)
+    FORTIFY_SOURCE_VAL:= 3
+else ifeq ($(IS_CLANG)$(CC_NO_LESS_THAN_9), 11)
+    FORTIFY_SOURCE_VAL:= 3
 else
-    COMMON_FLAGS += -fstack-protector-strong
+    FORTIFY_SOURCE_VAL:= 2
 endif
+
 
 ifdef DEBUG
     COMMON_FLAGS += -O0 -ggdb -DDEBUG -UNDEBUG
@@ -90,13 +109,26 @@ ifdef SE_SIM
 endif
 
 
-COMMON_FLAGS += -ffunction-sections -fdata-sections
+ifeq ($(IS_GCC)$(CC_NO_LESS_THAN_8), 11)
+    CET_FLAGS += -fcf-protection
+else ifeq ($(IS_CLANG)$(CC_NO_LESS_THAN_7), 11)
+    CET_FLAGS += -fcf-protection
+endif
+
+ifeq ($(IS_GCC)$(CC_NO_LESS_THAN_8), 11)
+    COMMON_FLAGS += -fstack-clash-protection
+else ifeq ($(IS_CLANG)$(CC_NO_LESS_THAN_11), 11)
+    COMMON_FLAGS += -fstack-clash-protection
+endif
+
+
+COMMON_FLAGS += -ffunction-sections -fdata-sections -fstack-protector-strong -D_GLIBCXX_ASSERTIONS
 
 # turn on compiler warnings as much as possible
 COMMON_FLAGS += -Wall -Wextra -Winit-self -Wpointer-arith -Wreturn-type \
 		-Waddress -Wsequence-point -Wformat-security \
 		-Wmissing-include-dirs -Wfloat-equal -Wundef -Wshadow \
-		-Wcast-align -Wconversion -Wredundant-decls
+		-Wcast-align -Wconversion -Wredundant-decls -Wimplicit-fallthrough
 
 # additional warnings flags for C
 CFLAGS += -Wjump-misses-init -Wstrict-prototypes -Wunsuffixed-float-constants
