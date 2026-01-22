@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2011-2025 Intel Corporation
+ * Copyright(c) 2011-2026 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -42,30 +42,9 @@ template<typename T>
   struct Defer
   {
     Variable<T> var;
-    
-    explicit Defer(Variable<T> v) : var(std::move(v)) {}
-    
     ~Defer()
     {
       delete[] var.mem;
-    }     
-
-    Defer(Defer&& other) noexcept : var(std::move(other.var))
-    {
-      other.var.mem = nullptr;
-      other.var.var = nullptr;
-    }
-    
-    Defer& operator=(Defer&& other) noexcept
-    {
-      if (this != &other)
-      {
-        delete[] var.mem;
-        var = std::move(other.var);
-        other.var.mem = nullptr;
-        other.var.var = nullptr;
-      }
-      return *this;
     }
   };
 
