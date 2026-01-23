@@ -27,15 +27,14 @@ ifeq ($(wildcard $(TOP_DIR)/buildenv.mk),)
 
 	ifdef DEBUG
 		COMMON_FLAGS += -O0 -ggdb -DDEBUG -UNDEBUG -DSE_DEBUG_LEVEL=SE_TRACE_DEBUG -DDEBUG_MODE=1
-		COMMON_LDFLAGS ?= -O0 -ggdb -Wl,-z,relro,-z,now,-z,noexecstack
 	else
 		COMMON_FLAGS += -O2 -g -UDEBUG -DNDEBUG -D_FORTIFY_SOURCE=$(FORTIFY_SOURCE_VAL)
-		COMMON_LDFLAGS ?= -O2 -g -Wl,-z,relro,-z,now,-z,noexecstack
 	endif
 
 	CFLAGS = $(COMMON_FLAGS) -Wjump-misses-init -Wstrict-prototypes -Wunsuffixed-float-constants
 	CXXFLAGS = $(COMMON_FLAGS) -Wnon-virtual-dtor -std=c++14
 
+	COMMON_LDFLAGS ?= -Wl,-z,relro,-z,now,-z,noexecstack
 	BUILD_DIR ?= ../out
 	SGX_VER ?= 1.0
 	SGX_MAJOR_VER ?= 1
@@ -92,7 +91,7 @@ $(Tdx_Attest_C_Objects): %.o: %.c
 	$(CC) $(Tdx_Attest_C_Flags) -c $(Tdx_Attest_C_Files) -o $@
 
 test_app: $(Tdx_Attest_Name) ../test_tdx_attest.c ../tdx_attest.h
-	$(CC) -I. -L./linux ../test_tdx_attest.c -L. -ltdx_attest $(LDUFLAGS) -o $@
+	$(CC) -I. -L./linux ../test_tdx_attest.c -L. -ltdx_attest -o $@
 
 $(BUILD_DIR):
 	$(MKDIR) $@
