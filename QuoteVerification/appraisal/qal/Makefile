@@ -27,7 +27,7 @@ QAL_Include_Path := -I./ \
 QAL_Cpp_Flags := $(CXXFLAGS) -g -fPIC $(QAL_Include_Path)
 QAL_C_Flags := $(CFLAGS) -g -fPIC $(QAL_Include_Path)
 
-QAL_Link_Flags := $(COMMON_LDFLAGS) -L$(WARM_Lib_Path) -liwasm  -ldl -lm -lpthread \
+QAL_Link_Flags := $(COMMON_LDFLAGS) -L$(WARM_Lib_Path) -lvmlib  -ldl -lm -lpthread \
                 -L$(PREBUILD_OPENSSL_PATH)/lib/linux64 -lcrypto \
                 -Wl,--gc-sections -Wl,--version-script=sgx_dcap_qal.lds
 
@@ -76,7 +76,7 @@ $(Target_Lib_Name): $(QAL_Obj_Files) wasm_lib $(QVL_Cpp_Obj_Files)
 	ln -sf $(Target_Lib_Name) $(Target_Lib_Name).$(SGX_MAJOR_VER)
 
 $(Target_Static_Lib_Name): $(QAL_Obj_Files) wasm_lib
-	 $(CP) $(WARM_Lib_Path)/libiwasm.a $@
+	 $(CP) $(WARM_Lib_Path)/libvmlib.a $@
 	 $(AR) rsD $@ $(QAL_Obj_Files)
 
 sgx_dcap_pcs_com.o: %.o:../../dcap_quoteverify/%.cpp
@@ -105,7 +105,7 @@ $(QAL_CXX_Common_Objs): %.o: ../common/%.cpp
 	$(CXX) $(QAL_Cpp_Flags) -c $< -o $@
 
 wasm_lib:
-	test -f $(WARM_Lib_Path)/libiwasm.a || ($(MKDIR) $(WARM_Lib_Path) && cd $(WARM_Lib_Path) && cmake .. $(WASM_CONFIG) && $(MAKE) vmlib)
+	test -f $(WARM_Lib_Path)/libvmlib.a || ($(MKDIR) $(WARM_Lib_Path) && cd $(WARM_Lib_Path) && cmake .. $(WASM_CONFIG) && $(MAKE) vmlib)
 
 clean:
 	$(RM) $(QAL_Obj_Files) $(Target_Lib_Name) $(Target_Lib_Name).$(SGX_MAJOR_VER) $(Target_Static_Lib_Name) $(BUILD_DIR)/$(Target_Lib_Name) $(QVL_Cpp_Obj_Files)

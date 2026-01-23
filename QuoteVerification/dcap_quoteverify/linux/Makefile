@@ -73,8 +73,7 @@ QAL_C_OBJS := $(QAL_APPRAISAL_DIR)/qae_u.o
 QAL_OBJS := $(sort $(QAL_CPP_OBJS) $(QAL_C_OBJS))
 QAL_Static_Lib_Name := libdcap_qal.a
 WARM_Lib_Path := $(DCAP_EXTERNAL_DIR)/wasm-micro-runtime/product-mini/platforms/linux/build/
-LDUFLAGS += -L$(WARM_Lib_Path) -liwasm
-
+LDUFLAGS += -L$(WARM_Lib_Path) -lvmlib
 ifeq ($(DEBUG), 1)
 	SGX_COMMON_CFLAGS += -fsanitize=undefined
 	SGX_COMMON_CXXFLAGS += -fsanitize=undefined
