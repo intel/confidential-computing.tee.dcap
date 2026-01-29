@@ -896,6 +896,7 @@ static quote3_error_t qve_set_quote_supplemental_data(const Quote &quote,
         supplemental_data->qe_iden_latest_issue_date = supplemental_dates.qe_iden_latest_issue_date;
         supplemental_data->qe_iden_earliest_expiration_date = supplemental_dates.qe_iden_earliest_expiration_date;
         supplemental_data->tcb_level_date_tag = 0;
+        supplemental_data->platform_tcb_level_date_tag = 0;
         supplemental_data->qe_iden_tcb_level_date_tag = 0;
 
         if (memcpy_s(supplemental_data->sa_list, MAX_SA_LIST_SIZE, verCollatInfo.sa_list, MAX_SA_LIST_SIZE) != 0) {
@@ -927,8 +928,11 @@ static quote3_error_t qve_set_quote_supplemental_data(const Quote &quote,
             }
             //QE identity TCB level date
             supplemental_data->qe_iden_tcb_level_date_tag = qe_identity_date;
-            //TCB info TCB level date
-            supplemental_data->tcb_level_date_tag = matching_tcb_info_tcb_date;
+
+            //platform TCB level date
+            supplemental_data->platform_tcb_level_date_tag = matching_tcb_info_tcb_date;
+
+            supplemental_data->tcb_level_date_tag = (matching_tcb_info_tcb_date < qe_identity_date) ? matching_tcb_info_tcb_date : qe_identity_date;
 
         }
 
@@ -2143,7 +2147,7 @@ static quote3_error_t tee_platform_tcb_generator(
         time_to_string(p_supplemental_data->earliest_expiration_date, time_str, sizeof(time_str));
         Add_Mem(time_str, "earliest_expiration_date");
 
-        time_to_string(p_supplemental_data->tcb_level_date_tag, time_str, sizeof(time_str));
+        time_to_string(p_supplemental_data->platform_tcb_level_date_tag, time_str, sizeof(time_str));
         Add_Mem(time_str, "tcb_level_date_tag");
 
         obj_plat_tcb.AddMember("pck_crl_num", p_supplemental_data->pck_crl_num, allocator);
