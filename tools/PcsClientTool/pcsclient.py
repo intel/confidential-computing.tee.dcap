@@ -50,7 +50,7 @@ def main():
     parser_cache = subparsers.add_parser('cache')
     # add optional arguments for cache
     parser_cache.add_argument("-u", "--url", help="The URL of the Intel PCS service; default: https://api.trustedservices.intel.com/sgx/certification/v4/")
-    parser_cache.add_argument("-i", "--input_file", help="The input file name for platform list; default: platform_list.csv")
+    parser_cache.add_argument("-i", "--input_file", help="The input file name for platform list; default: platform_list.json")
     parser_cache.add_argument("-o", "--output_dir", help="The destination directory for storing the generated cache files")
     parser_cache.add_argument("-s", "--sub_dir", help="Store output cache files in subdirectories named according to QE ID or Platform ID", action="store_true")
     parser_cache.add_argument("-e", "--expire", type=Utils.check_expire_hours, help="How many hours the cache files will be valid for. Default is 2160 hours (90 days).")
