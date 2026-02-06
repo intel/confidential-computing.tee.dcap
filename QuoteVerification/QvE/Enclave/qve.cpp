@@ -1081,7 +1081,7 @@ static quote3_error_t servtd_set_quote_supplemental_data(
         }
     }
 
-    p_servtd_suppl_data->tcb_date = tcb.getTcbDate();
+    p_servtd_suppl_data->platform_tcb_date = tcb.getTcbDate();
 
     auto st = tcb.getStatus();
     size_t len = st.length();
@@ -1110,6 +1110,9 @@ static quote3_error_t servtd_set_quote_supplemental_data(
     std::copy_n(qe_status_str, qe_status_len, p_servtd_suppl_data->qe_tcb_status);
 
     p_servtd_suppl_data->qe_tcb_status[qe_status_len] = '\0';
+
+    p_servtd_suppl_data->tcb_date = (p_servtd_suppl_data->platform_tcb_date < p_servtd_suppl_data->qe_tcb_date) ?
+                                    p_servtd_suppl_data->platform_tcb_date : p_servtd_suppl_data->qe_tcb_date;
 
     // Get Tdx Module major version
     p_servtd_suppl_data->tdx_module_major_ver = quote.getTeeTcbSvn()[1];

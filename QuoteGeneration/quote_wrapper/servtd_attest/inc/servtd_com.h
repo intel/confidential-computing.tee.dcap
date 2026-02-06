@@ -82,10 +82,11 @@ struct servtd_tdx_quote_suppl_data {
         sgx_measurement_t          mr_signer;            /*   698    32 */
         sgx_prod_id_t              isv_prod_id;          /*   730     2 */
         sgx_isv_svn_t              isv_svn;              /*   732     2 */
-        time_t                     tcb_date;             /*   734     64 */
-        char                       tcb_status[TCB_STATUS_LEN];           /*   798     32 */
-        time_t                     qe_tcb_date;          /*   830     64 */
-        char                       qe_tcb_status[TCB_STATUS_LEN];        /*   894     32 */
+        time_t                     tcb_date;             /*   734     64 */ /* Represents the effective TCB date, calculated as: min(platform_tcb_date, qe_tcb_date) */
+        time_t                     platform_tcb_date;    /*   798     64 */
+        char                       tcb_status[TCB_STATUS_LEN];           /*   862     32 */
+        time_t                     qe_tcb_date;          /*   894     64 */
+        char                       qe_tcb_status[TCB_STATUS_LEN];        /*   958     32 */
 };
 
 static const unsigned SERVTD_HEADER_SIZE = 4;
