@@ -2,9 +2,9 @@ name: C/C++ CI
 
 on:
   push:
-    branches: [ "main*" ]
+    branches: [ "main*", "release*" ]
   pull_request:
-    branches: [ "main*" ]
+    branches: [ "main*", "release*" ]
 
 permissions:
   actions: read
@@ -19,21 +19,152 @@ concurrency:
 
 jobs:
   build:
-
     runs-on: ${{ vars.RUNNER_CI_BUILD || 'ubuntu-22.04' }}
+    env:
+      SDK_RELEASE_DOWNLOAD_URL: https://download.01.org/intel-sgx/latest/linux-latest/distro/ubuntu22.04-server/
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Choose Intel(R) SGX SDK source
+      shell: bash
+      id: sdk-source
+      env:
+        PAT_TOKEN: ${{ secrets.ALL_REPO_CONTENTS_READ_PAT }}  # If empty, fall back to downloading the SDK from download.01.org
+        SDK_SOURCE_BRANCH: ${{ vars.SDK_SOURCE_BRANCH || github.base_ref || github.ref_name }} # Prefer an SDK build from the same branch as target of the PR (or this branch if this is not a PR), unless overridden by SDK_SOURCE_BRANCH variable
+      run: |
+        if [ -z "$PAT_TOKEN" ]; then
+          echo "No PAT token available, using latest official release of the SDK"
+          echo "## Intel(R) SGX SDK Source: Official Release" >> ${GITHUB_STEP_SUMMARY}
+          echo "Using Intel SGX SDK from the [last official release](${SDK_RELEASE_DOWNLOAD_URL})" >> ${GITHUB_STEP_SUMMARY}
+
+          echo "source=last_release" >> ${GITHUB_OUTPUT}
+        else
+          echo "PAT token available, using last successful build from branch: $SDK_SOURCE_BRANCH"
+          echo "## Intel(R) SGX SDK Source: Last Successful CI Build (non production worthy)" >> ${GITHUB_STEP_SUMMARY}
+          echo -e "Using Intel SGX SDK, preferring last successful build on branch: \`${SDK_SOURCE_BRANCH}\`\n_(fallback 1: last successful build on main branch; fallback 2: last official release)_" >> ${GITHUB_STEP_SUMMARY}
+
+          echo "source=last_successful_ci_build" >> ${GITHUB_OUTPUT}
+          echo "branch=$SDK_SOURCE_BRANCH" >> ${GITHUB_OUTPUT} #note this is a preference only. May fall back to 1) main branch, 2) official release if build artifacts are n/a
+        fi
+
+    - name: Find out last successful SDK build from target branch
+      id: determine-sdk-build
+      if: |
+        steps.sdk-source.outputs.source == 'last_successful_ci_build'
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+      env:
+        SOURCE_BRANCH: "${{ steps.sdk-source.outputs.branch }}"
+        SDK_REPO_NAME: "confidential-computing.sgx"  # Assumed to be in the same GH org as *this* repo
+        SDK_CI_WORKFLOW_NAME: "c-cpp.yml"
+        SDK_CI_ARTIFACT_NAME: 'sdk_installer-ci-preview'
+      with:
+        github-token: ${{ secrets.ALL_REPO_CONTENTS_READ_PAT || github.token }}
+        retries: 2
+        script: |
+          const sourceBranch = process.env.SOURCE_BRANCH;
+          const artifactName = process.env.SDK_CI_ARTIFACT_NAME;
+          const repoName = process.env.SDK_REPO_NAME;
+          const repoOwner = context.repo.owner;
+          const workflowFileName = process.env.SDK_CI_WORKFLOW_NAME;
+
+          // Get the default branch of the SDK repository (to avoid hard-coding it, if it ever changes)
+          const { data: repoInfo } = await github.rest.repos.get({ owner: context.repo.owner, repo: repoName });
+          const defaultBranch = repoInfo.default_branch;
+          console.log(`Detected default branch: ${defaultBranch}`);
+
+          // Helper function, checking if we have a valid build with artifact of interest in a target branch
+          async function findBuildWithArtifact(branch) {
+            console.log(`Checking for last successful workflow named ${workflowFileName} on branch: ${branch}`);
+            const { data: runs } = await github.rest.actions.listWorkflowRuns({
+              owner: repoOwner,
+              repo: repoName,
+              workflow_id: workflowFileName,
+              branch: branch,
+              status: 'success',
+              per_page: 1
+            });
+
+            if (!runs || !runs.workflow_runs || runs.workflow_runs.length === 0) {
+              console.log(`No successful runs found on branch: ${branch}`);
+              return null;
+            }
+
+            const { data: artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: repoOwner, repo: repoName, run_id: runs.workflow_runs[0].id
+            });
+
+            const artifact = artifacts?.artifacts?.find(a => a.name === artifactName);
+            if (!artifact) {
+              console.warn(`Artifact '${artifactName}' not found in run ${runs.workflow_runs[0].id}, despite it being successful`);
+              return null;
+            }
+
+            if (artifact.expired) {
+              console.log(`Artifact '${artifactName}' has expired in run ${runs.workflow_runs[0].id}`);
+              core.notice(`A candidate build artifact '${artifactName}' in build run ${runs.workflow_runs[0].id} has already expired. Falling back to other options.`);
+              return null;
+            }
+
+            console.log(`Found artifact '${artifactName}' in run ${runs.workflow_runs[0].id}`);
+            return runs.workflow_runs[0];
+          }
+
+          let successfulSDKBuildRun = null;
+          const attemptedBranches = [ sourceBranch ];  // PR base ref (or ref if this is not a PR) is the first priority
+          if (sourceBranch !== defaultBranch) {
+            attemptedBranches.push(defaultBranch);  // Then the auto-detected default branch of the SDK repo
+          }
+
+          for (const branch of attemptedBranches) {
+            successfulSDKBuildRun = await findBuildWithArtifact(branch);
+            if (successfulSDKBuildRun) {
+              break;  //terminate on 1st hit
+            }
+          }
+
+          // If no builds found, fall back to official release
+          if (!successfulSDKBuildRun) {
+            console.warn(`No successful CI build with valid SDK build artifact found on branches: ${attemptedBranches.join(', ')}`);
+            core.setOutput('run_id', '');
+            core.notice(`⚠️ No successful SDK builds with valid artifact found on ${attemptedBranches.join(' or ')}. Falling back to official release.`);
+            await core.summary
+              .addRaw('\n')
+              .addRaw(`⚠️ **Warning**: No successful SDK builds with valid artifact found on attempted branches (${attemptedBranches.join(', ')}). Using official release instead.`)
+              .write();
+            return;
+          }
+
+          const runId = successfulSDKBuildRun.id;
+          const repoFullName = successfulSDKBuildRun.repository.full_name;
+          const runBranch = successfulSDKBuildRun.head_branch;
+
+          console.log(`Found valid build: ${runId} in repository: ${repoFullName}`);
+          core.setOutput('run_id', runId);
+          core.setOutput('repository', repoFullName);
+          core.setOutput('artifact_name', artifactName);
+
+          // Add link to the build in summary
+          const buildUrl = `https://github.com/${repoFullName}/actions/runs/${runId}`;
+          await core.summary
+            .addRaw('\n')
+            .addRaw(`📦 Using SDK from build: [${runId}](${buildUrl})`)
+            .write();
+
+          // Notify if build is from non-target branch
+          if (runBranch !== sourceBranch) {
+            core.notice(`ℹ️ SDK build is from default branch of the repository '${runBranch}', not the requested branch '${sourceBranch}' (fallback occurred).`);
+          }
+
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #v6.0.2
       with:
         submodules: recursive
         token: ${{ secrets.ALL_REPO_CONTENTS_READ_PAT || github.token }}
 
-    - name: install dependencies
+    - name: Install dependencies
       shell: bash
       run: |
         set -xeuo pipefail
-        sudo -E apt-get update
-        sudo -E apt-get install -y --no-install-recommends \
+        sudo -E apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15
+        sudo -E apt-get install -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 -y --no-install-recommends \
           libcurl4-openssl-dev \
           libboost-dev \
           libboost-system-dev \
@@ -47,16 +178,45 @@ jobs:
           rpm \
           libssl-dev
 
-    - name: download prebuilt
+    - name: Download prebuilt
       run: QuoteGeneration/download_prebuilt.sh
 
-    - name: download SGXSDK
+    - name: Download SDK from build artifacts (last successful CI build)
+      if: |
+        steps.sdk-source.outputs.source == 'last_successful_ci_build' &&
+        steps.determine-sdk-build.outputs.run_id != ''
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7.0.0
+      with:
+        name: ${{ steps.determine-sdk-build.outputs.artifact_name }}
+        run-id: ${{ steps.determine-sdk-build.outputs.run_id }}
+        repository: ${{ steps.determine-sdk-build.outputs.repository }}
+        github-token: ${{ secrets.ALL_REPO_CONTENTS_READ_PAT || github.token }}
+
+    - name: Download SGX SDK from last official release
+      if: |
+        steps.sdk-source.outputs.source == 'last_release' ||
+        (steps.sdk-source.outputs.source == 'last_successful_ci_build' && steps.determine-sdk-build.outputs.run_id == '')
+      shell: bash
       run: |
-        wget -r -l1 -np -nd --accept 'sgx_linux_x64_sdk_*.bin' https://download.01.org/intel-sgx/latest/linux-latest/distro/ubuntu22.04-server/
-        chmod +x ./sgx_linux_x64_sdk_*.bin
+        set -euxo pipefail
+        wget -r -l1 -np -nd --accept 'sgx_linux_x64_sdk_*.bin' ${SDK_RELEASE_DOWNLOAD_URL};
 
-    - name: install SGXSDK
-      run: ./sgx_linux_x64_sdk_*.bin <<< "yes"
+    - name: Install SGX SDK
+      run: |
+        SDK_FILE=$(ls sgx_linux_x64_sdk_*.bin)  # Note: this can technically yield >1 file, causing subsequent commands to fail, but download steps above ensure only 1 is ever present.
+        echo "SGX SDK installer file name: \`${SDK_FILE}\`" | tee -a ${GITHUB_STEP_SUMMARY}
 
-    - name: build
+        chmod +x "$SDK_FILE"
+        ./"$SDK_FILE" <<< "yes"
+
+        # Convenience only - if the CI-downloaded SDK had provenance disclaimer, add it to the build summary
+        if [ -f "DISCLAIMER.txt" ]; then  # Add SDK provenance info
+          echo "" >> ${GITHUB_STEP_SUMMARY}
+          echo "#### DISCLAIMER (SGX SDK provenance)" >> ${GITHUB_STEP_SUMMARY}
+          echo "\`\`\`" >> ${GITHUB_STEP_SUMMARY}
+          cat DISCLAIMER.txt >> ${GITHUB_STEP_SUMMARY}
+          echo "\`\`\`" >> ${GITHUB_STEP_SUMMARY}
+        fi
+
+    - name: Build (make all)
       run: source ./sgxsdk/environment; make all
