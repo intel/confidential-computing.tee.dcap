@@ -57,7 +57,7 @@ char *base64_encode(const char *input, int length) {
         return NULL;
     }
     const auto output_len = EVP_EncodeBlock(reinterpret_cast<unsigned char *>(output), reinterpret_cast<const unsigned char *>(input), length);
-    if (encoded_len != output_len || output_len < 0)
+    if (output_len < 0 || encoded_len != static_cast<size_t>(output_len))
     {
         free(output);
         return NULL;
