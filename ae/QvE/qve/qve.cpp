@@ -1559,27 +1559,32 @@ quote3_error_t sgx_qve_verify_quote(
 
         CertificateChain qe_identity_issuer_chain;
         if (qe_identity_issuer_chain.parse((reinterpret_cast<const char*>(p_quote_collateral->qe_identity_issuer_chain))) != STATUS_OK) {
-            return SGX_QL_PCK_CERT_CHAIN_ERROR;
+            ret = SGX_QL_PCK_CERT_CHAIN_ERROR;
+            break;
         }
 
         CertificateChain tcb_info_issuer_chain;
         if (tcb_info_issuer_chain.parse((reinterpret_cast<const char*>(p_quote_collateral->tcb_info_issuer_chain))) != STATUS_OK) {
-            return SGX_QL_PCK_CERT_CHAIN_ERROR;
+            ret = SGX_QL_PCK_CERT_CHAIN_ERROR;
+            break;
         }
 
         CertificateChain pck_crl_issuer_chain;
         if (pck_crl_issuer_chain.parse((reinterpret_cast<const char*>(p_quote_collateral->pck_crl_issuer_chain))) != STATUS_OK) {
-            return SGX_QL_PCK_CERT_CHAIN_ERROR;
+            ret = SGX_QL_PCK_CERT_CHAIN_ERROR;
+            break;
         }
 
         pckparser::CrlStore root_ca_crl_store;
         if (root_ca_crl_store.parse(crls[0]) != true) {
-            return SGX_QL_CRL_UNSUPPORTED_FORMAT;
+            ret = SGX_QL_CRL_UNSUPPORTED_FORMAT;
+            break;
         }
 
         pckparser::CrlStore pck_crl_store;
         if (pck_crl_store.parse(crls[1]) != true) {
-            return SGX_QL_CRL_UNSUPPORTED_FORMAT;
+            ret = SGX_QL_CRL_UNSUPPORTED_FORMAT;
+            break;
         }
 
         ret = qve_get_collateral_dates(
