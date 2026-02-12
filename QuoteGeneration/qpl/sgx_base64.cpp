@@ -40,7 +40,7 @@
 
 #ifndef _MSC_VER
 char *base64_encode(const char *input, int length) {
-    if (input == NULL || length <= 0)
+    if (input == NULL || length < 0)
     {
         return NULL;
     }
