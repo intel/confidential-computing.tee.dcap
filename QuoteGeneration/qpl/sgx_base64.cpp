@@ -44,7 +44,11 @@ char *base64_encode(const char *input, int length) {
     {
         return NULL;
     }
-    
+    // Base64: 4 * ((length + 2) / 3) (expected length from EVP_EncodeBlock) must not overflow
+    if (static_cast<size_t>(length) > SIZE_MAX - 2 || (static_cast<size_t>(length) + 2) / 3 > SIZE_MAX / 4)
+    {
+        return NULL;
+    }
     size_t encoded_len = 4 * ((static_cast<size_t>(length) + 2) / 3);
     size_t encoded_terminated_len = encoded_len + 1;     //+1 for the terminating null that EVP_EncodeBlock adds on
     if (encoded_len < static_cast<size_t>(length) || encoded_terminated_len <= encoded_len)
