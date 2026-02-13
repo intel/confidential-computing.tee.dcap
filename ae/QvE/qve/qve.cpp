@@ -2557,8 +2557,7 @@ static void tdx_td_report_generator(
     obj_td_report.AddMember("environment", obj_td_rep_header, allocator);
 
     if(p_quote != NULL){
-        sgx_report2_body_v1_5_t tmp_report;     //always transfer to tdx1.5 report
-        memset(&tmp_report, 0, sizeof(sgx_report2_body_v1_5_t));
+        sgx_report2_body_v1_5_ex_t tmp_report{};     //always transfer to tdx1.5ex report
         if(quote_ver == QUOTE_VERSION_4)
         {
             const sgx_quote4_t *tmp_quote4 = reinterpret_cast<const sgx_quote4_t *> (p_quote);
@@ -2567,7 +2566,12 @@ static void tdx_td_report_generator(
         if(quote_ver == QUOTE_VERSION_5)
         {
             const sgx_quote5_t *tmp_quote5 = reinterpret_cast<const sgx_quote5_t *> (p_quote);
-            memcpy(&tmp_report, tmp_quote5->body, sizeof(sgx_report2_body_v1_5_t));
+
+            if (tmp_quote5->type == TDX15_REPORT) {
+                memcpy(&tmp_report, tmp_quote5->body, sizeof(sgx_report2_body_v1_5_t));
+            } else if (tmp_quote5->type == TDX15EX_REPORT) { // TD Report 1.5 extended
+                memcpy(&tmp_report, tmp_quote5->body, sizeof(sgx_report2_body_v1_5_ex_t));
+            }
         }
 
         Value str_td(kStringType);
@@ -2606,11 +2610,45 @@ static void tdx_td_report_generator(
 
         std::string s_tdx_reportdata  = byte_to_hexstring((uint8_t *) &(tmp_report.report_data), sizeof(tee_report_data_t), true);
         Add_Mem(s_tdx_reportdata, "tdx_reportdata");
+
         //only quote version 5: tdx_mrservicetd
         if(quote_ver == QUOTE_VERSION_5)
         {
             std::string s_mr_servicetd  = byte_to_hexstring((uint8_t *) &(tmp_report.mr_servicetd), sizeof(tee_measurement_t), true);
             Add_Mem(s_mr_servicetd, "tdx_mrservicetd");
+
+            const sgx_quote5_t *tmp_quote5 = reinterpret_cast<const sgx_quote5_t *> (p_quote);
+            if (tmp_quote5->type == TDX15EX_REPORT) { // TDX 1.5 EX
+                std::string s_vmid  = byte_to_hexstring((uint8_t *) &(tmp_report.vmid), sizeof(uint8_t), true);
+                Add_Mem(s_vmid, "tdx_vmid");
+
+                std::string s_td_id  = byte_to_hexstring((uint8_t *) &(tmp_report.td_id), sizeof(tee_td_id_t), true);
+                Add_Mem(s_td_id, "tdx_td_id");
+
+                std::string s_devinfo  = byte_to_hexstring((uint8_t *) &(tmp_report.devinfo), sizeof(tee_devinfo_t), true);
+                Add_Mem(s_devinfo, "tdx_devinfo");
+
+                std::string s_init_server_td_hash  = byte_to_hexstring((uint8_t *) &(tmp_report.init_server_td_hash), sizeof(tee_measurement_t), true);
+                Add_Mem(s_init_server_td_hash, "tdx_init_server_td_hash");
+
+                std::string s_init_server_td_attr  = byte_to_hexstring((uint8_t *) &(tmp_report.init_server_td_attr), sizeof(tee_attributes_t), true);
+                Add_Mem(s_init_server_td_attr, "tdx_init_server_td_attr");
+
+                std::string s_init_cpu_svn  = byte_to_hexstring((uint8_t *) &(tmp_report.init_cpu_svn), sizeof(tee_cpu_svn_t), true);
+                Add_Mem(s_init_cpu_svn, "tdx_init_cpu_svn");
+
+                std::string s_init_tee_tcb_svn  = byte_to_hexstring((uint8_t *) &(tmp_report.init_tee_tcb_svn), sizeof(tee_tcb_svn_t), true);
+                Add_Mem(s_init_tee_tcb_svn, "tdx_init_tee_tcb_svn");
+
+                std::string s_init_tee_fmspc  = byte_to_hexstring((uint8_t *) &(tmp_report.init_tee_fmspc), sizeof(tee_fmspc_t), true);
+                Add_Mem(s_init_tee_fmspc, "tdx_init_tee_fmspc");
+
+                std::string s_curr_server_td_hash  = byte_to_hexstring((uint8_t *) &(tmp_report.curr_server_td_hash), sizeof(tee_measurement_t), true);
+                Add_Mem(s_curr_server_td_hash, "tdx_curr_server_td_hash");
+
+                std::string s_curr_server_td_attr  = byte_to_hexstring((uint8_t *) &(tmp_report.curr_server_td_attr), sizeof(tee_attributes_t), true);
+                Add_Mem(s_curr_server_td_attr, "tdx_curr_server_td_attr");
+            }
         }
     }
     obj_td_report.AddMember("measurement", obj_td_rep_tcb, allocator);

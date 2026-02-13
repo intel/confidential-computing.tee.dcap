@@ -77,6 +77,7 @@ typedef enum _tee_qv_report_type_t{
     SGX_REPORT,
     TDX10_REPORT,
     TDX15_REPORT,
+    TDX15EX_REPORT,
     TDX20_REPORT
 } tee_qv_report_type_t;
 
