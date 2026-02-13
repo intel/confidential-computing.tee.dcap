@@ -207,12 +207,14 @@ To stop/start/restart the service, navigate to "Services" and look for "Intel(R)
         To set logging level:
             No logs:
                 log level = none
-            Functional, general logs:
-                log level = func
-            Default, general logs and errors:
+            Error logs:
                 log level = error
-            Verbose, general logs, errors and verbose:
+            Warning logs:
+                log level = warn
+            Default, general info logs:
                 log level = info
+            Debug logs:
+                log level = debug
 ```
 
 ### Optional configurations in Windows
@@ -243,10 +245,12 @@ To stop/start/restart the service, navigate to "Services" and look for "Intel(R)
         To set logging level, add the following DWORD key "level":
             No logs:
                 "0"
-            Functional, general logs:
+            Error logs:
                 "1"
-            Default, general logs and errors:
+            Warning logs:
                 "2"
-            Verbose, general logs, errors and verbose:
+            Default, general info logs:
                 "3"
+            Debug logs:
+                "4"
 ```
