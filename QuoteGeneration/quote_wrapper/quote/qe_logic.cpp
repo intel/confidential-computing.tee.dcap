@@ -605,9 +605,9 @@ get_qe_path(const TCHAR *p_file_name,
 
 /**
  *
- * @param p_qe_eid
- * @param p_qe_attributes
- * @param p_launch_token
+ * @param p_qe_eid Must not be NULL
+ * @param p_qe_attributes [nullable]
+ * @param p_launch_token [nullable]
  *
  * @return SGX_QL_SUCCESS
  * @return SGX_QL_ENCLAVE_LOAD_ERROR
@@ -641,12 +641,32 @@ quote3_error_t load_qe(sgx_enclave_id_t *p_qe_eid,
                               sgx_misc_attribute_t *p_qe_attributes,
                               sgx_launch_token_t *p_launch_token)
 {
+    if(nullptr == p_qe_eid) {
+        // Hoisting the input param check logic from `sgx_create_enclave()` - fail early, ahead of entering the critical section
+        // Ref: https://github.com/intel/confidential-computing.sgx/blob/8e9ed532cc9b4dc4f86e6d2e1fef45e411892233/psw/urts/urts_com.h#L532-L533
+        SE_PROD_LOG("Error, call sgx_create_enclave QE fail [%s], SGXError:%04x.\n", __FUNCTION__, SGX_ERROR_INVALID_PARAMETER);
+        return static_cast<quote3_error_t>(SGX_ERROR_INVALID_PARAMETER);
+    }
     quote3_error_t ret_val = SGX_QL_SUCCESS;
     sgx_status_t sgx_status = SGX_SUCCESS;
     int launch_token_updated = 0;
     TCHAR qe_enclave_path[kQePathBufferSize] = _T("");
 
-    memset(p_launch_token, 0, sizeof(*p_launch_token));
+    sgx_launch_token_t local_launch_token = {};
+    sgx_launch_token_t *launch_token_ptr = p_launch_token;
+    sgx_misc_attribute_t local_attributes = {};
+    sgx_misc_attribute_t *attributes_ptr = p_qe_attributes;
+
+    // Since v2.28 of the Linux SDK, passing the launch token placeholder is optional (`p_launch_token` may be null in those cases)
+    if (nullptr == p_launch_token) {
+        launch_token_ptr = &local_launch_token;  // If null, use a local buffer to capture the output from sgx_create_enclave (just in case a subsequent run has the out param set and is returning cached value)
+    } else {
+        memset(p_launch_token, 0, sizeof(*p_launch_token));
+    }
+
+    if (nullptr == p_qe_attributes) {
+        attributes_ptr = &local_attributes;  // If null, use a local buffer to capture the output from sgx_create_enclave (just in case a subsequent run has the out param set and is returning cached value)
+    }
 
     int rc = se_mutex_lock(&g_ql_global_data.m_enclave_load_mutex);
     if (0 == rc) {
@@ -664,10 +684,10 @@ quote3_error_t load_qe(sgx_enclave_id_t *p_qe_eid,
         SE_TRACE(SE_TRACE_NOTICE, "Call sgx_create_enclave for QE. %s\n", qe_enclave_path);
         sgx_status = sgx_create_enclave(qe_enclave_path,
                                         0,
-                                        p_launch_token,
+                                        launch_token_ptr,
                                         &launch_token_updated,
                                         p_qe_eid,
-                                        p_qe_attributes);
+                                        attributes_ptr);
 #ifndef _MSC_VER
          if (SGX_ERROR_ENCLAVE_FILE_ACCESS == sgx_status) {
             SE_TRACE(SE_TRACE_NOTICE, "Couldn't open QE file %s and will find legecy QE file.\n", qe_enclave_path);
@@ -680,10 +700,10 @@ quote3_error_t load_qe(sgx_enclave_id_t *p_qe_eid,
             SE_TRACE(SE_TRACE_NOTICE, "Call sgx_create_enclave for QE. %s\n", qe_enclave_path);
             sgx_status = sgx_create_enclave(qe_enclave_path,
                                             0,
-                                            p_launch_token,
+                                            launch_token_ptr,
                                             &launch_token_updated,
                                             p_qe_eid,
-                                            p_qe_attributes);
+                                            attributes_ptr);
         }
 #endif
         if (SGX_SUCCESS != sgx_status) {
@@ -698,20 +718,24 @@ quote3_error_t load_qe(sgx_enclave_id_t *p_qe_eid,
         }
         g_ql_global_data.m_eid = *p_qe_eid;
         if(0 != memcpy_s(&g_ql_global_data.m_launch_token, sizeof(g_ql_global_data.m_launch_token),
-                         p_launch_token, sizeof(*p_launch_token))) {
+                         launch_token_ptr, sizeof(*launch_token_ptr))) {
             ret_val = SGX_QL_ERROR_UNEXPECTED;
             goto CLEANUP;
         }
-        g_ql_global_data.m_attributes = *p_qe_attributes;
+        g_ql_global_data.m_attributes = *attributes_ptr;
     } else {
         SE_TRACE(SE_TRACE_DEBUG, "QE already loaded. 0x%lx\n", g_ql_global_data.m_eid);
         *p_qe_eid = g_ql_global_data.m_eid;
-        if(0 != memcpy_s(p_launch_token, sizeof(*p_launch_token),
-                         &g_ql_global_data.m_launch_token, sizeof(g_ql_global_data.m_launch_token))) {
-            ret_val = SGX_QL_ERROR_UNEXPECTED;
-            goto CLEANUP;
+        if (nullptr != p_launch_token) {  // Since v2.28 of the Linux SDK, passing the launch token placeholder is optional (`p_launch_token` may be null in those cases)
+            if(0 != memcpy_s(p_launch_token, sizeof(*p_launch_token),
+                             &g_ql_global_data.m_launch_token, sizeof(g_ql_global_data.m_launch_token))) {
+                ret_val = SGX_QL_ERROR_UNEXPECTED;
+                goto CLEANUP;
+            }
         }
-        *p_qe_attributes = g_ql_global_data.m_attributes;
+        if (nullptr != p_qe_attributes) {
+            *p_qe_attributes = g_ql_global_data.m_attributes;
+        }
     }
 
     CLEANUP:
