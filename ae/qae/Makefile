@@ -162,8 +162,8 @@ endif
 
 $(Signed_Enclave_Name): $(Enclave_Name)
 ifeq ($(wildcard $(Enclave_Test_Key)),)
-	@echo "There is no enclave test key<Enclave_private_test.pem>."
-	@echo "The project will generate a key<Enclave_private_test.pem> for test."
+	@echo "There is no enclave test key <$(Enclave_Test_Key)>."
+	@echo "The project will generate a key <$(Enclave_Test_Key)> for testing."
 	@openssl genrsa -out $(Enclave_Test_Key) -3 3072
 endif
 	@$(SGX_ENCLAVE_SIGNER) sign -key $(Enclave_Test_Key) -enclave $(Enclave_Name) -out $@ -config $(Enclave_Config_File)
@@ -171,5 +171,5 @@ endif
 
 .PHONY: clean
 clean:
-	rm -f $(Enclave_Name) $(Signed_Enclave_Name)  $(Enclave_Objects) $(Gen_Trusted_Source) *_t.h
+	rm -f $(Enclave_Name) $(Signed_Enclave_Name) $(Enclave_Test_Key) $(Enclave_Objects) $(Gen_Trusted_Source) *_t.h
 	$(RM) -r $(WARM_Lib_SGX_Build)
