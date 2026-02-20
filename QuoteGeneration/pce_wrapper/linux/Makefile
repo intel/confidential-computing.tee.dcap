@@ -40,7 +40,7 @@ INCLUDE += -I$(ROOT_DIR)/ae/common \
            -I$(ROOT_DIR)/ae/inc    \
            -I$(ROOT_DIR)/ae/inc/internal
 
-CXXFLAGS += -fPIC -Werror -g
+CXXFLAGS += -fPIC -Werror -g -DSGX_ENCLAVE_PATH="\"$(SGX_ENCLAVE_PATH)\""
 
 CFLAGS += -fPIC -Werror -g
 Link_Flags := $(SGX_COMMON_CFLAGS) -L$(ROOT_DIR)/build/linux -L$(SGX_SDK)/lib64 -lsgx_urts -lpthread -ldl

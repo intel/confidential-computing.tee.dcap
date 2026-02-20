@@ -103,6 +103,14 @@ static bool get_qae_path(
         p_file_path[buf_size - 1] = '\0'; // null terminate the string
         return true;
     }
+    else if (*SGX_ENCLAVE_PATH)
+    {
+        if ((strlen(SGX_ENCLAVE_PATH) + 1 + 1) > buf_size) {
+            return false;
+        }
+        (void)strcpy(p_file_path, SGX_ENCLAVE_PATH);
+        (void)strcat(p_file_path, "/");
+    }
     else if (0 != dladdr(__builtin_return_address(0), &dl_info) &&
              NULL != dl_info.dli_fname)
     {

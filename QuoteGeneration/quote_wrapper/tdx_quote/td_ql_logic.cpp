@@ -378,6 +378,14 @@ bool tee_att_config_t::get_qe_path(tee_att_ae_type_t type,
         p_file_path[len] = '\0';  //null terminate the string
         return true;
     }
+    else if (*SGX_ENCLAVE_PATH) {
+        if ((strlen(SGX_ENCLAVE_PATH) + 1 + strlen(p_file_name) + 1) > buf_size) {
+            return false;
+        }
+        strcpy(p_file_path, SGX_ENCLAVE_PATH);
+        strcat(p_file_path, "/");
+        strcat(p_file_path, p_file_name);
+    }
     else if(0 != dladdr(__builtin_return_address(0), &dl_info) &&
         NULL != dl_info.dli_fname)
     {
