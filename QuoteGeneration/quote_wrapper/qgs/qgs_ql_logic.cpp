@@ -50,10 +50,10 @@ typedef quote3_error_t (*sgx_ql_set_logging_callback_t)(sgx_ql_logging_callback_
 
 void sgx_ql_logging_callback(sgx_ql_log_level_t level, const char *message) {
     if (level == SGX_QL_LOG_ERROR) {
-        sgx_proc_log_report(1, message);
+        sgx_proc_log_report(1, "%s", message);
 
     } else if (level == SGX_QL_LOG_INFO) {
-        sgx_proc_log_report(3, message);
+        sgx_proc_log_report(3, "%s", message);
     }
 }
 
@@ -113,8 +113,8 @@ namespace intel { namespace sgx { namespace dcap { namespace qgs {
                 sgx_ql_set_logging_callback_t ql_set_logging_callback =
                     (sgx_ql_set_logging_callback_t)dlsym(p_handle, "sgx_ql_set_logging_callback");
                 if (dlerror() == NULL && ql_set_logging_callback) {
-                    // Set log level to SGX_QL_LOG_ERROR
-                    ql_set_logging_callback(sgx_ql_logging_callback, SGX_QL_LOG_ERROR);
+                    ql_set_logging_callback(sgx_ql_logging_callback,
+                                            qgs_debug ? SGX_QL_LOG_INFO : SGX_QL_LOG_ERROR);
                 } else {
                     QGS_LOG_WARN("Failed to set logging callback for the quote provider library.\n");
                 }
@@ -355,8 +355,8 @@ namespace intel { namespace sgx { namespace dcap { namespace qgs {
                 sgx_ql_set_logging_callback_t ql_set_logging_callback =
                     (sgx_ql_set_logging_callback_t)dlsym(p_handle, "sgx_ql_set_logging_callback");
                 if (dlerror() == NULL && ql_set_logging_callback) {
-                    // Set log level to SGX_QL_LOG_ERROR
-                    ql_set_logging_callback(sgx_ql_logging_callback, SGX_QL_LOG_ERROR);
+                    ql_set_logging_callback(sgx_ql_logging_callback,
+                                            qgs_debug ? SGX_QL_LOG_INFO : SGX_QL_LOG_ERROR);
                 } else {
                     QGS_LOG_WARN("Failed to set logging callback for the quote provider library.\n");
                 }

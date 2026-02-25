@@ -36,6 +36,8 @@
 #include "qgs_log.h"
 
 static bool _nosyslog = false;
+bool qgs_debug = false;
+bool qgs_verbose = false;
 
 void qgs_log_init(void)
 {
@@ -67,6 +69,9 @@ void sgx_proc_log_report(int level, const char *format, ...)
     // Make sure strlen(format) >= 1
     // so we can always add newline
     if (!format || !(*format))
+        return;//ignore
+    if (!qgs_verbose &&
+        level == QGS_LOG_LEVEL_INFO)
         return;//ignore
     va_start(ap, format);
     switch(level){
