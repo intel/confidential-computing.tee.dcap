@@ -127,6 +127,7 @@ namespace intel { namespace sgx { namespace dcap { namespace qgs {
                 tee_att_ret = tee_att_init_quote(ptr.get(), &qe_target_info, false, &hash_size, hash);
                 if (TEE_ATT_SUCCESS != tee_att_ret) {
                     QGS_LOG_ERROR("tee_att_init_quote return 0x%x\n", tee_att_ret);
+                    ptr.reset();  // Release context on failure to allow re-initialization on next request
                     return {};
                 } else {
                     QGS_LOG_INFO("tee_att_init_quote return success\n");
@@ -194,6 +195,11 @@ namespace intel { namespace sgx { namespace dcap { namespace qgs {
                     }
                 // Only retry once when the return code is TEE_ATT_ATT_KEY_NOT_INITIALIZED
                 } while (TEE_ATT_ATT_KEY_NOT_INITIALIZED == tee_att_ret && retry--);
+
+                // Release context on failure to allow re-initialization on next request
+                if (resp_error_code != QGS_MSG_SUCCESS) {
+                    ptr.reset();
+                }
             }
             if (resp_error_code == QGS_MSG_SUCCESS) {
                 qgs_msg_error_ret = qgs_msg_gen_get_quote_resp(NULL, 0, quote_buf.data(), size, &p_resp, &resp_size);
@@ -370,7 +376,8 @@ namespace intel { namespace sgx { namespace dcap { namespace qgs {
                     hash);
             if (TEE_ATT_SUCCESS != tee_att_ret) {
                 QGS_LOG_ERROR("tee_att_init_quote return 0x%x\n", tee_att_ret);
-                //ingnore failure
+                ptr.reset();  // Release context on failure to allow re-initialization on next request
+                return {};
             } else {
                 QGS_LOG_INFO("tee_att_init_quote return success\n");
             }
@@ -428,6 +435,11 @@ namespace intel { namespace sgx { namespace dcap { namespace qgs {
                 }
                 // Only retry once when the return code is TEE_ATT_ATT_KEY_NOT_INITIALIZED
             } while (TEE_ATT_ATT_KEY_NOT_INITIALIZED == tee_att_ret && retry--);
+
+            // Release context on failure to allow re-initialization on next request
+            if (TEE_ATT_SUCCESS != tee_att_ret) {
+                ptr.reset();
+            }
 
             return resp;
         } else {
