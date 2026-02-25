@@ -58,8 +58,8 @@ LDTFLAGS_NO_CRYPTO = -L$(SGX_LIBRARY_PATH) -Wl,--whole-archive $(TRTSLIB) -Wl,--
             -Wl,--start-group $(EXTERNAL_LIB_NO_CRYPTO) -Wl,--end-group                    \
             -Wl,--version-script=$(WORK_DIR)/enclave.lds $(ENCLAVE_LDFLAGS)
 
-LDTFLAGS += -Wl,-Map=out.map -Wl,--undefined=version -Wl,--gc-sections
-LDTFLAGS_NO_CRYPTO += -Wl,-Map=out.map -Wl,--undefined=version -Wl,--gc-sections
+LDTFLAGS += -Wl,-Map=out.map -Wl,--undefined=version -Wl,--gc-sections -Wl,-dynamic-linker,
+LDTFLAGS_NO_CRYPTO += -Wl,-Map=out.map -Wl,--undefined=version -Wl,--gc-sections -Wl,-dynamic-linker,
 
 
 vpath %.cpp $(COMMON_DIR)/src:$(LINUX_PSW_DIR)/ae/common
