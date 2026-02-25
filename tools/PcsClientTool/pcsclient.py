@@ -63,8 +63,6 @@ def main():
         parser.print_help()
         parser.exit()
 
-    print(args)
-
     args.func(args)
 
 class Utils:
