@@ -56,12 +56,7 @@ endif
 ifneq ($(DEBUG), 1)
     COMMON_FLAGS += -ffunction-sections -fdata-sections
 endif
-CC_BELOW_4_9 := $(shell expr "`$(CC) -dumpversion`" \< "4.9")
-ifeq ($(CC_BELOW_4_9), 1)
-    COMMON_FLAGS += -fstack-protector
-else
-    COMMON_FLAGS += -fstack-protector-strong
-endif
+COMMON_FLAGS += -fstack-protector-strong
 
 ENCLAVE_CXXFLAGS += $(SGX_COMMON_CXXFLAGS) $(COMMON_FLAGS) -fPIC -std=c++11
 

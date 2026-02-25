@@ -76,12 +76,7 @@ endif
 ifneq ($(DEBUG), 1)
     ENCLAVE_CFLAGS += -ffunction-sections -fdata-sections
 endif
-CC_BELOW_4_9 := $(shell expr "`$(CC) -dumpversion`" \< "4.9")
-ifeq ($(CC_BELOW_4_9), 1)
-	ENCLAVE_CFLAGS += -fstack-protector
-else
-	ENCLAVE_CFLAGS += -fstack-protector-strong
-endif
+ENCLAVE_CFLAGS += -fstack-protector-strong
 
 ENCLAVE_CXXFLAGS += $(ENCLAVE_CFLAGS) -std=c++17 -DSGX_TRUSTED -DSGX_JWT -DPICOJSON_USE_LOCALE=0
 
