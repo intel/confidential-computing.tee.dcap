@@ -69,34 +69,38 @@ pub struct QuoteCollateral {
     pub qe_identity: Vec<c_char>,
 }
 
-impl From<sgx_ql_qve_collateral_t> for QuoteCollateral {
-    fn from(collateral: sgx_ql_qve_collateral_t) -> Self {
-        fn raw_ptr_to_vec(data: *mut c_char, len: u32) -> Vec<c_char> {
-            assert!(!data.is_null());
-            unsafe { slice::from_raw_parts(data, len as _) }.to_vec()
+impl TryFrom<&sgx_ql_qve_collateral_t> for QuoteCollateral {
+    type Error = ();
+
+    fn try_from(collateral: &sgx_ql_qve_collateral_t) -> Result<Self, Self::Error> {
+        fn raw_ptr_to_vec(data: *mut c_char, len: u32) -> Result<Vec<c_char>, ()> {
+            if data.is_null() {
+                return Err(());
+            }
+            Ok(unsafe { slice::from_raw_parts(data, len as _) }.to_vec())
         }
 
-        QuoteCollateral {
+        Ok(QuoteCollateral {
             major_version: unsafe { collateral.__bindgen_anon_1.__bindgen_anon_1.major_version },
             minor_version: unsafe { collateral.__bindgen_anon_1.__bindgen_anon_1.minor_version },
             tee_type: collateral.tee_type,
             pck_crl_issuer_chain: raw_ptr_to_vec(
                 collateral.pck_crl_issuer_chain,
                 collateral.pck_crl_issuer_chain_size,
-            ),
-            root_ca_crl: raw_ptr_to_vec(collateral.root_ca_crl, collateral.root_ca_crl_size),
-            pck_crl: raw_ptr_to_vec(collateral.pck_crl, collateral.pck_crl_size),
+            )?,
+            root_ca_crl: raw_ptr_to_vec(collateral.root_ca_crl, collateral.root_ca_crl_size)?,
+            pck_crl: raw_ptr_to_vec(collateral.pck_crl, collateral.pck_crl_size)?,
             tcb_info_issuer_chain: raw_ptr_to_vec(
                 collateral.tcb_info_issuer_chain,
                 collateral.tcb_info_issuer_chain_size,
-            ),
-            tcb_info: raw_ptr_to_vec(collateral.tcb_info, collateral.tcb_info_size),
+            )?,
+            tcb_info: raw_ptr_to_vec(collateral.tcb_info, collateral.tcb_info_size)?,
             qe_identity_issuer_chain: raw_ptr_to_vec(
                 collateral.qe_identity_issuer_chain,
                 collateral.qe_identity_issuer_chain_size,
-            ),
-            qe_identity: raw_ptr_to_vec(collateral.qe_identity, collateral.qe_identity_size),
-        }
+            )?,
+            qe_identity: raw_ptr_to_vec(collateral.qe_identity, collateral.qe_identity_size)?,
+        })
     }
 }
 
@@ -415,15 +419,17 @@ pub fn tee_qv_get_collateral(quote: &[u8]) -> Result<QuoteCollateral, quote3_err
         qvl_sys::tee_qv_get_collateral(quote.as_ptr(), quote.len() as u32, &mut buf, &mut buf_len)
     } {
         quote3_error_t::SGX_QL_SUCCESS => {
-            assert!(!buf.is_null());
-            assert!(buf_len > 0);
-            assert_eq!(
-                buf.align_offset(mem::align_of::<sgx_ql_qve_collateral_t>()),
-                0
-            );
+            if buf.is_null()
+                || buf_len == 0
+                || buf.align_offset(mem::align_of::<sgx_ql_qve_collateral_t>()) != 0
+            {
+                return Err(quote3_error_t::SGX_QL_NO_QUOTE_COLLATERAL_DATA);
+            }
 
-            let collateral =
-                QuoteCollateral::from(unsafe { *(buf as *const sgx_ql_qve_collateral_t) });
+            // SAFETY: buf is not null, buf_len is not zero, and buf is aligned.
+            let orig_collateral = &unsafe { *(buf as *const sgx_ql_qve_collateral_t) };
+            let collateral = QuoteCollateral::try_from(orig_collateral)
+                .map_err(|_| quote3_error_t::SGX_QL_NO_QUOTE_COLLATERAL_DATA)?;
 
             match unsafe { qvl_sys::tee_qv_free_collateral(buf) } {
                 quote3_error_t::SGX_QL_SUCCESS => Ok(collateral),
