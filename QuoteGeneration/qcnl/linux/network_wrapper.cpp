@@ -218,6 +218,7 @@ static sgx_qcnl_error_t pccs_status_to_qcnl_error(long pccs_status_code) {
     case 403:
         return SGX_QCNL_NETWORK_ERROR;
     case 404: // PCCS_STATUS_NO_CACHE_DATA
+        qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] PCCS returned HTTP 404: No cache data available for this platform.\n");
         return SGX_QCNL_ERROR_STATUS_NO_CACHE_DATA;
     case 461: // PCCS_STATUS_PLATFORM_UNKNOWN
         return SGX_QCNL_ERROR_STATUS_PLATFORM_UNKNOWN;
@@ -226,6 +227,7 @@ static sgx_qcnl_error_t pccs_status_to_qcnl_error(long pccs_status_code) {
     case 503: // PCCS_STATUS_SERVICE_UNAVAILABLE
         return SGX_QCNL_ERROR_STATUS_SERVICE_UNAVAILABLE;
     default:
+        qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] PCCS returned unexpected HTTP status: %ld\n", pccs_status_code);
         return SGX_QCNL_ERROR_STATUS_UNEXPECTED;
     }
 }
@@ -370,8 +372,10 @@ sgx_qcnl_error_t qcnl_https_request(const char *url,
                     qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] Encountered CURL error: (%d) %s \n",
                              curl_ret, f_easy_strerror(curl_ret));
                     ret = curl_error_to_qcnl_error(curl_ret);
-                } else
+                } else {
+                    qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] Request failed for URL: %s (HTTP %ld)\n", url, http_code);
                     ret = pccs_status_to_qcnl_error(http_code);
+                }
                 goto cleanup;
             }
         } while (true);
