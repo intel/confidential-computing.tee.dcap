@@ -1,0 +1,17 @@
+name: Build
+on:
+  pull_request:
+    branches:
+      - 'releases/**'
+      - master
+  workflow_dispatch:
+jobs:
+  QVS:
+    permissions:
+      contents: read
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+      - name: Build qvs
+        run: "./QuoteVerification/QuoteVerificationService/build.sh"
