@@ -59,7 +59,7 @@ typedef sgx_status_t (SGXAPI *sgx_create_enclave_func_t)(const LPCSTR file_name,
 #else
 #define PCE_ENCLAVE_NAME  "libsgx_pce.signed.so.1"
 #define ID_ENCLAVE_NAME   "libsgx_id_enclave.signed.so.1"
-#define SGX_URTS_LIBRARY "libsgx_urts.so"             
+#define SGX_URTS_LIBRARY "libsgx_urts.so.2"
 #define SGX_MULTI_PACKAGE_AGENT_UEFI_LIBRARY "libmpa_uefi.so.1"
 #define FINDFUNCTIONSYM   dlsym
 #define CLOSELIBRARYHANDLE  dlclose
@@ -181,7 +181,7 @@ bool get_urts_library_handle()
 #else
     sgx_urts_handle = dlopen(SGX_URTS_LIBRARY, RTLD_LAZY);
     if (sgx_urts_handle == NULL) {
-        printf("ERROR: didn't find the sgx_urts.so library, please make sure you have installed sgx_urts installer package. \n");
+        printf("ERROR: didn't find the " SGX_URTS_LIBRARY " library, please make sure you have installed sgx_urts installer package. \n");
         return false;
     }
 #endif
