@@ -35,8 +35,6 @@
 #include <time.h>
 #include "tdx_attest.h"
 
-#define devname		"/dev/tdx-attest"
-
 #define HEX_DUMP_SIZE	16
 
 static void print_hex_dump(const char *title, const char *prefix_str,
@@ -81,12 +79,14 @@ int main(int argc, char *argv[])
     uint8_t *p_quote_buf = NULL;
     tdx_rtmr_event_t rtmr_event = {0};
     FILE *fptr = NULL;
+    uint32_t ret = 0;
 
     gen_report_data(report_data.d);
     print_hex_dump("\n\t\tTDX report data\n", " ", report_data.d, sizeof(report_data.d));
 
-    if (TDX_ATTEST_SUCCESS != tdx_att_get_report(&report_data, &tdx_report)) {
-        fprintf(stderr, "\nFailed to get the report\n");
+    ret = tdx_att_get_report(&report_data, &tdx_report);
+    if (TDX_ATTEST_SUCCESS != ret) {
+        fprintf(stderr, "\nFailed to get the report (%d)\n", ret);
         return 1;
     }
     fptr = fopen("report.dat","wb");
@@ -97,9 +97,10 @@ int main(int argc, char *argv[])
     }
     fprintf(stdout, "\nWrote TD Report to report.dat\n");
 
-    if (TDX_ATTEST_SUCCESS != tdx_att_get_quote(&report_data, NULL, 0, &selected_att_key_id,
-        &p_quote_buf, &quote_size, 0)) {
-        fprintf(stderr, "\nFailed to get the quote\n");
+    ret = tdx_att_get_quote(&report_data, NULL, 0, &selected_att_key_id,
+                            &p_quote_buf, &quote_size, 0);
+    if (TDX_ATTEST_SUCCESS != ret) {
+        fprintf(stderr, "\nFailed to get the quote (%d)\n", ret);
         return 1;
     }
     print_hex_dump("\n\t\tTDX quote data\n", " ", p_quote_buf, quote_size);
@@ -120,16 +121,18 @@ int main(int argc, char *argv[])
     }
     rtmr_event.event_data_size = 0;
 
-    if (TDX_ATTEST_SUCCESS != tdx_att_extend(&rtmr_event)) {
-        fprintf(stderr, "\nFailed to extend rtmr[2]\n");
+    ret = tdx_att_extend(&rtmr_event);
+    if (TDX_ATTEST_SUCCESS != ret) {
+        fprintf(stderr, "\nFailed to extend rtmr[2] (%d)\n", ret);
     } else {
         fprintf(stderr, "\nSuccessfully extended rtmr[2]\n");
     }
 
     rtmr_event.rtmr_index = 3;
 
-    if (TDX_ATTEST_SUCCESS != tdx_att_extend(&rtmr_event)) {
-        fprintf(stderr, "\nFailed to extend rtmr[3]\n");
+    ret = tdx_att_extend(&rtmr_event);
+    if (TDX_ATTEST_SUCCESS != ) {
+        fprintf(stderr, "\nFailed to extend rtmr[3] (%d)\n", ret);
     } else {
         fprintf(stderr, "\nSuccessfully extended rtmr[3]\n");
     }
