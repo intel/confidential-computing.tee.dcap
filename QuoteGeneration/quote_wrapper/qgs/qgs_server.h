@@ -34,7 +34,13 @@
 
 #include <stdint.h>
 #include <boost/asio.hpp>
+#include <boost/asio/deadline_timer.hpp>
 #include <boost/scoped_ptr.hpp>
+
+#if BOOST_VERSION >= 108700
+// Asio no longer defines the deprecated io_service alias.
+namespace boost { namespace asio { using io_service = io_context; } }
+#endif
 
 namespace intel { namespace sgx { namespace dcap { namespace qgs {
 
