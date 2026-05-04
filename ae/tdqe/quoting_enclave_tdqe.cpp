@@ -1683,6 +1683,7 @@ uint32_t gen_quote(uint8_t *p_blob,
             memcpy(&(p_report_body_v2->mr_owner), &(p_tee_info_v2->mr_owner), sizeof(p_report_body_v2->mr_owner));
             memcpy(&(p_report_body_v2->mr_owner_config), &(p_tee_info_v2->mr_owner_config), sizeof(p_report_body_v2->mr_owner_config));
             memcpy(p_report_body_v2->rt_mr, p_tee_info_v2->rt_mr, sizeof(p_report_body_v2->rt_mr));
+            memcpy(&(p_report_body_v2->report_data), &(p_td_report->report_mac_struct.report_data), sizeof(p_report_body_v2->report_data));
             if (tee_tcb_svn2_valid) {
                 memcpy(&(p_report_body_v2->tee_tcb_svn2), &(p_tee_tcb_info_v2->tee_tcb_svn2), sizeof(p_report_body_v2->tee_tcb_svn2));
             } else {
