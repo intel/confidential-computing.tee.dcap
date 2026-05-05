@@ -149,13 +149,14 @@ class CollateralFetcher:
         self.args = args
         self.url = args.url or PCS_SERVICE_URL
         self.ApiVersion = Utils.get_api_version_from_url(self.url)
+        self.has_platform_list = bool(args.input_file)
         self.input_file = args.input_file or 'platform_list.json'
         self.output_file = args.output_file or 'platform_collaterals.json'
         self.fmspc_platform = args.platform or 'all'
         self.tcb_update_type = args.tcb_update_type or 'standard'
         self.crl_only = bool(args.crl and not args.input_file)
         self.apikey = ""
-        if not self.crl_only:
+        if not self.crl_only and self.has_platform_list:
             self.apikey = self.credentials.get_pcs_api_key()
         self.pcsclient = PCS(self.url, self.ApiVersion, self.apikey)
         self.sgxext = SgxPckCertificateExtensions()
@@ -171,9 +172,10 @@ class CollateralFetcher:
             if self.crl_only:
                 self._write_output_json()
                 return
-            self._load_platform_list()
-            if not self._fetch_pck_certs():
-                return
+            if self.has_platform_list:
+                self._load_platform_list()
+                if not self._fetch_pck_certs():
+                    return
             if not self._fetch_tcbinfos():
                 return
             if not self._fetch_identity('qe'):
@@ -214,6 +216,9 @@ class CollateralFetcher:
             print("Failed to get processor PCK CRL.")
             return False
         self.output_json["collaterals"]["pckcacrl"]["processorCrl"] = processorCrl[0]
+        if not self.has_platform_list:
+            pckchain = self.output_json["collaterals"]["certificates"][PCS.HDR_PCK_Certificate_Issuer_Chain]
+            pckchain['PROCESSOR'] = processorCrl[1]
 
         if self.ApiVersion >= 3:
             platformCrl = self.pcsclient.get_pck_crl('platform', 'ascii')
@@ -221,6 +226,8 @@ class CollateralFetcher:
                 print("Failed to get platform PCK CRL.")
                 return False
             self.output_json["collaterals"]["pckcacrl"]["platformCrl"] = platformCrl[0]
+            if not self.has_platform_list:
+                pckchain['PLATFORM'] = platformCrl[1]
 
         # output.collaterals.rootcacrl
         spos = processorCrl[1].rfind('-----BEGIN%20CERTIFICATE-----')

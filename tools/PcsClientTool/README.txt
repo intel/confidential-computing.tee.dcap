@@ -14,13 +14,15 @@ positional arguments:
 optional arguments:
   -h, --help       show this help message and exit
 
-1. Fetch platform collateral data from Intel PCS based on the registration data
+1. Fetch platform collateral data from Intel PCS
   ./pcsclient.py fetch [-h] [-u URL] [-i INPUT_FILE] [-o OUTPUT_FILE]
 
   optional arguments:
           -h, --help            show this help message and exit
           -i INPUT_FILE, --input_file INPUT_FILE
-                                The input file name for platform list; default: platform_list.json
+                                The input file name for platform list. When omitted, PCK certificate
+                                fetching is skipped; CRLs, TCB infos, and enclave identities are
+                                still retrieved.
           -o OUTPUT_FILE, --output_file OUTPUT_FILE
                                 The output file name for platform collaterals; default: platform_collaterals.json
           -u URL, --url URL     The URL of the Intel PCS service; default: https://api.trustedservices.intel.com/sgx/certification/v4/
