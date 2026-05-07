@@ -8,5 +8,5 @@ Homepage: https://github.com/intel/SGXDataCenterAttestationPrimitives
 
 Package: libsgx-qe3-logic
 Architecture: amd64
-Depends: libsgx-urts (>= 2.29), libsgx-ae-qe3(>= @dep_version@), libsgx-ae-id-enclave(>= @dep_version@), ${shlibs:Depends}, ${misc:Depends}
+Depends: libsgx-urts (>= 2.30), libsgx-ae-qe3(>= @dep_version@), libsgx-ae-id-enclave(>= @dep_version@), ${shlibs:Depends}, ${misc:Depends}
 Description: Intel(R) Software Guard Extensions Data Center Attestation Primitives

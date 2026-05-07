@@ -11,7 +11,7 @@ Version:        @version@
 Release:        1%{?dist}
 Summary:        Intel(R) Software Guard Extensions Data Center Attestation Primitives
 Group:          Development/Libraries
-Recommends:     libsgx-ae-qve >= %{version}-%{release} libsgx-urts >= 2.29
+Recommends:     libsgx-ae-qve >= %{version}-%{release} libsgx-urts >= 2.30
 
 License:        BSD License
 URL:            https://github.com/intel/confidential-computing.tee.dcap
@@ -23,7 +23,7 @@ Intel(R) Software Guard Extensions Data Center Attestation Primitives
 %package devel
 Summary:        Intel(R) Software Guard Extensions Data Center Attestation Primitives for Developers
 Group:          Development/Libraries
-Requires:       %{name} = %{version}-%{release} libsgx-headers >= 2.29
+Requires:       %{name} = %{version}-%{release} libsgx-headers >= 2.30
 
 %description devel
 Intel(R) Software Guard Extensions Data Center Attestation Primitives for Developers
