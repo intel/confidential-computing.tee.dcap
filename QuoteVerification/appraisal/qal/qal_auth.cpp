@@ -378,14 +378,14 @@ quote3_error_t authenticate_appraisal_result_internal(const uint8_t *p_quote,
             *result = TEE_AUTH_INCOMPLET;
         }
     }
-
+    ret = SGX_QL_SUCCESS;
     // Validate quote if the optional quote is input
     if (p_quote)
     {
         // validate quote hash
         ret = verify_appraisal_result_quote_hash(result_doc, p_quote, quote_size);
     }
-    return SGX_QL_SUCCESS;
+    return ret;
 }
 
 static inline std::string extract_pub_key(std::string pub_key)
@@ -441,7 +441,6 @@ quote3_error_t authenticate_policy_owner_internal(const uint8_t *p_quote,
         return TEE_ERROR_INVALID_PARAMETER;
     }
 
-    quote3_error_t ret = TEE_ERROR_UNEXPECTED;
     internal_result_t auth_res = NO_SIGN_KEY_IN_RESULT;
     for (uint32_t i = 0; i < report_array.Size(); i++)
     {
@@ -516,13 +515,12 @@ quote3_error_t authenticate_policy_owner_internal(const uint8_t *p_quote,
         *result = TEE_AUTH_SUCCESS;
     }
 
-    ret = TEE_SUCCESS;
 
     // Validate quote if the optional quote is input
     if (p_quote)
     {
         // validate quote hash
-        ret = verify_appraisal_result_quote_hash(result_doc, p_quote, quote_size);
+        return verify_appraisal_result_quote_hash(result_doc, p_quote, quote_size);
     }
-    return ret;
+    return TEE_SUCCESS;
 }
