@@ -14,7 +14,7 @@ namespace intel { namespace sgx { namespace dcap { namespace parser { namespace 
                        std::vector<std::string> advisoryIDs)
         : _id(),
           _version(TcbInfo::Version::V2),
-          _cpuSvnComponents(cpuSvnComponents),
+          _cpuSvn(cpuSvnComponents),
           _sgxTcbComponents(),
           _tdxTcbComponents(),
           _pceSvn(pceSvn),
@@ -63,7 +63,7 @@ namespace intel { namespace sgx { namespace dcap { namespace parser { namespace 
 
     const std::vector<uint8_t>& TcbLevel::getCpuSvn() const
     {
-        return _cpuSvnComponents;
+        return _cpuSvn;
     }
 
     const std::vector<TcbComponent>& TcbLevel::getSgxTcbComponents() const
