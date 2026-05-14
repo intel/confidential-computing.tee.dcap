@@ -41,6 +41,7 @@
 #include <curl/curl.h>
 #include <fstream>
 #include <cstdlib>
+#include <stdexcept>
 
 const char* get_config_path() {
     const char* env_path = std::getenv("QCNL_CONF_PATH");
@@ -77,6 +78,10 @@ sgx_qcnl_error_t QcnlConfigLegacy::load_config() {
                     string::size_type sz;
                     retry_times_ = stoi(value, &sz);
                 } catch (const invalid_argument &) {
+                    qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] Invalid value for RETRY_TIMES: '%s', using default.\n", value.c_str());
+                    continue;
+                } catch (const out_of_range &) {
+                    qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] Out-of-range value for RETRY_TIMES: '%s', using default.\n", value.c_str());
                     continue;
                 }
             } else if (name.compare("RETRY_DELAY") == 0) {
@@ -84,6 +89,10 @@ sgx_qcnl_error_t QcnlConfigLegacy::load_config() {
                     string::size_type sz;
                     retry_delay_ = stoi(value, &sz);
                 } catch (const invalid_argument &) {
+                    qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] Invalid value for RETRY_DELAY: '%s', using default.\n", value.c_str());
+                    continue;
+                } catch (const out_of_range &) {
+                    qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] Out-of-range value for RETRY_DELAY: '%s', using default.\n", value.c_str());
                     continue;
                 }
             } else if (name.compare("LOCAL_PCK_URL") == 0) {
@@ -95,6 +104,10 @@ sgx_qcnl_error_t QcnlConfigLegacy::load_config() {
                     if (pck_cache_expire_hours_ > CACHE_MAX_EXPIRY_HOURS)
                         pck_cache_expire_hours_ = CACHE_MAX_EXPIRY_HOURS;
                 } catch (const invalid_argument &) {
+                    qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] Invalid value for PCK_CACHE_EXPIRE_HOURS: '%s', using default.\n", value.c_str());
+                    continue;
+                } catch (const out_of_range &) {
+                    qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] Out-of-range value for PCK_CACHE_EXPIRE_HOURS: '%s', using default.\n", value.c_str());
                     continue;
                 }
             } else if (name.compare("VERIFY_COLLATERAL_CACHE_EXPIRE_HOURS") == 0) {
@@ -104,6 +117,10 @@ sgx_qcnl_error_t QcnlConfigLegacy::load_config() {
                     if (verify_collateral_expire_hours_ > CACHE_MAX_EXPIRY_HOURS)
                         verify_collateral_expire_hours_ = CACHE_MAX_EXPIRY_HOURS;
                 } catch (const invalid_argument &) {
+                    qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] Invalid value for VERIFY_COLLATERAL_CACHE_EXPIRE_HOURS: '%s', using default.\n", value.c_str());
+                    continue;
+                } catch (const out_of_range &) {
+                    qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] Out-of-range value for VERIFY_COLLATERAL_CACHE_EXPIRE_HOURS: '%s', using default.\n", value.c_str());
                     continue;
                 }
             } else if (name.compare("LOCAL_CACHE_ONLY") == 0 &&

@@ -69,14 +69,18 @@ sgx_qcnl_error_t prepare_curl() {
         }
 
         const char *libcurl_name = LIBCURL_NAME;
-        // With the dlopen (RTLD_DEEPBIND) for libcurl, it forces the libcurl to look up symbols in its dependencies.
-        g_dlopen_handle = dlopen(LIBCURL_NAME, RTLD_LAZY | RTLD_DEEPBIND);
-        if (NULL == g_dlopen_handle) {
-            libcurl_name = LIBCURL4_NAME;
-            g_dlopen_handle = dlopen(LIBCURL4_NAME, RTLD_LAZY | RTLD_DEEPBIND);
+        if (g_dlopen_handle == NULL) {
+            // With the dlopen (RTLD_DEEPBIND) for libcurl, it forces the libcurl to look up symbols in its dependencies.
+            // Guard with g_dlopen_handle == NULL to avoid leaking repeated dlopen references on retries after
+            // a partial failure (e.g. dlsym or curl_global_init failure on a previous call).
+            g_dlopen_handle = dlopen(LIBCURL_NAME, RTLD_LAZY | RTLD_DEEPBIND);
             if (NULL == g_dlopen_handle) {
-                qcnl_log(SGX_QL_LOG_ERROR, "Cannot open shared library %s or %s.", LIBCURL_NAME, LIBCURL4_NAME);
-                break;
+                libcurl_name = LIBCURL4_NAME;
+                g_dlopen_handle = dlopen(LIBCURL4_NAME, RTLD_LAZY | RTLD_DEEPBIND);
+                if (NULL == g_dlopen_handle) {
+                    qcnl_log(SGX_QL_LOG_ERROR, "Cannot open shared library %s or %s.", LIBCURL_NAME, LIBCURL4_NAME);
+                    break;
+                }
             }
         }
         f_global_init = (CURLcode(*)(long))dlsym(g_dlopen_handle, "curl_global_init");
@@ -131,7 +135,11 @@ sgx_qcnl_error_t prepare_curl() {
             break;
         }
 
-        f_global_init(CURL_GLOBAL_DEFAULT);
+        CURLcode curl_init_ret = f_global_init(CURL_GLOBAL_DEFAULT);
+        if (curl_init_ret != CURLE_OK) {
+            qcnl_log(SGX_QL_LOG_ERROR, "curl_global_init failed with error: %d.", curl_init_ret);
+            break;
+        }
         libcurl_ready = true;
         ret = SGX_QCNL_SUCCESS;
     } while(0);

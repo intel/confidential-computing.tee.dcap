@@ -159,6 +159,10 @@ static void close_sofile(void)
     int rc = se_mutex_lock(&g_dlopen_mutex);
     if (rc == 0) {
         SE_TRACE(SE_TRACE_ERROR, "Failed to lock mutex\n");
+        // Return without calling dlclose() to avoid unprotected access to
+        // g_dlopen_handle. This is called only from the destructor, so the
+        // OS will reclaim the resource on process exit regardless.
+        return;
     }
     if (g_dlopen_handle != NULL) {
         dlclose(g_dlopen_handle);
