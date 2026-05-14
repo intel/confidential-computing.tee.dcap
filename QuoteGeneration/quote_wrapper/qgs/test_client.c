@@ -106,7 +106,7 @@ static int test_raw_request(void)
         s = connect_qgs_vsock();
         if (s < 0) {
             fprintf(stderr, "failed\n");
-                return 1;
+            return 1;
         }
     }
     fprintf(stderr, "success\n");
