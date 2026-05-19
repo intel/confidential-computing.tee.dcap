@@ -1,32 +1,7 @@
 /*
- * Copyright (C) 2011-2021 Intel Corporation. All rights reserved.
+ * Copyright(c) 2011-2026 Intel Corporation
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in
- *     the documentation and/or other materials provided with the
- *     distribution.
- *   * Neither the name of Intel Corporation nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 /**
  * File: dllmain.cpp : Defines the entry point for the DLL application.
@@ -46,6 +21,7 @@
 #include "se_thread.h"
 #include <sgx_pce.h>
 #include "sgx_dcap_qv_internal.h"
+#include "dcap_secure_load_library.h"
 
 #ifndef _DEBUG
 #define SGX_URTS_LIB_FILE_NAME "sgx_urts.dll"
@@ -116,7 +92,7 @@ bool sgx_dcap_load_qpl()
 
         //try to dynamically load dcap_quoteprov.dll
         //
-        g_qpl_handle = LoadLibrary(TEXT(SGX_QL_QUOTE_CONFIG_LIB_FILE_NAME));
+        g_qpl_handle = dcap_secure_load_library(TEXT(SGX_QL_QUOTE_CONFIG_LIB_FILE_NAME));
         if (g_qpl_handle == NULL) {
             SE_TRACE(SE_TRACE_ERROR, "Couldn't load the Quote Provider library %s.\n", SGX_QL_QUOTE_CONFIG_LIB_FILE_NAME);
             break;
@@ -240,7 +216,7 @@ bool sgx_dcap_load_urts()
 
         //try to dynamically load sgx_urts.dll
         //
-		g_urts_handle = LoadLibrary(TEXT(SGX_URTS_LIB_FILE_NAME));
+		g_urts_handle = dcap_secure_load_library(TEXT(SGX_URTS_LIB_FILE_NAME));
         if (g_urts_handle == NULL) {
             SE_TRACE(SE_TRACE_DEBUG, "Couldn't load urts library %s.\n", SGX_URTS_LIB_FILE_NAME);
             break;

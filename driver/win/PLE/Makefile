@@ -3,7 +3,7 @@
 #
 # GPL LICENSE SUMMARY
 #
-# Copyright(c) 2016-2018 Intel Corporation.
+# Copyright(c) 2016-2026 Intel Corporation.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -20,7 +20,7 @@
 #
 # BSD LICENSE
 #
-# Copyright(c) 2016-2018 Intel Corporation.
+# Copyright(c) 2016-2026 Intel Corporation.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -65,7 +65,7 @@ CC = gcc
 LD = ld
 CFLAGS = -Wall -Werror -static -nostdlib -nostartfiles -fPIE -fno-stack-protector -mrdrnd
 LDFLAGS = -m elf_x86_64 -z max-page-size=0x200000
-INCLUDES = -I./include
+INCLUDES = -I./include -I../../../QuoteGeneration/common/inc/internal
 
 ifneq ($(SIG_FILE),)
 	CSS_SIG_FILE = $(shell realpath $(SIG_FILE))

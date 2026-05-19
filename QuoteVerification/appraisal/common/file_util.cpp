@@ -1,9 +1,8 @@
 /*
- * Copyright(c) 2011-2025 Intel Corporation
+ * Copyright(c) 2011-2026 Intel Corporation
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +14,7 @@
 
 #include "file_util.h"
 #include "se_trace.h"
+#include "dcap_safe_file_ops.h"
 
 bool write_buffer_to_file(const char *filename, const char *mode, const uint8_t *buf, size_t bsize, long offset)
 {
@@ -23,7 +23,7 @@ bool write_buffer_to_file(const char *filename, const char *mode, const uint8_t 
     {
         return false;
     }
-    if (!(file = fopen(filename, mode)))
+    if (!(file = dcap_safe_fopen(filename, mode)))
     {
         return false;
     }
@@ -52,7 +52,7 @@ uint8_t *read_file_to_buffer(const char *filename, size_t *ret_size)
         return NULL;
     }
 
-    if (!(file = fopen(filename, "rb")))
+    if (!(file = dcap_safe_fopen(filename, "rb")))
     {
         return NULL;
     }

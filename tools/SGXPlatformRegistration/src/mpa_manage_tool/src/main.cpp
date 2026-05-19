@@ -1,32 +1,7 @@
 /*
- * Copyright (C) 2011-2026 Intel Corporation. All rights reserved.
+ * Copyright(c) 2011-2026 Intel Corporation
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in
- *     the documentation and/or other materials provided with the
- *     distribution.
- *   * Neither the name of Intel Corporation nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 /**
  * File: main.cpp
@@ -51,6 +26,9 @@
 #include "AgentConfiguration.h"
 #include "management_logger.h"
 #include "common.h"
+#ifdef _WIN32
+#include "dcap_secure_load_library.h"
+#endif
 
 #define MANAGMENT_TOOL_GET_PLATFORM_MANIFEST       "-get_platform_manifest"
 #define MANAGMENT_TOOL_GET_ADD_PACKAGE_REQUEST     "-get_add_package"
@@ -68,7 +46,8 @@
 #define COVERT_TO_NEG(num)      num * (-1)
 
 #ifndef _WIN32
-#define fopen_s(pf,filename,mode) (((*(pf))=fopen((filename),(mode)))==NULL?1:0)
+#include "dcap_safe_file_ops.h"
+#define fopen_s(pf,filename,mode) (((*(pf))=dcap_safe_fopen((filename),(mode)))==NULL?1:0)
 #define sscanf_s sscanf
 #endif
 
@@ -456,6 +435,15 @@ int main(int argc, char * argv[]) {
     int numOfCommands = 0;
     char *filename = NULL;
     MPConfigurations conf;
+
+#ifdef _WIN32
+    if (!dcap_harden_dll_search_path()) {
+        management_log_message(MP_REG_LOG_LEVEL_ERROR,
+            "dcap_harden_dll_search_path failed (GetLastError=%lu).\n",
+            (unsigned long)GetLastError());
+        return COVERT_TO_NEG(MP_UNEXPECTED_ERROR);
+    }
+#endif
 
     gargc = argc;
     if(gargc ==1 ) {

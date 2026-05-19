@@ -3,7 +3,7 @@
 //
 // GPL LICENSE SUMMARY
 //
-// Copyright(c) 2016-2018 Intel Corporation.
+// Copyright(c) 2016-2026 Intel Corporation.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of version 2 of the GNU General Public License as
@@ -20,7 +20,7 @@
 //
 // BSD LICENSE
 //
-// Copyright(c) 2016-2018 Intel Corporation.
+// Copyright(c) 2016-2026 Intel Corporation.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
@@ -57,7 +57,11 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <ctype.h>
+#include <string.h>
 #include <sys/stat.h>
+
+#include "dcap_safe_file_ops.h"
+#define SAFE_FOPEN(p, m) dcap_safe_fopen((p), (m))
 
 
 static void exit_usage(const char *program)
@@ -111,6 +115,10 @@ int main(int argc, char **argv)
 	char upper_name[256];
 	char *s, *p;
 
+#ifdef _MSC_VER
+    (void)SetDllDirectory(TEXT(""));
+#endif
+
 	program = argv[0];
 
 	do {
@@ -129,13 +137,13 @@ int main(int argc, char **argv)
 	if (argc < 3)
 		exit_usage(program);
 
-    output = fopen(argv[1], "w");
+    output = SAFE_FOPEN(argv[1], "w");
 	if (!output) {
 		perror("fopen");
 		goto out;
 	}
 
-	input = fopen(argv[0], "rb");
+	input = SAFE_FOPEN(argv[0], "rb");
 	if (!input) {
 		perror("fopen");
 		goto out;

@@ -1,5 +1,6 @@
 /*
- * Copyright(c) 2011-2025 Intel Corporation
+ * Copyright(c) 2011-2026 Intel Corporation
+ *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 /**
@@ -31,6 +32,7 @@ uint32_t COMM_API sgx_tool_get_launch_token(
 #include <sgx_quote_3.h>
 #include "network_wrapper.h"
 #include "utility.h"
+#include "dcap_safe_file_ops.h"
      
 #define MAX_PATH 260
 #define VER_FILE_DESCRIPTION_STR    "Intel(R) Software Guard Extensions PCK Cert ID Retrieval Tool"
@@ -441,11 +443,7 @@ int main(int argc, const char* argv[])
 
     //check whether it is needed to save the collected data to a file
     if (output_filename.empty() == false) {
-#ifdef _MSC_VER
-        if (0 != fopen_s(&pFile, output_filename.c_str(), "w")) {
-#else
-        if (NULL == (pFile = fopen(output_filename.c_str(), "w"))) {
-#endif
+        if (NULL == (pFile = dcap_safe_fopen(output_filename.c_str(), "w"))) {
             fprintf(stderr, "\nError opening %s output file.\n", output_filename.c_str());
             return ret;
         }

@@ -1,8 +1,8 @@
 /*
  * Copyright(c) 2011-2026 Intel Corporation
+ *
  * SPDX-License-Identifier: BSD-3-Clause
  */
-
 #ifndef SERVTD_ATTEST
 
 #define _GNU_SOURCE
@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <syslog.h>
 #include <unistd.h>
+#include "dcap_safe_file_ops.h"
 
 #define TDX_ATTEST_DEV_PATH "/dev/tdx_guest"
 #define CFG_FILE_PATH "/etc/tdx-attest.conf"
@@ -119,7 +120,7 @@ static unsigned int get_vsock_port(void)
     long long_num = 0;
     unsigned int port = WRONG_PORT_NUMBER;
 
-    p_config_fd = fopen(CFG_FILE_PATH, "r");
+    p_config_fd = dcap_safe_fopen(CFG_FILE_PATH, "r");
     if (NULL == p_config_fd) {
         TDX_TRACE;
         return port;
@@ -328,7 +329,7 @@ static tdx_attest_error_t prepare_configfs(char **p_configfs_path) {
     // For Intel TDX, provider is "tdx_guest"
     char provider_path[MAX_PATH];
     snprintf(provider_path, sizeof(provider_path), "%s/provider", configfs_path);
-    int fd = open(provider_path, O_RDONLY);
+    int fd = open(provider_path, O_RDONLY | O_NOFOLLOW);
     if (-1 == fd) {
         TDX_TRACE;
         syslog(LOG_ERR, "libtdx_attest: cannot open configFS `%s`.", provider_path);
@@ -351,7 +352,7 @@ static tdx_attest_error_t prepare_configfs(char **p_configfs_path) {
 
 static tdx_attest_error_t read_configfs_generation(char *generation_path, long* p_generation)
 {
-    int fd = open(generation_path, O_RDONLY);
+    int fd = open(generation_path, O_RDONLY | O_NOFOLLOW);
     if (-1 == fd) {
         TDX_TRACE;
         syslog(LOG_ERR, "libtdx_attest: failed to open configFS generation.");
@@ -412,7 +413,7 @@ static tdx_attest_error_t configfs_get_quote(
 
     // Lock `inblob` to avoid other processes accessing it using libtdx_attest
     // Will unlock it via close()
-    int fd_lock = open(inblob_path, O_WRONLY | O_CLOEXEC);
+    int fd_lock = open(inblob_path, O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
     if (-1 == fd_lock) {
         TDX_TRACE;
         syslog(LOG_ERR, "libtdx_attest: failed to open configFS inblob.");
@@ -437,7 +438,7 @@ static tdx_attest_error_t configfs_get_quote(
     }
 
     // Write TDX report data to inblob
-    int fd_inblob = open(inblob_path, O_WRONLY);
+    int fd_inblob = open(inblob_path, O_WRONLY | O_NOFOLLOW);
     if (-1 == fd_inblob) {
         TDX_TRACE;
         close(fd_lock);
@@ -487,7 +488,7 @@ static tdx_attest_error_t configfs_get_quote(
     // Read TDX quote from outblob
     char outblob_path[MAX_PATH];
     snprintf(outblob_path, sizeof(outblob_path), "%s/outblob", configfs_path);
-    int fd = open(outblob_path, O_RDONLY);
+    int fd = open(outblob_path, O_RDONLY | O_NOFOLLOW);
     if (-1 == fd) {
         TDX_TRACE;
         syslog(LOG_ERR, "libtdx_attest: failed to open configFS outblob.");
@@ -942,7 +943,7 @@ static int sysfs_extend_rtmr(uint64_t rtmr, const uint8_t *data)
         return -ENAMETOOLONG;
     }
 
-    fd = open(mrfname, O_WRONLY);
+    fd = open(mrfname, O_WRONLY | O_NOFOLLOW);
     if (fd < 0) {
         int err = -errno;
         syslog(LOG_ERR, "libtdx_attest: failed to open RTMR file %s.", mrfname);

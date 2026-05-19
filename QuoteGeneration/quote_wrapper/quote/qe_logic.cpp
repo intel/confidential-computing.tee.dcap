@@ -1,9 +1,8 @@
 /*
- * Copyright(c) 2011-2025 Intel Corporation
+ * Copyright(c) 2011-2026 Intel Corporation
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
-
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
@@ -30,6 +29,10 @@
 
 #include "qe3_u.h"
 #include "id_enclave_u.h"
+#include "dcap_safe_file_ops.h"
+#ifdef _MSC_VER
+#include "dcap_secure_load_library.h"
+#endif
 #ifndef _MSC_VER
     #define QE3_ENCLAVE_NAME "libsgx_qe3.signed.so.1"
     #define QE3_ENCLAVE_NAME_LEGACY "libsgx_qe3.signed.so"
@@ -68,6 +71,22 @@ static inline errno_t memcpy_s(void *dest, size_t numberOfElements, const void *
     return 0;
 }
 #define strcpy_s(dst, dstsize, src) strncpy(dst, src, dstsize)
+#endif
+
+#ifdef _MSC_VER
+/* Securely load the QPL DLL and emit the standard "found"/"missing"
+ * trace lines. Returns NULL on failure (with GetLastError() preserved). */
+static HINSTANCE load_qpl_library_logged(void)
+{
+    HINSTANCE h = dcap_secure_load_library(TEXT(SGX_QL_QUOTE_CONFIG_LIB_FILE_NAME));
+    if (h != NULL) {
+        SE_TRACE(SE_TRACE_NOTICE, "Found the Quote's dependent library. %s.\n",
+                 SGX_QL_QUOTE_CONFIG_LIB_FILE_NAME);
+    } else {
+        SE_PROD_LOG("Couldn't find the platform library. %d\n", GetLastError());
+    }
+    return h;
+}
 #endif
 
 
@@ -245,9 +264,11 @@ void * get_qpl_handle()
 {
     void * handle = NULL;
     if (g_ql_global_data.qpl_path[0]) {
-        handle = dlopen(g_ql_global_data.qpl_path, RTLD_LAZY);
+        // Use dcap_safe_dlopen to atomically reject symlinks via O_NOFOLLOW
+        handle = dcap_safe_dlopen(g_ql_global_data.qpl_path, RTLD_LAZY);
         if (NULL == handle) {
-            SE_PROD_LOG("Cannot open Quote Provider Library %s\n", g_ql_global_data.qpl_path);
+            const char *dl_err = dlerror();
+            SE_PROD_LOG("Cannot open Quote Provider Library %s: %s\n", g_ql_global_data.qpl_path, dl_err ? dl_err : strerror(errno));
         }
         return handle;
     }
@@ -417,9 +438,8 @@ static quote3_error_t get_platform_quote_cert_data(sgx_ql_pck_cert_id_t *p_pck_c
         dlclose(handle);
     }
     #else
-    handle = LoadLibrary(TEXT(SGX_QL_QUOTE_CONFIG_LIB_FILE_NAME));
+    handle = load_qpl_library_logged();
     if (handle != NULL) {
-        SE_TRACE(SE_TRACE_NOTICE, "Found the Quote's dependent library. %s.\n", SGX_QL_QUOTE_CONFIG_LIB_FILE_NAME);
 
         sgx_qpl_global_init_func_t p_sgx_qpl_global_init = (sgx_qpl_global_init_func_t)GetProcAddress(handle, "sgx_qpl_global_init");
         if (NULL != p_sgx_qpl_global_init) {
@@ -489,9 +509,6 @@ static quote3_error_t get_platform_quote_cert_data(sgx_ql_pck_cert_id_t *p_pck_c
         else {
             SE_PROD_LOG("Couldn't find 'sgx_ql_get_quote_config()' and 'sgx_ql_free_quote_config()' in the platform library. %d\n", GetLastError());
         }
-    }
-    else {
-        SE_PROD_LOG("Couldn't find the platform library. %d\n", GetLastError());
     }
     CLEANUP:
     if (NULL != p_sgx_free_quote_config) {
@@ -996,9 +1013,8 @@ static quote3_error_t write_persistent_data(const uint8_t *p_buf,
         SE_PROD_LOG("Couldn't find the platform library. %s\n", dlerror());
     }
     #else
-    handle = LoadLibrary(TEXT(SGX_QL_QUOTE_CONFIG_LIB_FILE_NAME));
+    handle = load_qpl_library_logged();
     if (handle != NULL) {
-        SE_TRACE(SE_TRACE_NOTICE, "Found the Quote's dependent library. %s.\n", SGX_QL_QUOTE_CONFIG_LIB_FILE_NAME);
         p_sgx_qe_write_persistent_data = (sgx_write_persistent_data_func_t)GetProcAddress(handle, "sgx_ql_write_persistent_data");
         if (NULL != p_sgx_qe_write_persistent_data) {
             SE_TRACE(SE_TRACE_NOTICE, "Found the sgx_ql_write_persistent_data API.\n");
@@ -1013,9 +1029,6 @@ static quote3_error_t write_persistent_data(const uint8_t *p_buf,
             SE_TRACE(SE_TRACE_WARNING, "Couldn't find 'sgx_ql_write_persistent_data()' in the platform library. %d\n", GetLastError());
         }
         FreeLibrary(handle);
-    }
-    else {
-        SE_PROD_LOG("Couldn't find the platform library. %d\n", GetLastError());
     }
     #endif
 
@@ -1077,9 +1090,8 @@ static quote3_error_t read_persistent_data(uint8_t *p_buf,
         SE_PROD_LOG("Couldn't find the platform library. %s\n", dlerror());
     }
     #else
-    handle = LoadLibrary(TEXT(SGX_QL_QUOTE_CONFIG_LIB_FILE_NAME));
+    handle = load_qpl_library_logged();
     if (handle != NULL) {
-        SE_TRACE(SE_TRACE_NOTICE, "Found the Quote's dependent library. %s.\n", SGX_QL_QUOTE_CONFIG_LIB_FILE_NAME);
         p_sgx_qe_read_persistent_data = (sgx_read_persistent_data_func_t)GetProcAddress(handle, "sgx_ql_read_persistent_data");
         if (NULL != p_sgx_qe_read_persistent_data) {
             SE_TRACE(SE_TRACE_NOTICE, "Found the sgx_ql_read_persistent_data API.\n");
@@ -1094,9 +1106,6 @@ static quote3_error_t read_persistent_data(uint8_t *p_buf,
             SE_TRACE(SE_TRACE_WARNING, "Couldn't find 'sgx_ql_read_persistent_data()' in the platform library. %d\n", GetLastError());
         }
         FreeLibrary(handle);
-    }
-    else {
-        SE_PROD_LOG("Couldn't find the platform library. %d\n", GetLastError());
     }
 
     #endif

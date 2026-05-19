@@ -1,32 +1,7 @@
 /*
- * Copyright (C) 2011-2021 Intel Corporation. All rights reserved.
+ * Copyright(c) 2011-2026 Intel Corporation
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in
- *     the documentation and/or other materials provided with the
- *     distribution.
- *   * Neither the name of Intel Corporation nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 /** File: local_cache.h
  *
@@ -54,6 +29,10 @@
 #else
 #include <dirent.h>
 #include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
 #endif
 
 using namespace std;
@@ -150,12 +129,6 @@ public:
 #ifdef _MSC_VER
                 wstring wskey(key.begin(), key.end());
                 const auto file_name = cache_dir_ + L"\\" + wskey;
-#else
-                string lowercase = key;
-                std::transform(lowercase.begin(), lowercase.end(), lowercase.begin(),
-                               [](unsigned char c) { return std::tolower(c); });
-                const auto file_name = cache_dir_ + "/" + lowercase;
-#endif
                 ifstream ifs(file_name, std::ios::in | std::ios::binary);
                 if (ifs.is_open()) {
                     qcnl_log(SGX_QL_LOG_INFO, "[QCNL] Cache hit in folder '%s'. \n", cache_dir_.c_str());
@@ -165,6 +138,38 @@ public:
                     cache_hit = true;
                 }
                 ifs.close();
+#else
+                string lowercase = key;
+                std::transform(lowercase.begin(), lowercase.end(), lowercase.begin(),
+                               [](unsigned char c) { return std::tolower(c); });
+                const auto file_name = cache_dir_ + "/" + lowercase;
+                /* O_NOFOLLOW rejects a symlink at the final component. */
+                int fd = ::open(file_name.c_str(),
+                                O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+                if (fd >= 0) {
+                    qcnl_log(SGX_QL_LOG_INFO, "[QCNL] Cache hit in folder '%s'. \n", cache_dir_.c_str());
+                    value.clear();
+                    uint8_t buf[4096];
+                    for (;;) {
+                        ssize_t n = ::read(fd, buf, sizeof(buf));
+                        if (n > 0) {
+                            value.insert(value.end(), buf, buf + n);
+                        } else if (n == 0) {
+                            break;
+                        } else {
+                            if (errno == EINTR) continue;
+                            value.clear();
+                            break;
+                        }
+                    }
+                    ::close(fd);
+                    if (!value.empty()) {
+                        // Need to update memory cache if file cache is hit
+                        mem_cache_.set(key, value);
+                        cache_hit = true;
+                    }
+                }
+#endif
             }
         } else {
             qcnl_log(SGX_QL_LOG_INFO, "[QCNL] Cache hit in memory. \n");
@@ -186,18 +191,42 @@ public:
 #ifdef _MSC_VER
             wstring wskey(key.begin(), key.end());
             const auto file_name = cache_dir_ + L"\\" + wskey;
-#else
-            string lowercase = key;
-            std::transform(lowercase.begin(), lowercase.end(), lowercase.begin(),
-                           [](unsigned char c) { return std::tolower(c); });
-            const auto file_name = cache_dir_ + "/" + lowercase;
-#endif
             ofstream ofs(file_name, ios::out | ios::binary);
             if (!ofs.is_open()) {
                 qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] Failed to write cache file '%s'. \n", file_name.c_str());
             }
             ofs.write(reinterpret_cast<const char *>(&value[0]), value.size());
             ofs.close();
+#else
+            string lowercase = key;
+            std::transform(lowercase.begin(), lowercase.end(), lowercase.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
+            const auto file_name = cache_dir_ + "/" + lowercase;
+            /* O_NOFOLLOW rejects a symlink at the final component;
+             * 0600 restricts the new file to the owning uid. */
+            int fd = ::open(file_name.c_str(),
+                            O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC,
+                            0600);
+            if (fd < 0) {
+                qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] Failed to write cache file '%s' (%s). \n",
+                         file_name.c_str(), strerror(errno));
+            } else {
+                const uint8_t *p = value.data();
+                size_t remaining = value.size();
+                while (remaining > 0) {
+                    ssize_t n = ::write(fd, p, remaining);
+                    if (n < 0) {
+                        if (errno == EINTR) continue;
+                        qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] Failed to write cache file '%s' (%s). \n",
+                                 file_name.c_str(), strerror(errno));
+                        break;
+                    }
+                    p += n;
+                    remaining -= (size_t)n;
+                }
+                ::close(fd);
+            }
+#endif
 
             qcnl_log(SGX_QL_LOG_INFO, "[QCNL] Updated file cache successfully. \n");
         }
@@ -232,22 +261,14 @@ public:
 
 #ifdef _WIN32
     bool process_file(const std::wstring &entry_path, int cache_type) {
-#else
-    bool process_file(const std::string & entry_path, int cache_type) {
-#endif
         std::ifstream ifs(entry_path, std::ios::in | std::ios::binary);
         if (ifs.is_open()) {
             CacheItemHeader cache_header;
             ifs.read(reinterpret_cast<char *>(&cache_header), sizeof(cache_header));
             if (ifs && cache_header.cache_type & cache_type) {
                 ifs.close();
-#ifdef _WIN32
                 if(!::DeleteFile(entry_path.c_str()))
                     return false;
-#else
-                if (std::remove(entry_path.c_str()) != 0)
-                    return false;
-#endif
             } else {
                 ifs.close();
             }
@@ -257,6 +278,34 @@ public:
             return false;
         }
     }
+#else
+    bool process_file(const std::string & entry_path, int cache_type) {
+        int fd = ::open(entry_path.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+        if (fd < 0)
+            return false;
+        CacheItemHeader cache_header;
+        ssize_t total = 0;
+        while (total < (ssize_t)sizeof(cache_header)) {
+            ssize_t n = ::read(fd, reinterpret_cast<char *>(&cache_header) + total,
+                               sizeof(cache_header) - total);
+            if (n > 0) {
+                total += n;
+            } else if (n == 0) {
+                break;
+            } else {
+                if (errno == EINTR) continue;
+                ::close(fd);
+                return false;
+            }
+        }
+        ::close(fd);
+        if (total == (ssize_t)sizeof(cache_header) && (cache_header.cache_type & cache_type)) {
+            if (std::remove(entry_path.c_str()) != 0)
+                return false;
+        }
+        return true;
+    }
+#endif
 
     sgx_qcnl_error_t clear_cache(uint32_t cache_type) {
         sgx_qcnl_error_t ret = SGX_QCNL_SUCCESS;
@@ -352,6 +401,25 @@ protected:
         return true;
     }
 #else
+    /*
+     * Adopt an existing cache directory only when it is safe:
+     *   - it is a real directory (not a symlink)
+     *   - it is owned by the effective uid of the current process
+     *   - it has no group- or world-write bits set
+     */
+    bool is_dir_trusted(const std::string &dirname) {
+        struct stat buf {};
+        if (lstat(dirname.c_str(), &buf) != 0)
+            return false;
+        if (!S_ISDIR(buf.st_mode))
+            return false;
+        if (buf.st_uid != geteuid())
+            return false;
+        if ((buf.st_mode & (S_IWGRP | S_IWOTH)) != 0)
+            return false;
+        return true;
+    }
+
     void init_cache_directory() {
         const char *cache_locations[5];
         cache_locations[0] = ::getenv("AZDCAP_CACHE");
@@ -365,9 +433,7 @@ protected:
         for (auto &cache_location : cache_locations) {
             if (cache_location != 0 && strcmp(cache_location, "") != 0) {
                 string dirname = cache_location + application_name;
-                struct stat buf {};
-                int rc = stat(dirname.c_str(), &buf);
-                if (rc == 0 && S_ISDIR(buf.st_mode)) {
+                if (is_dir_trusted(dirname)) {
                     cache_dir_ = dirname;
                     qcnl_log(SGX_QL_LOG_INFO, "[QCNL] Found existing cache directory: %s\n", dirname.c_str());
                     return;
@@ -389,17 +455,14 @@ protected:
 
     bool make_dir(const std::string &dirname) {
         struct stat buf {};
-        int rc = stat(dirname.c_str(), &buf);
+        int rc = lstat(dirname.c_str(), &buf);
         if (rc == 0) {
-            if (S_ISDIR(buf.st_mode)) {
-                return true;
-            } else {
-                qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] '%s' already exists, and is not a directory. \n", dirname.c_str());
-                return false;
-            }
+            /* Existing entry: only accept if it passes the trust check. */
+            return is_dir_trusted(dirname);
         }
 
-        rc = mkdir(dirname.c_str(), 0777);
+        /* 0700 restricts new cache contents to the owning uid. */
+        rc = mkdir(dirname.c_str(), 0700);
         if (rc != 0) {
             qcnl_log(SGX_QL_LOG_ERROR, "[QCNL] Error creating directory '%s'. \n", dirname.c_str());
             return false;
