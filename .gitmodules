@@ -21,3 +21,7 @@
 	path = QuoteGeneration/pccs
 	url = ../confidential-computing.tee.dcap.pccs.git
 	branch = .
+[submodule "tools/PoeTools"]
+	path = tools/PoeTools
+	url = ../confidential-computing.tee.dcap.poe.git
+	branch = .
