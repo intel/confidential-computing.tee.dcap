@@ -23,7 +23,7 @@ set build_script=%sgxssl_dir%\Windows\build_package.cmd
 set server_url_path=https://www.openssl.org/source/old/3.0/
 
 set full_openssl_url=%server_url_path%/%openssl_ver_name%.tar.gz
-set sgxssl_chksum=a01139042282584c4d3064bbb19c99094898205d8202c7ccc7339326531e59d4
+set sgxssl_chksum=0ac906a0ce5cc7f6ddb9f9d8acb9d2ab1aeff98a0d105f3b06bf4b446068d18b
 set openssl_chksum=c80a01dfc70ece4dc21168932c37739042d404d46ccc81a5986dd75314ecda6f
 
 if not exist %sgxssl_dir% (
