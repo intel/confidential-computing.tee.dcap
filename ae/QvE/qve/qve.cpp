@@ -2567,6 +2567,9 @@ static void tdx_td_report_generator(
         std::string s_tdx_xfam = byte_to_hexstring((uint8_t *) &(tmp_report.xfam), sizeof(tee_attributes_t), true);
         Add_Mem(s_tdx_xfam, "tdx_xfam");
 
+        std::string s_tdx_mrtd = byte_to_hexstring((uint8_t *) &(tmp_report.mr_td), sizeof(tee_measurement_t), true);
+        Add_Mem(s_tdx_mrtd, "tdx_mrtd");
+
         std::string s_tdx_mrconfigid = byte_to_hexstring((uint8_t *) &(tmp_report.mr_config_id), sizeof(tee_measurement_t), true);
         Add_Mem(s_tdx_mrconfigid, "tdx_mrconfigid");
 
@@ -2575,9 +2578,6 @@ static void tdx_td_report_generator(
 
         std::string s_tdx_mrownerconfig = byte_to_hexstring((uint8_t *) &(tmp_report.mr_owner_config), sizeof(tee_measurement_t), true);
         Add_Mem(s_tdx_mrownerconfig, "tdx_mrownerconfig");
-
-        std::string s_tdx_mrtd = byte_to_hexstring((uint8_t *) &(tmp_report.mr_td), sizeof(tee_measurement_t), true);
-        Add_Mem(s_tdx_mrtd, "tdx_mrtd");
 
         std::string s_tdx_rtmr0 = byte_to_hexstring((uint8_t *) &(tmp_report.rt_mr[0]), sizeof(tee_measurement_t), true);
         Add_Mem(s_tdx_rtmr0, "tdx_rtmr0");
@@ -2594,9 +2594,12 @@ static void tdx_td_report_generator(
         std::string s_tdx_reportdata  = byte_to_hexstring((uint8_t *) &(tmp_report.report_data), sizeof(tee_report_data_t), true);
         Add_Mem(s_tdx_reportdata, "tdx_reportdata");
 
-        //only quote version 5: tdx_mrservicetd
+        //only quote version 5: tdx_tee_tcb_svn2 and tdx_mrservicetd
         if(quote_ver == QUOTE_VERSION_5)
         {
+            std::string s_tee_tcb_svn2  = byte_to_hexstring((uint8_t *) &(tmp_report.tee_tcb_svn2), sizeof(tee_tcb_svn_t), true);
+            Add_Mem(s_tee_tcb_svn2, "tdx_tee_tcb_svn2");
+
             std::string s_mr_servicetd  = byte_to_hexstring((uint8_t *) &(tmp_report.mr_servicetd), sizeof(tee_measurement_t), true);
             Add_Mem(s_mr_servicetd, "tdx_mrservicetd");
 
