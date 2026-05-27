@@ -9,16 +9,16 @@ ARG1=${1:-build}
 top_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 sgxssl_dir=$top_dir/sgxssl
 openssl_out_dir=$sgxssl_dir/openssl_source
-openssl_ver_name=openssl-3.0.19
+openssl_ver_name=openssl-3.0.20
 sgxssl_github_archive=https://github.com/intel/intel-sgx-ssl/archive
-sgxssl_file_name=3.0_Rev5.2
+sgxssl_file_name=3.0_Rev5.3
 build_script=$sgxssl_dir/Linux/build_openssl.sh
 server_url_path=https://www.openssl.org/source/
 full_openssl_url=$server_url_path/$openssl_ver_name.tar.gz
 full_openssl_url_old=$server_url_path/old/3.0/$openssl_ver_name.tar.gz
 
-sgxssl_chksum=4c0bbee5972223fd9c444323e363f75701d892c2890631bc2b80e353175d20a0
-openssl_chksum=fa5a4143b8aae18be53ef2f3caf29a2e0747430b8bc74d32d88335b94ab63072
+sgxssl_chksum=0ac906a0ce5cc7f6ddb9f9d8acb9d2ab1aeff98a0d105f3b06bf4b446068d18b
+openssl_chksum=c80a01dfc70ece4dc21168932c37739042d404d46ccc81a5986dd75314ecda6f
 rm -f check_sum_sgxssl.txt check_sum_openssl.txt
 if [ ! -f $build_script ]; then
   wget $sgxssl_github_archive/$sgxssl_file_name.zip -P $sgxssl_dir/ || exit 1

@@ -29,7 +29,7 @@
 
 @echo off
 
-set dcap_version=1.26
+set dcap_version=1.27
 set ae_file_name=prebuilt_windows_dcap_%dcap_version%.zip
 set checksum_file=SHA256SUM_prebuilt_windows_dcap_%dcap_version%.cfg
 set server_url_path=https://download.01.org/intel-sgx/sgx-dcap/%dcap_version%/windows
