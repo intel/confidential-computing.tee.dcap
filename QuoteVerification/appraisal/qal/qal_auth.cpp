@@ -448,11 +448,21 @@ quote3_error_t authenticate_policy_owner_internal(const uint8_t *p_quote,
         {
             return TEE_ERROR_INVALID_PARAMETER;
         }
-        std::string class_id_r = report_array[i]["policy"]["environment"]["class_id"].GetString();
-        std::string jwk_r = "";
-        if (report_array[i]["policy"].HasMember("signing_key") == true)
+        const rapidjson::Value &policy = report_array[i]["policy"];
+        if (policy.IsObject() == false ||
+            policy.HasMember("environment") == false ||
+            policy["environment"].IsObject() == false ||
+            policy["environment"].HasMember("class_id") == false ||
+            policy["environment"]["class_id"].IsString() == false)
         {
-            rapidjson::Value &tmp_key = report_array[i]["policy"]["signing_key"];
+            return TEE_ERROR_INVALID_PARAMETER;
+        }
+        const rapidjson::Value &environment = policy["environment"];
+        std::string class_id_r = environment["class_id"].GetString();
+        std::string jwk_r = "";
+        if (policy.HasMember("signing_key") == true)
+        {
+            const rapidjson::Value &tmp_key = policy["signing_key"];
             rapidjson::StringBuffer buffer;
             rapidjson::Writer<rapidjson::StringBuffer, rapidjson::Document::EncodingType, rapidjson::ASCII<>> writer(buffer);
             tmp_key.Accept(writer);
