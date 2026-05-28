@@ -1578,12 +1578,19 @@ quote3_error_t sgx_qve_verify_quote(
             break;
         }
 
+        // Sentinel: tracks whether any of the three standalone sub-verifiers
+        // (PCK cert chain, TCB info, QE identity) observed an expiry error.
+        // Used below to prevent the quote-level expiry check from clearing a
+        // flag that was already latched by an earlier sub-verifier.
+        bool early_expiry_detected = false;
+
         //parse and verify PCK certificate chain
         //
         collateral_verification_res = sgxAttestationVerifyPCKCertificate((const char*)p_pck_cert_chain, crls.data(), root_cert_str.c_str(), &expiration_check_date);
         if (collateral_verification_res != STATUS_OK) {
             if (is_expiration_error(collateral_verification_res)) {
                 *p_collateral_expiration_status = 1;
+                early_expiry_detected = true;
             }
             else {
                 ret = status_error_to_quote3_error(collateral_verification_res);
@@ -1597,6 +1604,7 @@ quote3_error_t sgx_qve_verify_quote(
         if (collateral_verification_res != STATUS_OK) {
             if (is_expiration_error(collateral_verification_res)) {
                 *p_collateral_expiration_status = 1;
+                early_expiry_detected = true;
             }
             else {
                 ret = status_error_to_quote3_error(collateral_verification_res);
@@ -1610,6 +1618,7 @@ quote3_error_t sgx_qve_verify_quote(
         if (collateral_verification_res != STATUS_OK) {
             if (is_expiration_error(collateral_verification_res)) {
                 *p_collateral_expiration_status = 1;
+                early_expiry_detected = true;
             }
             else {
                 ret = status_error_to_quote3_error(collateral_verification_res);
@@ -1651,22 +1660,22 @@ quote3_error_t sgx_qve_verify_quote(
                 break;
             }
 
-//set the expiration_check_data to pass validation, since in migration, we don't care time
-#ifdef SERVTD_ATTEST
-            time_t * _p_expiration_check_date = const_cast<time_t *>(&expiration_check_date);
-            // Assumes all collateral validity windows (CRLs, cert chains, TCB Info, QE Identity) overlap, i.e. latest_issue_date < earliest_expiration_date
-            *_p_expiration_check_date = (supplemental_dates.latest_issue_date + supplemental_dates.earliest_expiration_date) / 2;
-            set_time = *_p_expiration_check_date;
-#endif
-
             //update collateral expiration status
-            //
+            // *p_collateral_expiration_status starts at 1 (safe conservative default).
+            // early_expiry_detected is true if any of the three standalone sub-verifiers
+            // (PCK cert chain, TCB info, QE identity) observed an is_expiration_error().
+            // The quote-level result provides a second independent signal.
+            // OR the two together: promote to 1 if either fires; clear to 0 only if
+            // neither the early sub-checks NOR the quote-level check saw expiry.
             if (verificationCollateralInfo.expiration_date_min <= expiration_check_date) {
                 *p_collateral_expiration_status = 1;
             }
-            else {
+            else if (!early_expiry_detected) {
+                // No early sub-check fired and quote-level verifier sees fresh collateral.
                 *p_collateral_expiration_status = 0;
             }
+            // else: early_expiry_detected == true and quote-level check is fresh;
+            // preserve the 1 already latched — do not overwrite with 0.
 
             // We totaly trust user on this, it should be explicitly and clearly
             // mentioned in doc, is there any max quote len other than numeric_limit<uint32_t>::max() ?
