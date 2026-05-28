@@ -302,6 +302,12 @@ quote3_error_t qae_appraise_quote_result(const char *p_verification_result_token
             ret = SGX_QL_ERROR_OUT_OF_MEMORY;
             break;
         }
+        // reject any pointer that falls inside the EPC
+        if (buf == NULL || !sgx_is_outside_enclave(buf, tmp_appraisal_result_buf_size))
+        {
+            ret = SGX_QL_ERROR_UNEXPECTED;
+            break;
+        }
         memcpy(buf, tmp_appraisal_result_token, tmp_appraisal_result_buf_size);
         *p_appraisal_result_token_buffer_size = tmp_appraisal_result_buf_size;
         *p_appraisal_result_token = buf;
