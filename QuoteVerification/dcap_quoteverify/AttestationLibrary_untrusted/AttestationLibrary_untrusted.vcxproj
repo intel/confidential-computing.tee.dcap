@@ -188,6 +188,8 @@
     <ClCompile Include="..\..\QVL\Src\AttestationLibrary\src\OpensslHelpers\SignatureVerification.cpp" />
     <ClCompile Include="..\..\QVL\Src\AttestationLibrary\src\OpensslHelpers\DigestUtils.cpp" />
     <ClCompile Include="..\..\QVL\Src\AttestationLibrary\src\QuoteVerification\QuoteStructures.cpp" />
+    <ClCompile Include="..\..\QVL\Src\AttestationLibrary\src\Verifiers\Checks\EvaluateTcb.cpp" />
+    <ClCompile Include="..\..\QVL\Src\AttestationLibrary\src\Utils\StatusPrinter.cpp" />
     <ClCompile Include="..\..\QVL\Src\AttestationLibrary\src\Verifiers\Checks\TcbLevelCheck.cpp" />
     <ClCompile Include="..\..\QVL\Src\AttestationLibrary\src\Verifiers\Checks\TDRelaunchCheck.cpp" />
     <ClCompile Include="..\..\QVL\Src\AttestationLibrary\src\Verifiers\Checks\TdxModuleCheck.cpp" />

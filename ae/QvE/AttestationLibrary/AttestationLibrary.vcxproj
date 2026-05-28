@@ -332,6 +332,7 @@
     <ClCompile Include="..\..\..\QuoteVerification\QVL\Src\AttestationLibrary\src\QuoteVerification\QuoteStructures.cpp" />
     <ClCompile Include="..\..\..\QuoteVerification\QVL\Src\AttestationLibrary\src\QuoteVerification\VerificationCollateralInfo.cpp" />
     <ClCompile Include="..\..\..\QuoteVerification\QVL\Src\AttestationLibrary\src\Utils\StatusPrinter.cpp" />
+    <ClCompile Include="..\..\..\QuoteVerification\QVL\Src\AttestationLibrary\src\Verifiers\Checks\EvaluateTcb.cpp" />
     <ClCompile Include="..\..\..\QuoteVerification\QVL\Src\AttestationLibrary\src\Verifiers\Checks\TcbLevelCheck.cpp" />
     <ClCompile Include="..\..\..\QuoteVerification\QVL\Src\AttestationLibrary\src\Verifiers\Checks\TDRelaunchCheck.cpp" />
     <ClCompile Include="..\..\..\QuoteVerification\QVL\Src\AttestationLibrary\src\Verifiers\Checks\TdxModuleCheck.cpp" />
