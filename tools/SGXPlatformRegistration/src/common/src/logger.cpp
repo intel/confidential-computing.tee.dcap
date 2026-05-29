@@ -15,7 +15,9 @@
 using namespace std;
 
 #include "logger.h"
+#ifndef _WIN32
 #include "dcap_safe_file_ops.h"
+#endif
 
 LogLevel glog_level = MP_REG_LOG_LEVEL_INFO;
 
