@@ -31,6 +31,10 @@
 #include <sgx_ql_lib_common.h>
 #include "wrapped_sgx_dcap_qal.h"
 
+// Maximum number of policy keys allowed in a single call
+// to prevent excessive heap consumption
+#define MAX_POLICY_KEY_LIST_SIZE 256
+
 typedef enum _internal_result_t
 {
     // authentication result for each type of policies

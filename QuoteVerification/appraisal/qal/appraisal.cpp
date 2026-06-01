@@ -199,7 +199,7 @@ quote3_error_t tee_authenticate_policy_owner(const uint8_t *p_quote,
     {
         return TEE_ERROR_INVALID_PARAMETER;
     }
-    if (policy_key_list == NULL || list_size == 0)
+    if (policy_key_list == NULL || list_size == 0 || list_size > MAX_POLICY_KEY_LIST_SIZE)
     {
         return TEE_ERROR_INVALID_PARAMETER;
     }

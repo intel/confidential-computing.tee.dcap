@@ -330,6 +330,10 @@ quote3_error_t qae_appraise_quote_result(const char *p_verification_result_token
     {
         free(tmp_appraisal_result_token);
     }
+    if (ret != SGX_QL_SUCCESS && buf)
+    {
+        ocall_free(buf);
+    }
     return ret;
 }
 
@@ -557,7 +561,7 @@ static quote3_error_t generate_qae_report_for_auth_policy_owner(const uint8_t *p
         CHECK_SGX_ERROR_BREAK(sgx_ret);
         sgx_ret = sgx_sha384_update(reinterpret_cast<const uint8_t *>(p_appraisal_result_token), (uint32_t)strlen(p_appraisal_result_token), sha_handle);
         CHECK_SGX_ERROR_BREAK(sgx_ret);
-        for (uint8_t i = 0; i < list_size; i++)
+        for (uint32_t i = 0; i < list_size; i++)
         {
             sgx_ret = sgx_sha384_update(policy_key_list[i], (uint32_t)strlen(reinterpret_cast<const char *>(policy_key_list[i])), sha_handle);
             CHECK_SGX_ERROR_BREAK(sgx_ret);
@@ -612,11 +616,12 @@ quote3_error_t qae_authenticate_policy_owner(const uint8_t *p_quote,
     {
         return SGX_QL_ERROR_INVALID_PARAMETER;
     }
-    if (policy_key_list == NULL || sgx_is_within_enclave(policy_key_list, list_size * sizeof(uint8_t *)) == 0 || list_size == 0)
+    if (policy_key_list == NULL || list_size == 0 || list_size > MAX_POLICY_KEY_LIST_SIZE ||
+        sgx_is_within_enclave(policy_key_list, list_size * sizeof(uint8_t *)) == 0)
     {
         return SGX_QL_ERROR_INVALID_PARAMETER;
     }
-    for (uint8_t i = 0; i < list_size; i++)
+    for (uint32_t i = 0; i < list_size; i++)
     {
         if (policy_key_list[i] == NULL)
         {
@@ -626,7 +631,7 @@ quote3_error_t qae_authenticate_policy_owner(const uint8_t *p_quote,
 
     quote3_error_t ret = SGX_QL_ERROR_UNEXPECTED;
     uint8_t **tmp_key_policy_list = NULL;
-    uint8_t i = 0;
+    uint32_t i = 0;
     do
     {
         // Copy the policies to QAE before appraise
