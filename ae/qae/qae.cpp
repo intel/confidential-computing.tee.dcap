@@ -377,10 +377,6 @@ quote3_error_t qae_appraise_quote_result(const char *p_verification_result_token
     {
         free(tmp_appraisal_result_token);
     }
-    if (ret != SGX_QL_SUCCESS && buf)
-    {
-        ocall_free(buf);
-    }
     return ret;
 }
 
