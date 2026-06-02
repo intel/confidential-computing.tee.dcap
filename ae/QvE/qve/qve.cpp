@@ -2909,7 +2909,10 @@ quote3_error_t  tee_qve_verify_quote_qvt(
         !is_collateral_deep_copied(p_quote_collateral) ||
         current_time <= 0 ||
         (p_qve_report_info != NULL && !sgx_is_within_enclave(p_qve_report_info, sizeof(*p_qve_report_info))) ||
-        p_verification_result_token_buffer_size == 0 || p_verification_result_token == NULL)
+        p_verification_result_token_buffer_size == NULL ||
+        !sgx_is_within_enclave(p_verification_result_token_buffer_size, sizeof(*p_verification_result_token_buffer_size)) ||
+        p_verification_result_token == NULL ||
+        !sgx_is_within_enclave(p_verification_result_token, sizeof(*p_verification_result_token)))
     {
         return TEE_ERROR_INVALID_PARAMETER;
     }
@@ -3101,6 +3104,9 @@ quote3_error_t  tee_qve_verify_quote_qvt(
         return TEE_ERROR_UNEXPECTED;
     }
 
+    // Snapshot to a local EPC variable to prevent TOCTOU on the host-provided pointer.
+    uint32_t token_buf_size = *p_verification_result_token_buffer_size;
+
 #ifdef SGX_TRUSTED
     if (p_qve_report_info != NULL && dcap_ret == TEE_SUCCESS) {
 
@@ -3111,7 +3117,7 @@ quote3_error_t  tee_qve_verify_quote_qvt(
         //
         generate_report_ret = sgx_qve_token_generate_report(
             (const uint8_t *)tmp_result_token,
-            *p_verification_result_token_buffer_size,
+            token_buf_size,
             p_qve_report_info);
         if (generate_report_ret != TEE_SUCCESS) {
             dcap_ret = generate_report_ret;
@@ -3120,9 +3126,17 @@ quote3_error_t  tee_qve_verify_quote_qvt(
     }
 
     if(dcap_ret == TEE_SUCCESS){
-        ocall_qvt_token_malloc(*p_verification_result_token_buffer_size + 1, p_verification_result_token);
-        if(*p_verification_result_token != NULL){
-            memcpy(*p_verification_result_token, tmp_result_token, *p_verification_result_token_buffer_size);
+        ocall_qvt_token_malloc(token_buf_size + 1, p_verification_result_token);
+        if (*p_verification_result_token != NULL) {
+            if (!sgx_is_outside_enclave(*p_verification_result_token,
+                                        token_buf_size + 1)) {
+                *p_verification_result_token = NULL;
+                *p_verification_result_token_buffer_size = 0;
+                free(tmp_result_token);
+                free(supp_data.p_data);
+                return TEE_ERROR_UNEXPECTED;
+            }
+            memcpy(*p_verification_result_token, tmp_result_token, token_buf_size);
         }
         else{
             free(tmp_result_token);
