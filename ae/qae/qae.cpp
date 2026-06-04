@@ -135,6 +135,22 @@ static quote3_error_t verify_qve_report_and_identity(const char *p_verification_
     return ret;
 }
 
+// Reject unsigned (alg=none) JWTs inside QAE.
+static quote3_error_t verify_jwt_is_signed(const char *p_jwt_str)
+{
+    if (p_jwt_str == NULL)
+    {
+        return SGX_QL_ERROR_INVALID_PARAMETER;
+    }
+    std::string sig = "", jwk_str = "";
+    auto payload = get_info_from_jwt(p_jwt_str, NULL, PAYLOAD, sig, jwk_str);
+    if (payload.empty() || sig.empty() || jwk_str.empty())
+    {
+        return SGX_QL_ERROR_INVALID_PARAMETER;
+    }
+    return SGX_QL_SUCCESS;
+}
+
 static quote3_error_t generate_qae_report_for_appraisal(const char *p_verification_result_token,
                                                         uint8_t **p_qaps,
                                                         uint8_t qaps_count,
@@ -253,6 +269,12 @@ quote3_error_t qae_appraise_quote_result(const char *p_verification_result_token
     {
         return ret;
     }
+    // Defense-in-depth: reject unsigned verification result tokens in QAE
+    ret = verify_jwt_is_signed(p_verification_result_token);
+    if (ret != SGX_QL_SUCCESS)
+    {
+        return ret;
+    }
     do
     {
         // Copy the policies to QAE before appraise
@@ -292,7 +314,6 @@ quote3_error_t qae_appraise_quote_result(const char *p_verification_result_token
         {
             break;
         }
-        // Start appraise
         try
         {
             ret = construct_complete_json(reinterpret_cast<const uint8_t *>(p_verification_result_token), tmp_qaps, qaps_count, json_str);
@@ -518,9 +539,15 @@ quote3_error_t qae_authenticate_appraisal_result(const uint8_t *p_quote,
         return SGX_QL_ERROR_INVALID_PARAMETER;
     }
 
+    // Reject unsigned appraisal result tokens in QAE
+    quote3_error_t ret = verify_jwt_is_signed(p_appraisal_result_token);
+    if (ret != SGX_QL_SUCCESS)
+    {
+        return ret;
+    }
+    ret = SGX_QL_ERROR_UNEXPECTED;
     tee_policy_bundle_t tmp_policies;
     memset(&tmp_policies, 0, sizeof(tmp_policies));
-    quote3_error_t ret = SGX_QL_ERROR_UNEXPECTED;
     uint8_t *ptr = NULL;
     size_t str_size = 0;
 
@@ -705,9 +732,14 @@ quote3_error_t qae_authenticate_policy_owner(const uint8_t *p_quote,
             return SGX_QL_ERROR_INVALID_PARAMETER;
         }
     }
+    // Reject unsigned appraisal result tokens in QAE
+    quote3_error_t ret = verify_jwt_is_signed(p_appraisal_result_token);
+    if (ret != SGX_QL_SUCCESS)
+    {
+        return ret;
+    }
 
-
-    quote3_error_t ret = SGX_QL_ERROR_UNEXPECTED;
+    ret = SGX_QL_ERROR_UNEXPECTED;
     uint8_t **tmp_key_policy_list = NULL;
     uint32_t i = 0;
     do
