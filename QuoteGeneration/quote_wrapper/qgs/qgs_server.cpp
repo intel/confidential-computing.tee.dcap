@@ -167,9 +167,19 @@ class QgsConnection : public boost::enable_shared_from_this<QgsConnection> {
         if (ec == asio::error::eof) {
             oss << "Received eof and " << bytes_transferred << " bytes.";
             QGS_LOG_INFO("handle_read:[%s]\n", oss.str().c_str());
+            //Tear down the connection immediately on EOF/error instead of
+            //letting it linger until the 30 s timer fires; otherwise a peer
+            //that rapidly opens and closes connections pins one socket FD and
+            //one QgsConnection per second-of-timeout per peer.
+            m_timer.cancel();
+            stop();
+            return;
         } else if (ec) {
             oss << "Error: " << ec.message();
             QGS_LOG_INFO("handle_read:[%s]\n", oss.str().c_str());
+            m_timer.cancel();
+            stop();
+            return;
         } else {
             oss << "Received " << bytes_transferred << " bytes.";
             QGS_LOG_INFO("handle_read:[%s]\n", oss.str().c_str());
