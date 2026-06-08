@@ -1935,26 +1935,40 @@ static void time_to_string(time_t time_before, char* time_str, size_t len)
     return;
 }
 
+//Binary-safe: base64-encodes exactly len bytes from raw_char.
+//Callers MUST pass the exact number of bytes to encode; this helper
+//does not inspect the buffer for a trailing NUL because doing so would
+//silently truncate legitimate trailing 0x00 bytes in binary inputs
+//(e.g. the 16-byte request ID, DER-encoded CRLs).
 static std::string char_to_base64(unsigned char const* raw_char, size_t len)
 {
     if(raw_char == NULL){
        return {};
     }
 
-    std::string s_ret;
-
-    //remove '\0'
-    if(len == strlen(reinterpret_cast<const char *>(raw_char)) + 1){
-        len--;
-    }
     char* tmp_str = base64_encode(reinterpret_cast<const char *>(raw_char), (int)len);
     if(tmp_str == NULL)
     {
         return {};
     }
-    s_ret = tmp_str;
+    std::string s_ret = tmp_str;
     free(tmp_str);
     return s_ret;
+}
+
+//Convenience wrapper for collateral text fields (PEM cert chains, JSON
+//bodies) whose declared size historically includes a trailing NUL byte.
+//Strips a single trailing '\0' so the base64 output matches the pre-existing
+//behaviour of these fields. Do NOT use for binary buffers.
+static std::string text_field_to_base64(const char* text, size_t size)
+{
+    if(text == NULL){
+        return {};
+    }
+    if(size > 0 && text[size - 1] == '\0'){
+        size--;
+    }
+    return char_to_base64(reinterpret_cast<unsigned char const*>(text), size);
 }
 
 static quote3_error_t token_genrator_internal(std::string json_data, uint8_t **jwt_data, uint32_t *jwt_size)
@@ -2236,36 +2250,36 @@ static quote3_error_t tee_platform_tcb_generator(
         auto Add_Mem = [&](std::string str_m, rapidjson::GenericValue<rapidjson::ASCII<> >::StringRefType mem_name){str_collateral.SetString(str_m.c_str(), (unsigned int)(str_m.length()), allocator);
                             if(str_collateral.GetStringLength() != 0){obj_collateral.AddMember(mem_name, str_collateral, allocator);}};
         if(p_quote_collateral->pck_crl_issuer_chain != NULL && p_quote_collateral->pck_crl_issuer_chain_size > 0){
-            std::string s_pck_crl_issue_chain = char_to_base64((reinterpret_cast<unsigned char const*>(p_quote_collateral->pck_crl_issuer_chain)), p_quote_collateral->pck_crl_issuer_chain_size);
+            std::string s_pck_crl_issue_chain = text_field_to_base64(p_quote_collateral->pck_crl_issuer_chain, p_quote_collateral->pck_crl_issuer_chain_size);
             Add_Mem(s_pck_crl_issue_chain, "pck_crl_issuer_chain");
         }
         if(p_quote_collateral->root_ca_crl != NULL && p_quote_collateral->root_ca_crl_size > 0){
-            std::string s_root_ca_crl = char_to_base64((reinterpret_cast<unsigned char const*>(p_quote_collateral->root_ca_crl)), p_quote_collateral->root_ca_crl_size);
+            std::string s_root_ca_crl = text_field_to_base64(p_quote_collateral->root_ca_crl, p_quote_collateral->root_ca_crl_size);
             Add_Mem(s_root_ca_crl, "root_ca_crl");
         }
 
         if(p_quote_collateral->pck_crl != NULL && p_quote_collateral->pck_crl_size > 0){
-            std::string s_pck_crl = char_to_base64((reinterpret_cast<unsigned char const*>(p_quote_collateral->pck_crl)), p_quote_collateral->pck_crl_size);
+            std::string s_pck_crl = text_field_to_base64(p_quote_collateral->pck_crl, p_quote_collateral->pck_crl_size);
             Add_Mem(s_pck_crl, "pck_crl");
         }
 
         if(p_quote_collateral->tcb_info_issuer_chain != NULL && p_quote_collateral->tcb_info_issuer_chain_size > 0){
-            std::string s_tcb_info_issuer_chain = char_to_base64((reinterpret_cast<unsigned char const*>(p_quote_collateral->tcb_info_issuer_chain)), p_quote_collateral->tcb_info_issuer_chain_size);
+            std::string s_tcb_info_issuer_chain = text_field_to_base64(p_quote_collateral->tcb_info_issuer_chain, p_quote_collateral->tcb_info_issuer_chain_size);
             Add_Mem(s_tcb_info_issuer_chain, "tcb_info_issuer_chain");
         }
 
         if(p_quote_collateral->tcb_info != NULL && p_quote_collateral->tcb_info_size > 0){
-            std::string s_tcb_info = char_to_base64((reinterpret_cast<unsigned char const*>(p_quote_collateral->tcb_info)), p_quote_collateral->tcb_info_size);
+            std::string s_tcb_info = text_field_to_base64(p_quote_collateral->tcb_info, p_quote_collateral->tcb_info_size);
             Add_Mem(s_tcb_info, "tcb_info");
         }
 
         if(p_quote_collateral->qe_identity_issuer_chain != NULL && p_quote_collateral->qe_identity_issuer_chain_size > 0){
-            std::string s_qe_identity_issuer_chain = char_to_base64((reinterpret_cast<unsigned char const*>(p_quote_collateral->qe_identity_issuer_chain)), p_quote_collateral->qe_identity_issuer_chain_size);
+            std::string s_qe_identity_issuer_chain = text_field_to_base64(p_quote_collateral->qe_identity_issuer_chain, p_quote_collateral->qe_identity_issuer_chain_size);
             Add_Mem(s_qe_identity_issuer_chain, "qe_identity_issuer_chain");
         }
 
         if(p_quote_collateral->qe_identity != NULL && p_quote_collateral->qe_identity_size > 0){
-            std::string s_qe_identity = char_to_base64((reinterpret_cast<unsigned char const*>(p_quote_collateral->qe_identity)), p_quote_collateral->qe_identity_size);
+            std::string s_qe_identity = text_field_to_base64(p_quote_collateral->qe_identity, p_quote_collateral->qe_identity_size);
             Add_Mem(s_qe_identity, "qe_identity");
         }
         obj_platform.AddMember("certification_data", obj_collateral, allocator);
