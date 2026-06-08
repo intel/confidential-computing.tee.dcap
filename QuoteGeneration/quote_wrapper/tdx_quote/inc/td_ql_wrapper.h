@@ -38,7 +38,7 @@
 #define _TD_QL_WRAPPER_H_
 #include <stddef.h>
 #include <stdbool.h>
-#include <sgx_quote_4.h>
+#include <sgx_quote_5.h>
 
 #define TEE_ATT_MK_ERROR(x)              (0x00011000|(x))
 
@@ -137,7 +137,7 @@ typedef enum _tee_att_error_t {
     TEE_ATT_SUPPLEMENTAL_DATA_VERSION_NOT_SUPPORTED = TEE_ATT_MK_ERROR(0x0064),       ///< The supplemental data version is not supported
 
     TEE_ATT_ROOT_CA_UNTRUSTED = TEE_ATT_MK_ERROR(0x0065),               ///< The certificate used to establish SSL session is untrusted
-    TEE_ATT_TCB_NOT_SUPPORTED = TEE_ATT_MK_ERROR(0x0066),               ///< Current TCB level cannot be found in platform/enclave TCB info 
+    TEE_ATT_TCB_NOT_SUPPORTED = TEE_ATT_MK_ERROR(0x0066),               ///< Current TCB level cannot be found in platform/enclave TCB info
 
     TEE_ATT_CONFIG_INVALID_JSON = TEE_ATT_MK_ERROR(0x0067),             ///< The QPL's config file is in JSON format but has a format error
 
@@ -298,7 +298,7 @@ tee_att_error_t tee_att_init_quote(const tee_att_config_t* p_context,
  * @return TEE_ATT_ENCLAVE_LOST Enclave lost after power transition or used in child process created by
  *                              linux:fork().
  * @return TEE_ATT_ENCLAVE_LOAD_ERROR Unable to load the enclaves required to initialize the attestation key.
- *                                    Could be due to file I/O error, loading infrastructure error or insufficient 
+ *                                    Could be due to file I/O error, loading infrastructure error or insufficient
  *                                    enclave memory.
  * @return TEE_ATT_ERROR_INVALID_PRIVILEGE No enough privilege to perform the operation.
  * @return TEE_ATT_ERROR_UNEXPECTED Unexpected internal error.
@@ -339,7 +339,7 @@ tee_att_error_t tee_att_get_quote_size(const tee_att_config_t* p_context,
  * @return TEE_ATT_ENCLAVE_LOST Enclave lost after power transition or used in child process created by
  *                              linux:fork().
  * @return TEE_ATT_ENCLAVE_LOAD_ERROR Unable to load the enclaves required to initialize the attestation key.
- *                                    Could be due to file I/O error, loading infrastructure error or insufficient 
+ *                                    Could be due to file I/O error, loading infrastructure error or insufficient
  *                                    enclave memory.
  * @return TEE_ATT_ERROR_INVALID_PRIVILEGE No enough privilege to perform the operation.
  * @return TEE_ATT_ERROR_UNEXPECTED Unexpected internal error.
@@ -350,6 +350,42 @@ tee_att_error_t tee_att_get_quote(const tee_att_config_t* p_context,
     sgx_qe_report_info_t* p_qe_report_info,
     uint8_t* p_quote,
     uint32_t quote_size);
+
+/**
+ * The function generates a quote with migration history extension data. It behaves like
+ * tee_att_get_quote(), and additionally binds the quote to the caller-provided
+ * SERVTD extension payload.
+ *
+ * @param p_context The context that contains information during quote generation flow.
+ * @param p_report Pointer to the application enclave's REPORT that needs the quote. Must not be NULL.
+ * @param report_size Size of the application enclave's REPORT.
+ * @param p_qe_report_info Optional pointer to QE report info for local verification by the application enclave.
+ * @param p_quote Pointer to the buffer that will contain the generated quote. Must not be NULL.
+ * @param quote_size Size of the buffer pointed to by p_quote (in bytes).
+ * @param p_servtd_ext Pointer to migration history SERVTD extension payload. Must not be NULL.
+ * @return TEE_ATT_SUCCESS Successfully created the quote.
+ * @return TEE_ATT_ERROR_INVALID_PARAMETER One of the parameters is not valid.
+ * @return TEE_ATT_ATT_KEY_NOT_INITIALIZED The Attestation key has not been generated, certified or requires
+ *                                         recertification yet. Need to call InitQuote first/again to get attestation
+ *                                         key regenerated/recertified.
+ * @return TEE_ATT_ATT_KEY_CERT_DATA_INVALID Quote certification data from the platform library is invalid.
+ * @return TEE_ATT_ERROR_OUT_OF_MEMORY There is not enough EPC memory to load one of the Architecture Enclaves
+ *                                     needed to complete this operation.
+ * @return TEE_ATT_ENCLAVE_LOST Enclave lost after power transition or used in child process created by
+ *                              linux:fork().
+ * @return TEE_ATT_ENCLAVE_LOAD_ERROR Unable to load the enclaves required to initialize the attestation key.
+ *                                    Could be due to file I/O error, loading infrastructure error or insufficient
+ *                                    enclave memory.
+ * @return TEE_ATT_ERROR_INVALID_PRIVILEGE No enough privilege to perform the operation.
+ * @return TEE_ATT_ERROR_UNEXPECTED Unexpected internal error.
+ */
+tee_att_error_t tee_att_get_quote_mig_history(const tee_att_config_t* p_context,
+    const uint8_t* p_report,
+    uint32_t report_size,
+    sgx_qe_report_info_t* p_qe_report_info,
+    uint8_t* p_quote,
+    uint32_t quote_size,
+    const tdx_servtd_ext_t* p_servtd_ext);
 
 /**
  * The application can call this function to get the selected att_key_id.
@@ -425,4 +461,3 @@ tee_att_error_t tee_att_get_qpl_handle(const tee_att_config_t *p_context, void *
 
 
 #endif
-

@@ -118,6 +118,41 @@ const uint32_t g_sgx_nistp256_r_m1[] = {//hard-coded value for n-1 where n is or
     0xFC632550, 0xF3B9CAC2, 0xA7179E84, 0xBCE6FAAD, 0xFFFFFFFF, 0xFFFFFFFF,
     0x00000000, 0xFFFFFFFF };
 
+static const tee_attributes_t *get_td_attributes(const sgx_report2_t *p_td_report)
+{
+    switch (p_td_report->report_mac_struct.report_type.version) {
+    case TEE_REPORT2_VERSION_0:
+        return &reinterpret_cast<const tee_info_t *>(p_td_report->tee_info)->attributes;
+    case TEE_REPORT2_VERSION_1:
+        return &reinterpret_cast<const tee_info_v1_5_t *>(p_td_report->tee_info)->attributes;
+    case TEE_REPORT2_VERSION_3:
+        return &reinterpret_cast<const tee_info_v1_5_ex_t *>(p_td_report->tee_info)->attributes;
+    default:
+        return NULL;
+    }
+}
+
+static const tee_measurement_t *get_td_servtd_hash(const sgx_report2_t *p_td_report)
+{
+    switch (p_td_report->report_mac_struct.report_type.version) {
+    case TEE_REPORT2_VERSION_0:
+        return NULL;
+    case TEE_REPORT2_VERSION_1:
+        return &reinterpret_cast<const tee_info_v1_5_t *>(p_td_report->tee_info)->mr_servicetd;
+    case TEE_REPORT2_VERSION_3:
+        return &reinterpret_cast<const tee_info_v1_5_ex_t *>(p_td_report->tee_info)->mr_servicetd;
+    default:
+        return NULL;
+    }
+}
+
+static bool is_servtd_ext_enabled(const sgx_report2_t *p_td_report)
+{
+    const tee_attributes_t *p_attributes = get_td_attributes(p_td_report);
+
+    return p_attributes != NULL && (p_attributes->a[0] & TEE_INFO_V1_5_EX_ATTRIBUTES_SERVTD_EXT) != 0;
+}
+
 #define HASH_DRBG_OUT_LEN 40 //320 bits
 static const char QE_ATT_STRING[] = "TDX_QE_DER";
 
@@ -1180,13 +1215,15 @@ static tdqe_error_t determine_quote_version(const sgx_report2_t *p_td_report,
     bool *mr_servicetd_valid,
     bool *tee_tcb_svn2_valid,
     bool *tdid_present,
-    bool *vmid_present)
+    bool *vmid_present,
+    bool *servtd_ext_present)
 {
     tee_tcb_info_v1_5_t *p_tee_tcb_info_v1_5;
+    bool report_servtd_ext = false;
 
     // caller should pass in the right input
     if (!p_td_report || !gen_v5_quote || !mr_servicetd_valid || !tee_tcb_svn2_valid
-        || !tdid_present || !vmid_present) {
+        || !tdid_present || !vmid_present || !servtd_ext_present) {
         return (TDQE_ERROR_UNEXPECTED);
     }
     *gen_v5_quote = false;
@@ -1194,8 +1231,10 @@ static tdqe_error_t determine_quote_version(const sgx_report2_t *p_td_report,
     *tee_tcb_svn2_valid = false;
     *tdid_present = false;
     *vmid_present = false;
+    *servtd_ext_present = false;
     ref_static_assert(sizeof(tee_tcb_info_v1_5_t) == sizeof(p_td_report->tee_tcb_info));
     p_tee_tcb_info_v1_5 = (tee_tcb_info_v1_5_t *)p_td_report->tee_tcb_info;
+    report_servtd_ext = is_servtd_ext_enabled(p_td_report);
 
     // we are checking to make sure the TDINF0.RESERVED bytes match the expected values for a TDX 1.0 report
     if (!p_td_report->report_mac_struct.report_type.version) {
@@ -1206,6 +1245,11 @@ static tdqe_error_t determine_quote_version(const sgx_report2_t *p_td_report,
             if (p_tee_info->reserved[i]) {
                 return (TDQE_REPORT_FORMAT_NOT_SUPPORTED);
             }
+        }
+
+        // For version 0 reports, migration history payload is not supported.
+        if (report_servtd_ext) {
+            return (TDQE_REPORT_FORMAT_NOT_SUPPORTED);
         }
 
         if (p_tee_tcb_info_v1_5->valid[0] != 0xFF || p_tee_tcb_info_v1_5->valid[1] != 1) {
@@ -1291,24 +1335,588 @@ static tdqe_error_t determine_quote_version(const sgx_report2_t *p_td_report,
             return (TDQE_REPORT_FORMAT_NOT_SUPPORTED);
         }
 
-        if (p_tee_info_v1_5_ex->valid & tee_info_v1_5_ex_t::critical_reserved) {
+        if (p_tee_info_v1_5_ex->valid & TEE_INFO_V1_5_EX_VALID_CRITICAL_RESERVED) {
             return (TDQE_REPORT_FORMAT_NOT_SUPPORTED);
         }
-
-        if (!(p_tee_info_v1_5_ex->valid & tee_info_v1_5_ex_t::td_id_bit)
-            && !(p_tee_info_v1_5_ex->valid & tee_info_v1_5_ex_t::vm_id_bit)) {
+        if (p_tee_info_v1_5_ex->valid & TEE_INFO_V1_5_EX_VALID_NON_CRITICAL_RESERVED) {
             return (TDQE_REPORT_FORMAT_NOT_SUPPORTED);
         }
-        if (p_tee_info_v1_5_ex->valid & tee_info_v1_5_ex_t::td_id_bit) {
+        if (p_tee_info_v1_5_ex->valid & TEE_INFO_V1_5_EX_VALID_TD_ID_BIT) {
             *tdid_present = true;
         }
-        if (p_tee_info_v1_5_ex->valid & tee_info_v1_5_ex_t::vm_id_bit) {
+        if ((p_tee_info_v1_5_ex->valid & TEE_INFO_V1_5_EX_VALID_VM_ID_BIT) && p_tee_info_v1_5_ex->vmid != 0) {
             *vmid_present = true;
         }
     } else {
         return (TDQE_REPORT_FORMAT_NOT_SUPPORTED);
     }
+
+    if (report_servtd_ext) {
+        *servtd_ext_present = true;
+        *gen_v5_quote = true;
+    }
+
     return (TDQE_SUCCESS);
+}
+
+static uint32_t gen_quote_impl(uint8_t *p_blob,
+    uint32_t blob_size,
+    const sgx_report2_t *p_td_report,
+    const sgx_quote_nonce_t *p_nonce,
+    const sgx_target_info_t *p_app_enclave_target_info,
+    sgx_report_t *p_qe_report_out,
+    uint8_t *p_quote_buf,
+    uint32_t quote_size,
+    const uint8_t * p_certification_data,
+    uint32_t cert_data_size,
+    const tdx_servtd_ext_t *p_servtd_ext)
+{
+    tdqe_error_t ret = TDQE_SUCCESS;
+    sgx_quote4_t *p_quote;
+    sgx_quote5_t *p_quote_v5;
+    sgx_ecdsa_sig_data_v4_t *p_quote_sig;
+    uint32_t *p_sig_len;
+    sgx_ql_certification_data_t *p_qe_report_cert_header;
+    sgx_qe_report_certification_data_t *p_qe_report_cert_data;
+    uint8_t is_resealed = 0;
+    uint32_t sign_size = 0;
+    sgx_status_t sgx_status = SGX_SUCCESS;
+    sgx_report_t qe_report;
+    size_t required_buffer_size = 0;
+    size_t real_quote_size = 0;
+    ref_plaintext_ecdsa_data_sdk_t plaintext;
+    bool gen_v5_quote = false;
+    bool mr_servicetd_valid = false;
+    bool tee_tcb_svn2_valid = false;
+    bool tdid_present = false;
+    bool vmid_present = false;
+    bool servtd_ext_present = false;
+    bool use_ex_body = false;
+
+    if (!is_verify_report2_available()) {
+        return (TDQE_ERROR_INVALID_PLATFORM);
+    }
+    using cciphertext = randomly_placed_object<
+        sgx::custom_alignment_aligned<
+        ref_ciphertext_ecdsa_data_sdk_t,
+        alignof(ref_ciphertext_ecdsa_data_sdk_t),
+        __builtin_offsetof(ref_ciphertext_ecdsa_data_sdk_t, ecdsa_private_key),
+        sizeof(((ref_ciphertext_ecdsa_data_sdk_t*)0)->ecdsa_private_key)>>;
+    cciphertext ociphertext_buf;
+    auto* ociphertext = ociphertext_buf.instantiate_object();
+    ref_ciphertext_ecdsa_data_sdk_t* pciphertext = &ociphertext->v;
+
+    sgx_sha384_hash_t hash384_buf = {0};
+    sgx_ecc_state_handle_t handle = NULL;
+    sgx_ql_auth_data_t *p_auth_data;
+    sgx_ql_certification_data_t *p_certification_data_output;
+    sgx_ql_ppid_rsa3072_encrypted_cert_info_t *p_cert_encrypted_ppid_info_data;
+    sgx_sha_state_handle_t sha_quote_context = NULL;
+    sgx_report_data_t qe_report_data;
+    sgx_ec256_public_t le_att_pub_key;
+    uint32_t sign_buf_size;
+    uint8_t verify_result = SGX_EC_INVALID_SIGNATURE;
+
+    memset(&plaintext, 0, sizeof(plaintext));
+
+    if ((NULL == p_blob) ||
+        (NULL == p_td_report) ||
+        (NULL == p_quote_buf) ||
+        (!quote_size)) {
+        return(TDQE_ERROR_INVALID_PARAMETER);
+    }
+    if (SGX_QL_TRUSTED_ECDSA_BLOB_SIZE_SDK != blob_size) {
+        return(TDQE_ERROR_INVALID_PARAMETER);
+    }
+    if (!((NULL == p_nonce) && (NULL == p_app_enclave_target_info) && (NULL == p_qe_report_out))
+        && !((NULL != p_nonce) && (NULL != p_app_enclave_target_info) && (NULL != p_qe_report_out))) {
+        return(TDQE_ERROR_INVALID_PARAMETER);
+    }
+    if (NULL != p_certification_data)
+    {
+        sgx_ql_certification_data_t * p_input_certification_data_header = (sgx_ql_certification_data_t *)p_certification_data;
+        if (PPID_CLEARTEXT > p_input_certification_data_header->cert_key_type
+            || QL_CERT_KEY_TYPE_MAX < p_input_certification_data_header->cert_key_type) {
+            return(TDQE_ERROR_INVALID_PARAMETER);
+        }
+        if (MAX_CERT_DATA_SIZE < p_input_certification_data_header->size) {
+            return(TDQE_ERROR_INVALID_PARAMETER);
+        }
+        if (sizeof(sgx_ql_certification_data_t) + p_input_certification_data_header->size != cert_data_size) {
+            return(TDQE_ERROR_INVALID_PARAMETER);
+        }
+    }
+    if (NULL == p_certification_data && cert_data_size !=0) {
+        return(TDQE_ERROR_INVALID_PARAMETER);
+    }
+
+    if (!sgx_is_within_enclave(p_quote_buf, quote_size)) {
+        return(TDQE_ERROR_INVALID_PARAMETER);
+    }
+    if (!sgx_is_within_enclave(p_blob, blob_size)) {
+        return(TDQE_ERROR_INVALID_PARAMETER);
+    }
+    if (!sgx_is_within_enclave(p_td_report, sizeof(*p_td_report))) {
+        return(TDQE_ERROR_INVALID_PARAMETER);
+    }
+    if (p_servtd_ext != NULL && !sgx_is_within_enclave(p_servtd_ext, sizeof(*p_servtd_ext))) {
+        return(TDQE_ERROR_INVALID_PARAMETER);
+    }
+
+    if (NULL != p_certification_data) {
+        if (!sgx_is_within_enclave(p_certification_data, cert_data_size)) {
+            return(TDQE_ERROR_INVALID_PARAMETER);
+        }
+    }
+
+    if (p_nonce) {
+        if (!sgx_is_within_enclave(p_nonce, sizeof(*p_nonce))) {
+            return(TDQE_ERROR_INVALID_PARAMETER);
+        }
+        if (!sgx_is_within_enclave(p_qe_report_out, sizeof(*p_qe_report_out))) {
+            return(TDQE_ERROR_INVALID_PARAMETER);
+        }
+        if (!sgx_is_within_enclave(p_app_enclave_target_info, sizeof(*p_app_enclave_target_info))) {
+            return(TDQE_ERROR_INVALID_PARAMETER);
+        }
+    }
+
+    ret = determine_quote_version(p_td_report,
+                    &gen_v5_quote,
+                    &mr_servicetd_valid,
+                    &tee_tcb_svn2_valid,
+                    &tdid_present,
+                    &vmid_present,
+                    &servtd_ext_present);
+    if (TDQE_SUCCESS != ret) {
+        return (ret);
+    }
+    if (servtd_ext_present && NULL == p_servtd_ext) {
+        return (TDQE_REPORT_FORMAT_NOT_SUPPORTED);
+    }
+    use_ex_body = tdid_present || vmid_present || servtd_ext_present;
+
+    sgx_status = sgx_verify_report2(&p_td_report->report_mac_struct);
+    if (SGX_SUCCESS != sgx_status) {
+        if (SGX_ERROR_INVALID_PARAMETER == sgx_status) {
+            return(TDQE_REPORT_FORMAT_NOT_SUPPORTED);
+        }
+        else {
+            return(TDQE_ERROR_INVALID_REPORT);
+        }
+    }
+
+    sgx_status = sgx_sha384_msg((uint8_t *)(&(p_td_report->tee_tcb_info)), sizeof(p_td_report->tee_tcb_info), &hash384_buf);
+    if (SGX_SUCCESS != sgx_status) {
+        ret = TDQE_ERROR_UNEXPECTED;
+        goto ret_point;
+    }
+
+    if(memcmp(&hash384_buf, &p_td_report->report_mac_struct.tee_tcb_info_hash, sizeof(p_td_report->report_mac_struct.tee_tcb_info_hash))!=0){
+        ret = TDQE_ERROR_INVALID_HASH;
+        goto ret_point;
+    }
+
+    memset(&hash384_buf, 0x00, sizeof(hash384_buf));
+
+    sgx_status = sgx_sha384_msg((uint8_t *)(&(p_td_report->tee_info)), sizeof(p_td_report->tee_info), &hash384_buf);
+    if (SGX_SUCCESS != sgx_status) {
+        ret = TDQE_ERROR_UNEXPECTED;
+        goto ret_point;
+    }
+
+    if(memcmp(&hash384_buf, &p_td_report->report_mac_struct.tee_info_hash, sizeof(p_td_report->report_mac_struct.tee_info_hash))!=0){
+        ret = TDQE_ERROR_INVALID_HASH;
+        goto ret_point;
+    }
+
+    if (p_servtd_ext != NULL) {
+        const tee_measurement_t *p_servtd_hash = get_td_servtd_hash(p_td_report);
+
+        if (!servtd_ext_present || p_servtd_hash == NULL) {
+            ret = TDQE_REPORT_FORMAT_NOT_SUPPORTED;
+            goto ret_point;
+        }
+        sgx_status = sgx_sha384_msg(reinterpret_cast<const uint8_t *>(p_servtd_ext), sizeof(*p_servtd_ext), &hash384_buf);
+        if (SGX_SUCCESS != sgx_status) {
+            ret = TDQE_ERROR_UNEXPECTED;
+            goto ret_point;
+        }
+        if (memcmp(&hash384_buf, p_servtd_hash, sizeof(*p_servtd_hash)) != 0) {
+            ret = TDQE_ERROR_INVALID_HASH;
+            goto ret_point;
+        }
+    }
+
+    ret = random_stack_advance(verify_blob_internal,p_blob,
+        blob_size,
+        &is_resealed,
+        &plaintext,
+        (sgx_report_body_t*) NULL,
+        (uint8_t*) NULL,
+        0,
+        pciphertext);
+    if (TDQE_SUCCESS != ret) {
+        goto ret_point;
+    }
+
+    sign_size = sizeof(sgx_ecdsa_sig_data_v4_t) +
+        sizeof(sgx_ql_auth_data_t) +
+        sizeof(sgx_ql_certification_data_t) +
+        sizeof(sgx_qe_report_certification_data_t) +
+        sizeof(sgx_ql_certification_data_t);
+    if (1 == pciphertext->is_clear_ppid) {
+        ret = TDQE_ERROR_INVALID_PARAMETER;
+        goto ret_point;
+    }
+    else {
+        if (!p_certification_data) {
+            sign_size += (uint32_t)sizeof(sgx_ql_ppid_rsa3072_encrypted_cert_info_t);
+        }
+        else {
+            if (UINT32_MAX - sign_size - sizeof(sgx_quote5_t) - sizeof(sgx_report2_body_v1_5_ex_t)
+                > ((sgx_ql_certification_data_t *)p_certification_data)->size) {
+                sign_size += ((sgx_ql_certification_data_t *)p_certification_data)->size;
+            } else {
+                ret = TDQE_ERROR_INVALID_PARAMETER;
+                goto ret_point;
+            }
+        }
+    }
+    if ((UINT32_MAX - sign_size - sizeof(sgx_quote5_t) - sizeof(sgx_report2_body_v1_5_ex_t)) < plaintext.authentication_data_size) {
+        ret = TDQE_ERROR_INVALID_PARAMETER;
+        goto ret_point;
+    }
+    sign_size += plaintext.authentication_data_size;
+
+    required_buffer_size = sizeof(sgx_quote5_t)
+                           + sizeof(sgx_report2_body_v1_5_ex_t)
+                           + sizeof(uint32_t)
+                           + sign_size;
+
+    if (gen_v5_quote) {
+        if (use_ex_body) {
+            real_quote_size = required_buffer_size;
+        } else {
+            real_quote_size = required_buffer_size
+                              - sizeof(sgx_report2_body_v1_5_ex_t)
+                              + sizeof(sgx_report2_body_v1_5_t);
+        }
+    } else {
+        real_quote_size = sizeof(sgx_quote4_t) + sign_size;
+    }
+
+    if (quote_size < required_buffer_size) {
+        ret = TDQE_ERROR_INVALID_PARAMETER;
+        goto ret_point;
+    }
+
+    ref_static_assert(sizeof(plaintext.qe_id) <= sizeof(p_quote->header.user_data));
+
+    sgx_lfence();
+    memset(p_quote_buf, 0, required_buffer_size);
+    p_quote = (sgx_quote4_t *)p_quote_buf;
+    p_quote_v5 = (sgx_quote5_t *)p_quote_buf;
+    if (gen_v5_quote) {
+        if (use_ex_body) {
+            p_sig_len = (uint32_t *)(p_quote_v5->body + sizeof(sgx_report2_body_v1_5_ex_t));
+            p_quote_sig = (sgx_ecdsa_sig_data_v4_t *)(p_quote_v5->body + sizeof(sgx_report2_body_v1_5_ex_t) + sizeof(uint32_t));
+        } else {
+            p_sig_len = (uint32_t *)(p_quote_v5->body + sizeof(sgx_report2_body_v1_5_t));
+            p_quote_sig = (sgx_ecdsa_sig_data_v4_t *)(p_quote_v5->body + sizeof(sgx_report2_body_v1_5_t) + sizeof(uint32_t));
+        }
+    } else {
+        p_sig_len = &p_quote->signature_data_len;
+        p_quote_sig = (sgx_ecdsa_sig_data_v4_t *)(p_quote->signature_data);
+    }
+    *p_sig_len = sign_size;
+
+    p_qe_report_cert_header = ((sgx_ql_certification_data_t *)(p_quote_sig->certification_data));
+    p_qe_report_cert_data = (sgx_qe_report_certification_data_t *)(p_qe_report_cert_header->certification_data);
+    p_qe_report_cert_header->cert_key_type = ECDSA_SIG_AUX_DATA;
+
+    p_auth_data = (sgx_ql_auth_data_t *)(p_quote_sig->certification_data + sizeof(sgx_ql_certification_data_t) + sizeof(sgx_qe_report_certification_data_t));
+    p_auth_data->size = (uint16_t)plaintext.authentication_data_size;
+
+    p_qe_report_cert_header->size = (uint32_t)(sizeof(sgx_qe_report_certification_data_t) + sizeof(sgx_ql_auth_data_t)
+            + p_auth_data->size + sizeof(sgx_ql_certification_data_t));
+
+    p_certification_data_output = (sgx_ql_certification_data_t*)((uint8_t*)p_auth_data + sizeof(*p_auth_data) + p_auth_data->size);
+
+    p_quote->header.att_key_type = SGX_QL_ALG_ECDSA_P256;
+    p_quote->header.tee_type = 0x81;
+    memcpy(&p_quote->header.user_data, &plaintext.qe_id, sizeof(plaintext.qe_id));
+    memcpy(p_quote->header.vendor_id, g_vendor_id, sizeof(g_vendor_id));
+
+    if (gen_v5_quote) {
+        if (use_ex_body) {
+            sgx_report2_body_v1_5_ex_t *p_report_body_v2 = (sgx_report2_body_v1_5_ex_t *)p_quote_v5->body;
+            tee_tcb_info_v1_5_t *p_tee_tcb_info_v2 = (tee_tcb_info_v1_5_t *)p_td_report->tee_tcb_info;
+
+            p_quote_v5->header.version = QE_QUOTE_VERSION_V5;
+            p_quote_v5->type = 4;
+            p_quote_v5->size = (uint32_t)(sizeof(sgx_report2_body_v1_5_ex_t));
+            memset(p_report_body_v2, 0, sizeof(*p_report_body_v2));
+
+            memcpy(&(p_report_body_v2->tee_tcb_svn), &(p_tee_tcb_info_v2->tee_tcb_svn), sizeof(p_report_body_v2->tee_tcb_svn));
+            memcpy(&(p_report_body_v2->mr_seam), &(p_tee_tcb_info_v2->mr_seam), sizeof(p_report_body_v2->mr_seam));
+            if (tee_tcb_svn2_valid) {
+                memcpy(&(p_report_body_v2->tee_tcb_svn2), &(p_tee_tcb_info_v2->tee_tcb_svn2), sizeof(p_report_body_v2->tee_tcb_svn2));
+            } else {
+                memcpy(&(p_report_body_v2->tee_tcb_svn2), &(p_tee_tcb_info_v2->tee_tcb_svn), sizeof(p_report_body_v2->tee_tcb_svn2));
+            }
+
+            if (p_td_report->report_mac_struct.report_type.version == TEE_REPORT2_VERSION_3) {
+                tee_info_v1_5_ex_t *p_tee_info_v2 = (tee_info_v1_5_ex_t *)p_td_report->tee_info;
+
+                memcpy(&(p_report_body_v2->td_attributes), &(p_tee_info_v2->attributes), sizeof(p_report_body_v2->td_attributes));
+                memcpy(&(p_report_body_v2->xfam), &(p_tee_info_v2->xfam), sizeof(p_report_body_v2->xfam));
+                memcpy(&(p_report_body_v2->mr_td), &(p_tee_info_v2->mr_td), sizeof(p_report_body_v2->mr_td));
+                memcpy(&(p_report_body_v2->mr_config_id), &(p_tee_info_v2->mr_config_id), sizeof(p_report_body_v2->mr_config_id));
+                memcpy(&(p_report_body_v2->mr_owner), &(p_tee_info_v2->mr_owner), sizeof(p_report_body_v2->mr_owner));
+                memcpy(&(p_report_body_v2->mr_owner_config), &(p_tee_info_v2->mr_owner_config), sizeof(p_report_body_v2->mr_owner_config));
+                memcpy(p_report_body_v2->rt_mr, p_tee_info_v2->rt_mr, sizeof(p_report_body_v2->rt_mr));
+                if (mr_servicetd_valid && !servtd_ext_present) {
+                    memcpy(&(p_report_body_v2->mr_servicetd), &(p_tee_info_v2->mr_servicetd), sizeof(p_report_body_v2->mr_servicetd));
+                }
+                if (tdid_present) {
+                    memcpy(&(p_report_body_v2->td_id), &(p_tee_info_v2->td_id), sizeof(p_report_body_v2->td_id));
+                }
+                if (vmid_present) {
+                    memcpy(&(p_report_body_v2->vmid), &(p_tee_info_v2->vmid), sizeof(p_report_body_v2->vmid));
+                }
+            } else {
+                tee_info_v1_5_t *p_tee_info_v2 = (tee_info_v1_5_t *)p_td_report->tee_info;
+
+                memcpy(&(p_report_body_v2->td_attributes), &(p_tee_info_v2->attributes), sizeof(p_report_body_v2->td_attributes));
+                memcpy(&(p_report_body_v2->xfam), &(p_tee_info_v2->xfam), sizeof(p_report_body_v2->xfam));
+                memcpy(&(p_report_body_v2->mr_td), &(p_tee_info_v2->mr_td), sizeof(p_report_body_v2->mr_td));
+                memcpy(&(p_report_body_v2->mr_config_id), &(p_tee_info_v2->mr_config_id), sizeof(p_report_body_v2->mr_config_id));
+                memcpy(&(p_report_body_v2->mr_owner), &(p_tee_info_v2->mr_owner), sizeof(p_report_body_v2->mr_owner));
+                memcpy(&(p_report_body_v2->mr_owner_config), &(p_tee_info_v2->mr_owner_config), sizeof(p_report_body_v2->mr_owner_config));
+                memcpy(p_report_body_v2->rt_mr, p_tee_info_v2->rt_mr, sizeof(p_report_body_v2->rt_mr));
+                if (mr_servicetd_valid && !servtd_ext_present) {
+                    memcpy(&(p_report_body_v2->mr_servicetd), &(p_tee_info_v2->mr_servicetd), sizeof(p_report_body_v2->mr_servicetd));
+                }
+            }
+            memcpy(&(p_report_body_v2->report_data), &(p_td_report->report_mac_struct.report_data), sizeof(p_report_body_v2->report_data));
+            if (servtd_ext_present) {
+                memcpy(&(p_report_body_v2->init_server_td_hash), &(p_servtd_ext->init_server_td_hash), sizeof(p_report_body_v2->init_server_td_hash));
+                memcpy(&(p_report_body_v2->init_server_td_attr), &(p_servtd_ext->init_server_td_attr), sizeof(p_report_body_v2->init_server_td_attr));
+                memcpy(&(p_report_body_v2->init_cpu_svn), &(p_servtd_ext->init_cpu_svn), sizeof(p_report_body_v2->init_cpu_svn));
+                memcpy(&(p_report_body_v2->init_tee_tcb_svn), &(p_servtd_ext->init_tee_tcb_svn), sizeof(p_report_body_v2->init_tee_tcb_svn));
+                memcpy(&(p_report_body_v2->init_tee_fmspc), &(p_servtd_ext->init_tee_fmspc), sizeof(p_report_body_v2->init_tee_fmspc));
+                memcpy(&(p_report_body_v2->curr_server_td_hash), &(p_servtd_ext->curr_server_td_hash), sizeof(p_report_body_v2->curr_server_td_hash));
+                memcpy(&(p_report_body_v2->curr_server_td_attr), &(p_servtd_ext->curr_server_td_attr), sizeof(p_report_body_v2->curr_server_td_attr));
+                memcpy(&(p_report_body_v2->mr_servicetd), &(p_servtd_ext->init_server_td_hash), sizeof(p_report_body_v2->mr_servicetd));
+            }
+            sign_buf_size = sizeof(*p_quote_v5) + sizeof(*p_report_body_v2);
+        } else {
+            sgx_report2_body_v1_5_t *p_report_body_v2 = (sgx_report2_body_v1_5_t *)p_quote_v5->body;
+            tee_tcb_info_v1_5_t *p_tee_tcb_info_v2 = (tee_tcb_info_v1_5_t *)p_td_report->tee_tcb_info;
+            tee_info_v1_5_t *p_tee_info_v2 = (tee_info_v1_5_t *)p_td_report->tee_info;
+
+            p_quote_v5->header.version = QE_QUOTE_VERSION_V5;
+            p_quote_v5->type = 3;
+            p_quote_v5->size = (uint32_t)(sizeof(sgx_report2_body_v1_5_t));
+            memset(p_report_body_v2, 0, sizeof(*p_report_body_v2));
+
+            memcpy(&(p_report_body_v2->tee_tcb_svn), &(p_tee_tcb_info_v2->tee_tcb_svn), sizeof(p_report_body_v2->tee_tcb_svn));
+            memcpy(&(p_report_body_v2->mr_seam), &(p_tee_tcb_info_v2->mr_seam), sizeof(p_report_body_v2->mr_seam));
+
+            memcpy(&(p_report_body_v2->td_attributes), &(p_tee_info_v2->attributes), sizeof(p_report_body_v2->td_attributes));
+            memcpy(&(p_report_body_v2->xfam), &(p_tee_info_v2->xfam), sizeof(p_report_body_v2->xfam));
+            memcpy(&(p_report_body_v2->mr_td), &(p_tee_info_v2->mr_td), sizeof(p_report_body_v2->mr_td));
+            memcpy(&(p_report_body_v2->mr_config_id), &(p_tee_info_v2->mr_config_id), sizeof(p_report_body_v2->mr_config_id));
+            memcpy(&(p_report_body_v2->mr_owner), &(p_tee_info_v2->mr_owner), sizeof(p_report_body_v2->mr_owner));
+            memcpy(&(p_report_body_v2->mr_owner_config), &(p_tee_info_v2->mr_owner_config), sizeof(p_report_body_v2->mr_owner_config));
+            memcpy(p_report_body_v2->rt_mr, p_tee_info_v2->rt_mr, sizeof(p_report_body_v2->rt_mr));
+            memcpy(&(p_report_body_v2->report_data), &(p_td_report->report_mac_struct.report_data), sizeof(p_report_body_v2->report_data));
+            ref_static_assert(sizeof(p_report_body_v2->tee_tcb_svn2) == sizeof(p_tee_tcb_info_v2->tee_tcb_svn));
+            if (tee_tcb_svn2_valid) {
+                memcpy(&(p_report_body_v2->tee_tcb_svn2), &(p_tee_tcb_info_v2->tee_tcb_svn2), sizeof(p_report_body_v2->tee_tcb_svn2));
+            } else {
+                memcpy(&(p_report_body_v2->tee_tcb_svn2), &(p_tee_tcb_info_v2->tee_tcb_svn), sizeof(p_report_body_v2->tee_tcb_svn2));
+            }
+            if (mr_servicetd_valid) {
+                memcpy(&(p_report_body_v2->mr_servicetd), &(p_tee_info_v2->mr_servicetd), sizeof(p_report_body_v2->mr_servicetd));
+            }
+            sign_buf_size = sizeof(*p_quote_v5) + sizeof(*p_report_body_v2);
+        }
+    } else {
+        sgx_report2_body_t *p_report_body = &p_quote->report_body;
+        tee_tcb_info_t *p_tee_tcb_info = (tee_tcb_info_t *)p_td_report->tee_tcb_info;
+        tee_info_t *p_tee_info = (tee_info_t *)p_td_report->tee_info;
+
+        p_quote->header.version = QE_QUOTE_VERSION;
+        memset(p_report_body, 0, sizeof(*p_report_body));
+
+        memcpy(&(p_report_body->tee_tcb_svn), &(p_tee_tcb_info->tee_tcb_svn), sizeof(p_report_body->tee_tcb_svn));
+        memcpy(&(p_report_body->mr_seam), &(p_tee_tcb_info->mr_seam), sizeof(p_report_body->mr_seam));
+
+        memcpy(&(p_report_body->td_attributes), &(p_tee_info->attributes), sizeof(p_report_body->td_attributes));
+        memcpy(&(p_report_body->xfam), &(p_tee_info->xfam), sizeof(p_report_body->xfam));
+        memcpy(&(p_report_body->mr_td), &(p_tee_info->mr_td), sizeof(p_report_body->mr_td));
+        memcpy(&(p_report_body->mr_config_id), &(p_tee_info->mr_config_id), sizeof(p_report_body->mr_config_id));
+        memcpy(&(p_report_body->mr_owner), &(p_tee_info->mr_owner), sizeof(p_report_body->mr_owner));
+        memcpy(&(p_report_body->mr_owner_config), &(p_tee_info->mr_owner_config), sizeof(p_report_body->mr_owner_config));
+        memcpy(p_report_body->rt_mr, p_tee_info->rt_mr, sizeof(p_report_body->rt_mr));
+        memcpy(&(p_report_body->report_data), &(p_td_report->report_mac_struct.report_data), sizeof(p_report_body->report_data));
+        sign_buf_size = sizeof(*p_quote) - sizeof(p_quote->signature_data_len);
+    }
+
+    memset(&qe_report_data, 0, sizeof(qe_report_data));
+    sgx_status = sgx_create_report(NULL, &qe_report_data, &qe_report);
+    if (SGX_SUCCESS != sgx_status) {
+        if (SGX_ERROR_OUT_OF_MEMORY == sgx_status) {
+            ret = TDQE_ERROR_OUT_OF_MEMORY;
+        }
+        else {
+            ret = TDQE_ERROR_UNEXPECTED;
+        }
+        goto ret_point;
+    }
+    sgx_status = sgx_ecc256_open_context(&handle);
+    if (SGX_ERROR_OUT_OF_MEMORY == sgx_status) {
+        ret = TDQE_ERROR_OUT_OF_MEMORY;
+        goto ret_point;
+    }
+    else if (SGX_SUCCESS != sgx_status) {
+        ret = TDQE_ERROR_UNEXPECTED;
+        goto ret_point;
+    }
+    sgx_status = sgx_ecdsa_sign(p_quote_buf,
+        sign_buf_size,
+        &pciphertext->ecdsa_private_key,
+        reinterpret_cast<sgx_ec256_signature_t *>(p_quote_sig->sig),
+        handle);
+    if (SGX_ERROR_OUT_OF_MEMORY == sgx_status) {
+        ret = TDQE_ERROR_OUT_OF_MEMORY;
+        goto ret_point;
+    }
+    else if (SGX_SUCCESS != sgx_status) {
+        ret = TDQE_ERROR_UNEXPECTED;
+        goto ret_point;
+    }
+
+    memcpy(&le_att_pub_key, &plaintext.ecdsa_att_public_key, sizeof(le_att_pub_key));
+    SWAP_ENDIAN_32B(le_att_pub_key.gx);
+    SWAP_ENDIAN_32B(le_att_pub_key.gy);
+
+    sgx_status = sgx_ecdsa_verify(p_quote_buf,
+        sign_buf_size,
+        &le_att_pub_key,
+        reinterpret_cast<sgx_ec256_signature_t *>(p_quote_sig->sig),
+        &verify_result,
+        handle);
+    if (SGX_SUCCESS != sgx_status || SGX_EC_VALID != verify_result) {
+        if (SGX_SUCCESS != sgx_read_rand((unsigned char*)p_quote_sig->sig,
+            sizeof(sgx_ec256_signature_t)))
+            memset(p_quote_sig->sig, 0, sizeof(sgx_ec256_signature_t));
+        ret = TDQE_ERROR_UNEXPECTED;
+        goto ret_point;
+    }
+
+    {
+        size_t i;
+        uint8_t swap;
+        for (i = 0; i < 32 / 2; i++) {
+            swap = p_quote_sig->sig[i];
+            p_quote_sig->sig[i] = p_quote_sig->sig[32 - 1 - i];
+            p_quote_sig->sig[32 - 1 - i] = swap;
+        }
+        for (i = 0; i < 32 / 2; i++) {
+            swap = p_quote_sig->sig[32 + i];
+            p_quote_sig->sig[32 + i] = p_quote_sig->sig[64 - 1 - i];
+            p_quote_sig->sig[64 - 1 - i] = swap;
+        }
+    }
+    memcpy(p_quote_sig->attest_pub_key, &plaintext.ecdsa_att_public_key, sizeof(p_quote_sig->attest_pub_key));
+    memcpy(&(p_qe_report_cert_data->qe_report), &plaintext.qe_report.body, sizeof(p_qe_report_cert_data->qe_report));
+    memcpy(p_qe_report_cert_data->qe_report_sig, &plaintext.qe_report_cert_key_sig, sizeof(p_qe_report_cert_data->qe_report_sig));
+
+    if (0 != p_auth_data->size) {
+        memcpy(p_auth_data->auth_data, plaintext.authentication_data, p_auth_data->size);
+    }
+
+    if (NULL == p_certification_data) {
+        p_cert_encrypted_ppid_info_data = (sgx_ql_ppid_rsa3072_encrypted_cert_info_t *)p_certification_data_output->certification_data;
+        p_certification_data_output->cert_key_type = PPID_RSA3072_ENCRYPTED;
+        p_certification_data_output->size = sizeof(sgx_ql_ppid_rsa3072_encrypted_cert_info_t);
+        memcpy(p_cert_encrypted_ppid_info_data->enc_ppid, pciphertext->encrypted_ppid_data.encrypted_ppid, sizeof(p_cert_encrypted_ppid_info_data->enc_ppid));
+        p_cert_encrypted_ppid_info_data->pce_info = plaintext.cert_pce_info;
+        memcpy(&p_cert_encrypted_ppid_info_data->cpu_svn, &plaintext.cert_cpu_svn, sizeof(p_cert_encrypted_ppid_info_data->cpu_svn));
+
+        p_qe_report_cert_header->size = p_qe_report_cert_header->size + p_certification_data_output->size;
+    }
+    else {
+        sgx_ql_certification_data_t * p_input_certification_data_header = (sgx_ql_certification_data_t *)p_certification_data;
+        p_certification_data_output->cert_key_type = p_input_certification_data_header->cert_key_type;
+        p_certification_data_output->size = p_input_certification_data_header->size;
+        if (0 != memcpy_s(p_certification_data_output->certification_data, p_certification_data_output->size,
+                    &p_input_certification_data_header->certification_data, p_input_certification_data_header->size)) {
+            ret = TDQE_ERROR_UNEXPECTED;
+            goto ret_point;
+        }
+
+        p_qe_report_cert_header->size = p_qe_report_cert_header->size + p_certification_data_output->size;
+    }
+
+    if (NULL != p_nonce) {
+        ref_static_assert(sizeof(qe_report_data) >= sizeof(sgx_sha256_hash_t));
+
+        sgx_status = sgx_sha256_init(&sha_quote_context);
+        if (SGX_SUCCESS != sgx_status) {
+            ret = TDQE_ERROR_UNEXPECTED;
+            goto ret_point;
+        }
+
+        memset(&qe_report_data, 0, sizeof(qe_report_data));
+        sgx_status = sgx_sha256_update((uint8_t *)const_cast<sgx_quote_nonce_t *>(p_nonce),
+            (uint32_t)sizeof(*p_nonce),
+            sha_quote_context);
+        if (SGX_SUCCESS != sgx_status) {
+            ret = TDQE_ERROR_UNEXPECTED;
+            goto ret_point;
+        }
+        sgx_status = sgx_sha256_update(p_quote_buf,
+            (uint32_t)real_quote_size,
+            sha_quote_context);
+        if (SGX_SUCCESS != sgx_status) {
+            ret = TDQE_ERROR_UNEXPECTED;
+            goto ret_point;
+        }
+        sgx_status = sgx_sha256_get_hash(sha_quote_context,
+            (sgx_sha256_hash_t *)&qe_report_data);
+        if (SGX_SUCCESS != sgx_status) {
+            ret = TDQE_ERROR_UNEXPECTED;
+            goto ret_point;
+        }
+        sgx_status = sgx_create_report(p_app_enclave_target_info, &qe_report_data, &qe_report);
+        if (SGX_SUCCESS != sgx_status) {
+            if (SGX_ERROR_OUT_OF_MEMORY == sgx_status) {
+                ret = TDQE_ERROR_OUT_OF_MEMORY;
+            }
+            else {
+                ret = TDQE_UNABLE_TO_GENERATE_QE_REPORT;
+            }
+            goto ret_point;
+        }
+        if (NULL != p_qe_report_out) {
+            memcpy(p_qe_report_out, &qe_report, sizeof(*p_qe_report_out));
+        }
+    }
+
+ret_point:
+    memset_s(pciphertext, sizeof(*pciphertext), 0, sizeof(*pciphertext));
+    if (handle != NULL) {
+        sgx_ecc256_close_context(handle);
+    }
+    if (sha_quote_context != NULL) {
+        sgx_sha256_close(sha_quote_context);
+    }
+
+    return(ret);
 }
 
 /**
@@ -1362,574 +1970,40 @@ uint32_t gen_quote(uint8_t *p_blob,
     const uint8_t * p_certification_data,
     uint32_t cert_data_size)
 {
-    tdqe_error_t ret = TDQE_SUCCESS;
-    sgx_quote4_t *p_quote;
-    sgx_quote5_t *p_quote_v5;
-    sgx_ecdsa_sig_data_v4_t *p_quote_sig;
-    uint32_t *p_sig_len;
-    sgx_ql_certification_data_t *p_qe_report_cert_header;
-    sgx_qe_report_certification_data_t *p_qe_report_cert_data;
-    uint8_t is_resealed = 0;
-    uint32_t sign_size = 0;
-    sgx_status_t sgx_status = SGX_SUCCESS;
-    sgx_report_t qe_report;
-    size_t required_buffer_size = 0;
-    size_t real_quote_size = 0;
-    ref_plaintext_ecdsa_data_sdk_t plaintext;
-    bool gen_v5_quote = false;
-    bool mr_servicetd_valid = false;
-    bool tee_tcb_svn2_valid = false;
-    bool tdid_present = false;
-    bool vmid_present = false;
-
-    if (!is_verify_report2_available()) {
-        return (TDQE_ERROR_INVALID_PLATFORM);
-    }
-    //
-    // provide extra protection for attestation key by
-    // randomizing its address and securely aligning it
-    //
-    using cciphertext = randomly_placed_object<
-        sgx::custom_alignment_aligned<
-        ref_ciphertext_ecdsa_data_sdk_t,
-        alignof(ref_ciphertext_ecdsa_data_sdk_t),
-        __builtin_offsetof(ref_ciphertext_ecdsa_data_sdk_t, ecdsa_private_key),
-        sizeof(((ref_ciphertext_ecdsa_data_sdk_t*)0)->ecdsa_private_key)>>;
-    //
-    // instance of randomly_placed_object
-    //
-    cciphertext ociphertext_buf;
-    //
-    // pointer to instance of custom_alignment_aligned
-    //
-    auto* ociphertext = ociphertext_buf.instantiate_object();
-    ref_ciphertext_ecdsa_data_sdk_t* pciphertext = &ociphertext->v;
-
-    sgx_sha384_hash_t hash384_buf = {0};
-    sgx_ecc_state_handle_t handle = NULL;
-    sgx_ql_auth_data_t *p_auth_data;
-    sgx_ql_certification_data_t *p_certification_data_output;
-    sgx_ql_ppid_rsa3072_encrypted_cert_info_t *p_cert_encrypted_ppid_info_data;
-    sgx_sha_state_handle_t sha_quote_context = NULL;
-    sgx_report_data_t qe_report_data;
-    sgx_ec256_public_t le_att_pub_key;
-    uint32_t sign_buf_size;
-    uint8_t verify_result = SGX_EC_INVALID_SIGNATURE;
-
-    memset(&plaintext, 0, sizeof(plaintext));
-
-    // Actually, some cases here will be checked with code generated by
-    // edger8r. Here we just want to defend in depth.
-    if ((NULL == p_blob) ||
-        (NULL == p_td_report) ||
-        (NULL == p_quote_buf) ||
-        (!quote_size)) {
-        return(TDQE_ERROR_INVALID_PARAMETER);
-    }
-    if (SGX_QL_TRUSTED_ECDSA_BLOB_SIZE_SDK != blob_size) {
-        return(TDQE_ERROR_INVALID_PARAMETER);
-    }
-    // All these 3 parameters should be all NULL or all not NULL.
-    if (!((NULL == p_nonce) && (NULL == p_app_enclave_target_info) && (NULL == p_qe_report_out))
-        && !((NULL != p_nonce) && (NULL != p_app_enclave_target_info) && (NULL != p_qe_report_out))) {
-        return(TDQE_ERROR_INVALID_PARAMETER);
-    }
-    if (NULL != p_certification_data)
-    {
-        sgx_ql_certification_data_t * p_input_certification_data_header = (sgx_ql_certification_data_t *)p_certification_data;
-        if (PPID_CLEARTEXT > p_input_certification_data_header->cert_key_type
-            || QL_CERT_KEY_TYPE_MAX < p_input_certification_data_header->cert_key_type) {
-            return(TDQE_ERROR_INVALID_PARAMETER);
-        }
-        if (MAX_CERT_DATA_SIZE < p_input_certification_data_header->size) {
-            return(TDQE_ERROR_INVALID_PARAMETER);
-        }
-        if (sizeof(sgx_ql_certification_data_t) + p_input_certification_data_header->size != cert_data_size) {
-            return(TDQE_ERROR_INVALID_PARAMETER);
-        }
-    }
-    if (NULL == p_certification_data && cert_data_size !=0) {
-        return(TDQE_ERROR_INVALID_PARAMETER);
-    }
-
-
-    // The ECDSA Quote is not so large that it needs to be outside the enclave.  Verify the full buffer is within
-    // the EPC.  To reduce the ECDSA QE, it can be moved outside the epc.
-    if (!sgx_is_within_enclave(p_quote_buf, quote_size)) {
-        return(TDQE_ERROR_INVALID_PARAMETER);
-    }
-
-    /* Check whether p_blob is copied into EPC. If we want to reduce the
-       memory usage, maybe we can leave the p_blob outside EPC. */
-    if (!sgx_is_within_enclave(p_blob, blob_size)) {
-        return(TDQE_ERROR_INVALID_PARAMETER);
-    }
-    if (!sgx_is_within_enclave(p_td_report, sizeof(*p_td_report))) {
-        return(TDQE_ERROR_INVALID_PARAMETER);
-    }
-
-    if (NULL != p_certification_data) {
-        if (!sgx_is_within_enclave(p_certification_data, cert_data_size)) {
-            return(TDQE_ERROR_INVALID_PARAMETER);
-        }
-    }
-
-    // If the code reaches here, if p_nonce is NULL, then p_qe_report will be
-    // NULL also. So we only check p_nonce here.
-    if (p_nonce) {
-        // Actually Edger8r will alloc the buffer within EPC, this is just kind
-        // of defense in depth.
-        if (!sgx_is_within_enclave(p_nonce, sizeof(*p_nonce))) {
-            return(TDQE_ERROR_INVALID_PARAMETER);
-        }
-        if (!sgx_is_within_enclave(p_qe_report_out, sizeof(*p_qe_report_out))) {
-            return(TDQE_ERROR_INVALID_PARAMETER);
-        }
-        if (!sgx_is_within_enclave(p_app_enclave_target_info, sizeof(*p_app_enclave_target_info))) {
-            return(TDQE_ERROR_INVALID_PARAMETER);
-        }
-    }
-
-    ret = determine_quote_version(p_td_report,
-                    &gen_v5_quote,
-                    &mr_servicetd_valid,
-                    &tee_tcb_svn2_valid,
-                    &tdid_present,
-                    &vmid_present);
-    if (TDQE_SUCCESS != ret) {
-        return (ret);
-    }
-
-    // Verify the input report.
-    sgx_status = sgx_verify_report2(&p_td_report->report_mac_struct);
-    if (SGX_SUCCESS != sgx_status) {
-        if (SGX_ERROR_INVALID_PARAMETER == sgx_status) {
-            return(TDQE_REPORT_FORMAT_NOT_SUPPORTED);
-        }
-        else {
-            return(TDQE_ERROR_INVALID_REPORT);
-        }
-    }
-
-    // tee tcb info hash
-    sgx_status = sgx_sha384_msg((uint8_t *)(&(p_td_report->tee_tcb_info)), sizeof(p_td_report->tee_tcb_info), &hash384_buf);
-    if (SGX_SUCCESS != sgx_status) {
-        ret = TDQE_ERROR_UNEXPECTED;
-        goto ret_point;
-    }
-
-    //verify the tee tcb hash data data is SHA384(tee tcb info)
-    if(memcmp(&hash384_buf, &p_td_report->report_mac_struct.tee_tcb_info_hash, sizeof(p_td_report->report_mac_struct.tee_tcb_info_hash))!=0){
-        ret = TDQE_ERROR_INVALID_HASH;
-        goto ret_point;
-    }
-
-    memset(&hash384_buf, 0x00, sizeof(hash384_buf));
-
-    // td info hash
-    sgx_status = sgx_sha384_msg((uint8_t *)(&(p_td_report->tee_info)), sizeof(p_td_report->tee_info), &hash384_buf);
-    if (SGX_SUCCESS != sgx_status) {
-        ret = TDQE_ERROR_UNEXPECTED;
-        goto ret_point;
-    }
-
-    //verify the td info hash data data is SHA384(td info)
-    if(memcmp(&hash384_buf, &p_td_report->report_mac_struct.tee_info_hash, sizeof(p_td_report->report_mac_struct.tee_info_hash))!=0){
-        ret = TDQE_ERROR_INVALID_HASH;
-        goto ret_point;
-    }
-
-    // Verify ECDSA p_blob and create the context
-    ret = random_stack_advance(verify_blob_internal,p_blob,
+    return gen_quote_impl(p_blob,
         blob_size,
-        &is_resealed,
-        &plaintext,
-        (sgx_report_body_t*) NULL,
-        (uint8_t*) NULL,
-        0,
-        pciphertext);
-    if (TDQE_SUCCESS != ret) {
-        goto ret_point;
-    }
+        p_td_report,
+        p_nonce,
+        p_app_enclave_target_info,
+        p_qe_report_out,
+        p_quote_buf,
+        quote_size,
+        p_certification_data,
+        cert_data_size,
+        NULL);
+}
 
-    sign_size = sizeof(sgx_ecdsa_sig_data_v4_t) +           // ECDSA sig data structure
-        sizeof(sgx_ql_auth_data_t) +
-        sizeof(sgx_ql_certification_data_t) +               // We added sgx_qe_report_certification_data_t in version 4
-        sizeof(sgx_qe_report_certification_data_t) +
-        sizeof(sgx_ql_certification_data_t);
-    if (1 == pciphertext->is_clear_ppid) {
-        ret = TDQE_ERROR_INVALID_PARAMETER;
-        goto ret_point;
-    }
-    else {
-        if (!p_certification_data) {
-            sign_size += (uint32_t)sizeof(sgx_ql_ppid_rsa3072_encrypted_cert_info_t);  // RSA3072_Enc_PPID, PCE PSVN and PCE_ID
-        }
-        else {
-            // Check for overflow before adding in the variable size of certification data
-            // Also take the sgx_quote5_t and sgx_report2_body_v1_5_ex_t into account, so we don't
-            // need to check overflow for required_buffer_size
-            if (UINT32_MAX - sign_size - sizeof(sgx_quote5_t) - sizeof(sgx_report2_body_v1_5_ex_t)
-                > ((sgx_ql_certification_data_t *)p_certification_data)->size) {
-                sign_size += ((sgx_ql_certification_data_t *)p_certification_data)->size;
-            } else {
-                ret = TDQE_ERROR_INVALID_PARAMETER;
-                goto ret_point;
-            }
-        }
-    }
-    /* Check for overflow before adding in the variable size of authentication data. */
-    if ((UINT32_MAX - sign_size - sizeof(sgx_quote5_t) - sizeof(sgx_report2_body_v1_5_ex_t)) < plaintext.authentication_data_size) {
-        ret = TDQE_ERROR_INVALID_PARAMETER;
-        goto ret_point;
-    }
-    sign_size += plaintext.authentication_data_size;     // Authentication data
-
-    // Always require buffer size for quote v5 type 4, which is big enough for both v4 and v5 quote.
-    required_buffer_size = sizeof(sgx_quote5_t)
-                           + sizeof(sgx_report2_body_v1_5_ex_t)
-                           + sizeof(uint32_t) // Field for Auth Data size, or signature_data_len in code
-                           + sign_size;
-
-    if (gen_v5_quote) {
-        if (tdid_present || vmid_present) {
-            real_quote_size = required_buffer_size;
-        } else {
-            real_quote_size = required_buffer_size
-                              - sizeof(sgx_report2_body_v1_5_ex_t)
-                              + sizeof(sgx_report2_body_v1_5_t);
-        }
-    } else { // We only support v5 and v4 quote, so following size is for v4
-        // v5 quote is bigger then v4, we've check overflow case for v5 already.
-        // So don't need to check it here.
-        real_quote_size = sizeof(sgx_quote4_t) + sign_size;
-    }
-
-    // Make sure the buffer size is big enough.
-    if (quote_size < required_buffer_size) {
-        ret = TDQE_ERROR_INVALID_PARAMETER;
-        goto ret_point;
-    }
-
-    // Verify sizeof header.userdata is large enough
-    ref_static_assert(sizeof(plaintext.qe_id) <= sizeof(p_quote->header.user_data));
-
-    // Clear out the quote buffer
-    sgx_lfence();
-    memset(p_quote_buf, 0, required_buffer_size);
-    // Set up the component quote structure pointers to point to the correct place within the inputted quote buffer.
-    p_quote = (sgx_quote4_t *)p_quote_buf;
-    p_quote_v5 = (sgx_quote5_t *)p_quote_buf;
-    if (gen_v5_quote) {
-        if (tdid_present || vmid_present) {
-            p_sig_len = (uint32_t *)(p_quote_v5->body + sizeof(sgx_report2_body_v1_5_ex_t));
-            p_quote_sig = (sgx_ecdsa_sig_data_v4_t *)(p_quote_v5->body + sizeof(sgx_report2_body_v1_5_ex_t) + sizeof(uint32_t));
-        } else {
-            p_sig_len = (uint32_t *)(p_quote_v5->body + sizeof(sgx_report2_body_v1_5_t));
-            p_quote_sig = (sgx_ecdsa_sig_data_v4_t *)(p_quote_v5->body + sizeof(sgx_report2_body_v1_5_t) + sizeof(uint32_t));
-        }
-    } else { // v4 quote
-        p_sig_len = &p_quote->signature_data_len;
-        p_quote_sig = (sgx_ecdsa_sig_data_v4_t *)(p_quote->signature_data);
-    }
-    *p_sig_len = sign_size;
-
-    p_qe_report_cert_header = ((sgx_ql_certification_data_t *)(p_quote_sig->certification_data));
-    p_qe_report_cert_data = (sgx_qe_report_certification_data_t *)(p_qe_report_cert_header->certification_data);
-    p_qe_report_cert_header->cert_key_type = ECDSA_SIG_AUX_DATA;
-
-    p_auth_data = (sgx_ql_auth_data_t *)(p_quote_sig->certification_data + sizeof(sgx_ql_certification_data_t) + sizeof(sgx_qe_report_certification_data_t));
-    p_auth_data->size = (uint16_t)plaintext.authentication_data_size;
-
-    // write initial size for p_qe_report_cert_header->size, will add remain part later.
-    p_qe_report_cert_header->size = (uint32_t)(sizeof(sgx_qe_report_certification_data_t) + sizeof(sgx_ql_auth_data_t)
-            + p_auth_data->size + sizeof(sgx_ql_certification_data_t));
-
-    //Note:  This is potentially dangerous pointer math using an untrusted input size.  The 'required_buffer_size' check
-    //above verifies that the size will not put the calculated address and certification data outside of the inputted
-    //p_quote + quote_size memory.
-    p_certification_data_output = (sgx_ql_certification_data_t*)((uint8_t*)p_auth_data + sizeof(*p_auth_data) + p_auth_data->size);
-
-    // Populate the quote buffer.
-    // Set up the header.
-    p_quote->header.att_key_type = SGX_QL_ALG_ECDSA_P256;
-    p_quote->header.tee_type = 0x81; // TEE for this attestation, little endian 0x81 means TDX
-    // Sizes of user_data and qe_id were checked above.  If here, then sizes are OK without overflow.
-
-    // Copy in QE_ID from blob
-    memcpy(&p_quote->header.user_data, &plaintext.qe_id, sizeof(plaintext.qe_id));
-    // Copy in Intel's Vender ID
-    memcpy(p_quote->header.vendor_id, g_vendor_id, sizeof(g_vendor_id));
-
-    if (gen_v5_quote) {
-        if (tdid_present || vmid_present) {
-            sgx_report2_body_v1_5_ex_t *p_report_body_v2 = (sgx_report2_body_v1_5_ex_t *)p_quote_v5->body;
-            tee_tcb_info_v1_5_t *p_tee_tcb_info_v2 = (tee_tcb_info_v1_5_t *)p_td_report->tee_tcb_info;
-            tee_info_v1_5_ex_t *p_tee_info_v2 = (tee_info_v1_5_ex_t *)p_td_report->tee_info;
-
-            p_quote_v5->header.version = QE_QUOTE_VERSION_V5;
-            p_quote_v5->type = 4;
-            p_quote_v5->size = (uint32_t)(sizeof(sgx_report2_body_v1_5_ex_t));
-            // Fill the td report body.
-            memset(p_report_body_v2, 0, sizeof(*p_report_body_v2));
-
-            memcpy(&(p_report_body_v2->tee_tcb_svn), &(p_tee_tcb_info_v2->tee_tcb_svn), sizeof(p_report_body_v2->tee_tcb_svn));
-            memcpy(&(p_report_body_v2->mr_seam), &(p_tee_tcb_info_v2->mr_seam), sizeof(p_report_body_v2->mr_seam));
-
-            memcpy(&(p_report_body_v2->td_attributes), &(p_tee_info_v2->attributes), sizeof(p_report_body_v2->td_attributes));
-            memcpy(&(p_report_body_v2->xfam), &(p_tee_info_v2->xfam), sizeof(p_report_body_v2->xfam));
-            memcpy(&(p_report_body_v2->mr_td), &(p_tee_info_v2->mr_td), sizeof(p_report_body_v2->mr_td));
-            memcpy(&(p_report_body_v2->mr_config_id), &(p_tee_info_v2->mr_config_id), sizeof(p_report_body_v2->mr_config_id));
-            memcpy(&(p_report_body_v2->mr_owner), &(p_tee_info_v2->mr_owner), sizeof(p_report_body_v2->mr_owner));
-            memcpy(&(p_report_body_v2->mr_owner_config), &(p_tee_info_v2->mr_owner_config), sizeof(p_report_body_v2->mr_owner_config));
-            memcpy(p_report_body_v2->rt_mr, p_tee_info_v2->rt_mr, sizeof(p_report_body_v2->rt_mr));
-            memcpy(&(p_report_body_v2->report_data), &(p_td_report->report_mac_struct.report_data), sizeof(p_report_body_v2->report_data));
-            ref_static_assert(sizeof(p_report_body_v2->tee_tcb_svn2) == sizeof(p_tee_tcb_info_v2->tee_tcb_svn));
-            if (tee_tcb_svn2_valid) {
-                memcpy(&(p_report_body_v2->tee_tcb_svn2), &(p_tee_tcb_info_v2->tee_tcb_svn2), sizeof(p_report_body_v2->tee_tcb_svn2));
-            } else {
-                memcpy(&(p_report_body_v2->tee_tcb_svn2), &(p_tee_tcb_info_v2->tee_tcb_svn), sizeof(p_report_body_v2->tee_tcb_svn2));
-            }
-            if (mr_servicetd_valid) {
-                memcpy(&(p_report_body_v2->mr_servicetd), &(p_tee_info_v2->mr_servicetd), sizeof(p_report_body_v2->mr_servicetd));
-            }
-            if (tdid_present) {
-                memcpy(&(p_report_body_v2->td_id), &(p_tee_info_v2->td_id), sizeof(p_report_body_v2->td_id));
-            }
-            if (vmid_present) {
-                memcpy(&(p_report_body_v2->vmid), &(p_tee_info_v2->vmid), sizeof(p_report_body_v2->vmid));
-            }
-            sign_buf_size = sizeof(*p_quote_v5) + sizeof(*p_report_body_v2);
-        } else {
-            sgx_report2_body_v1_5_t *p_report_body_v2 = (sgx_report2_body_v1_5_t *)p_quote_v5->body;
-            tee_tcb_info_v1_5_t *p_tee_tcb_info_v2 = (tee_tcb_info_v1_5_t *)p_td_report->tee_tcb_info;
-            tee_info_v1_5_t *p_tee_info_v2 = (tee_info_v1_5_t *)p_td_report->tee_info;
-
-            p_quote_v5->header.version = QE_QUOTE_VERSION_V5;
-            p_quote_v5->type = 3; // (TD Report for TDX 1.5)
-            p_quote_v5->size = (uint32_t)(sizeof(sgx_report2_body_v1_5_t));
-            // Fill the td report body.
-            memset(p_report_body_v2, 0, sizeof(*p_report_body_v2));
-
-            memcpy(&(p_report_body_v2->tee_tcb_svn), &(p_tee_tcb_info_v2->tee_tcb_svn), sizeof(p_report_body_v2->tee_tcb_svn));
-            memcpy(&(p_report_body_v2->mr_seam), &(p_tee_tcb_info_v2->mr_seam), sizeof(p_report_body_v2->mr_seam));
-
-            memcpy(&(p_report_body_v2->td_attributes), &(p_tee_info_v2->attributes), sizeof(p_report_body_v2->td_attributes));
-            memcpy(&(p_report_body_v2->xfam), &(p_tee_info_v2->xfam), sizeof(p_report_body_v2->xfam));
-            memcpy(&(p_report_body_v2->mr_td), &(p_tee_info_v2->mr_td), sizeof(p_report_body_v2->mr_td));
-            memcpy(&(p_report_body_v2->mr_config_id), &(p_tee_info_v2->mr_config_id), sizeof(p_report_body_v2->mr_config_id));
-            memcpy(&(p_report_body_v2->mr_owner), &(p_tee_info_v2->mr_owner), sizeof(p_report_body_v2->mr_owner));
-            memcpy(&(p_report_body_v2->mr_owner_config), &(p_tee_info_v2->mr_owner_config), sizeof(p_report_body_v2->mr_owner_config));
-            memcpy(p_report_body_v2->rt_mr, p_tee_info_v2->rt_mr, sizeof(p_report_body_v2->rt_mr));
-            memcpy(&(p_report_body_v2->report_data), &(p_td_report->report_mac_struct.report_data), sizeof(p_report_body_v2->report_data));
-            ref_static_assert(sizeof(p_report_body_v2->tee_tcb_svn2) == sizeof(p_tee_tcb_info_v2->tee_tcb_svn));
-            if (tee_tcb_svn2_valid) {
-                memcpy(&(p_report_body_v2->tee_tcb_svn2), &(p_tee_tcb_info_v2->tee_tcb_svn2), sizeof(p_report_body_v2->tee_tcb_svn2));
-            } else {
-                memcpy(&(p_report_body_v2->tee_tcb_svn2), &(p_tee_tcb_info_v2->tee_tcb_svn), sizeof(p_report_body_v2->tee_tcb_svn2));
-            }
-            if (mr_servicetd_valid) {
-                memcpy(&(p_report_body_v2->mr_servicetd), &(p_tee_info_v2->mr_servicetd), sizeof(p_report_body_v2->mr_servicetd));
-            }
-            sign_buf_size = sizeof(*p_quote_v5) + sizeof(*p_report_body_v2);
-        }
-    } else {
-        sgx_report2_body_t *p_report_body = &p_quote->report_body;
-        tee_tcb_info_t *p_tee_tcb_info = (tee_tcb_info_t *)p_td_report->tee_tcb_info;
-        tee_info_t *p_tee_info = (tee_info_t *)p_td_report->tee_info;
-
-        p_quote->header.version = QE_QUOTE_VERSION;
-        // Fill the td report body.
-        memset(p_report_body, 0, sizeof(*p_report_body));
-
-        memcpy(&(p_report_body->tee_tcb_svn), &(p_tee_tcb_info->tee_tcb_svn), sizeof(p_report_body->tee_tcb_svn));
-        memcpy(&(p_report_body->mr_seam), &(p_tee_tcb_info->mr_seam), sizeof(p_report_body->mr_seam));
-
-        memcpy(&(p_report_body->td_attributes), &(p_tee_info->attributes), sizeof(p_report_body->td_attributes));
-        memcpy(&(p_report_body->xfam), &(p_tee_info->xfam), sizeof(p_report_body->xfam));
-        memcpy(&(p_report_body->mr_td), &(p_tee_info->mr_td), sizeof(p_report_body->mr_td));
-        memcpy(&(p_report_body->mr_config_id), &(p_tee_info->mr_config_id), sizeof(p_report_body->mr_config_id));
-        memcpy(&(p_report_body->mr_owner), &(p_tee_info->mr_owner), sizeof(p_report_body->mr_owner));
-        memcpy(&(p_report_body->mr_owner_config), &(p_tee_info->mr_owner_config), sizeof(p_report_body->mr_owner_config));
-        memcpy(p_report_body->rt_mr, p_tee_info->rt_mr, sizeof(p_report_body->rt_mr));
-        memcpy(&(p_report_body->report_data), &(p_td_report->report_mac_struct.report_data), sizeof(p_report_body->report_data));
-        sign_buf_size = sizeof(*p_quote) - sizeof(p_quote->signature_data_len);
-    }
-
-    memset(&qe_report_data, 0, sizeof(qe_report_data));
-    sgx_status = sgx_create_report(NULL, &qe_report_data, &qe_report);
-    if (SGX_SUCCESS != sgx_status) {
-        if (SGX_ERROR_OUT_OF_MEMORY == sgx_status) {
-            ret = TDQE_ERROR_OUT_OF_MEMORY;
-        }
-        else {
-            ret = TDQE_ERROR_UNEXPECTED;
-        }
-        goto ret_point;
-    }
-    // Generate the quote signature.
-    sgx_status = sgx_ecc256_open_context(&handle);
-    if (SGX_ERROR_OUT_OF_MEMORY == sgx_status) {
-        ret = TDQE_ERROR_OUT_OF_MEMORY;
-        goto ret_point;
-    }
-    else if (SGX_SUCCESS != sgx_status) {
-        ret = TDQE_ERROR_UNEXPECTED;
-        goto ret_point;
-    }
-    // Sign everything in the quote except the signature_data_len.  This allows the quote certification information to change
-    // to contain the actual PCK cert after initially only carring the PPID+PCEID+TCB without making the quote invalid.
-    sgx_status = sgx_ecdsa_sign(p_quote_buf,
-        sign_buf_size,
-        &pciphertext->ecdsa_private_key,
-        reinterpret_cast<sgx_ec256_signature_t *>(p_quote_sig->sig),
-        handle);
-    if (SGX_ERROR_OUT_OF_MEMORY == sgx_status) {
-        ret = TDQE_ERROR_OUT_OF_MEMORY;
-        goto ret_point;
-    }
-    else if (SGX_SUCCESS != sgx_status) {
-        ret = TDQE_ERROR_UNEXPECTED;
-        goto ret_point;
-    }
-
-    memcpy(&le_att_pub_key, &plaintext.ecdsa_att_public_key, sizeof(le_att_pub_key));
-    //big endian to little endian
-    SWAP_ENDIAN_32B(le_att_pub_key.gx);
-    SWAP_ENDIAN_32B(le_att_pub_key.gy);
-
-    // the signature verify code here is for FI (fault injection) mitigation.
-    sgx_status = sgx_ecdsa_verify(p_quote_buf,
-        sign_buf_size,
-        &le_att_pub_key,
-        reinterpret_cast<sgx_ec256_signature_t *>(p_quote_sig->sig),
-        &verify_result,
-        handle);
-    if (SGX_SUCCESS != sgx_status || SGX_EC_VALID != verify_result) {
-        if (SGX_SUCCESS != sgx_read_rand((unsigned char*)p_quote_sig->sig,
-            sizeof(sgx_ec256_signature_t)))
-            memset(p_quote_sig->sig, 0, sizeof(sgx_ec256_signature_t));
-        ret = TDQE_ERROR_UNEXPECTED;
-        goto ret_point;
-    }
-
-    // Swap signature x and y from little endian used in sgx_crypto to big endian used in quote byte order
-    {
-        size_t i;
-        uint8_t swap;
-        for (i = 0; i < 32 / 2; i++) {
-            swap = p_quote_sig->sig[i];
-            p_quote_sig->sig[i] = p_quote_sig->sig[32 - 1 - i];
-            p_quote_sig->sig[32 - 1 - i] = swap;
-        }
-        for (i = 0; i < 32 / 2; i++) {
-            swap = p_quote_sig->sig[32 + i];
-            p_quote_sig->sig[32 + i] = p_quote_sig->sig[64 - 1 - i];
-            p_quote_sig->sig[64 - 1 - i] = swap;
-        }
-    }
-    // Add the public part of the ECDSA key to the quote sig data.  Store it in Big Endian
-    memcpy(p_quote_sig->attest_pub_key, &plaintext.ecdsa_att_public_key, sizeof(p_quote_sig->attest_pub_key));
-
-    // Add the QE Report to the Quote QE report certification data (the qe report when it was signed by the PCE!).
-    memcpy(&(p_qe_report_cert_data->qe_report), &plaintext.qe_report.body, sizeof(p_qe_report_cert_data->qe_report));
-
-    // Add the PCE signature
-    memcpy(p_qe_report_cert_data->qe_report_sig, &plaintext.qe_report_cert_key_sig, sizeof(p_qe_report_cert_data->qe_report_sig));
-
-    // Copy in the Authentication Data
-    if (0 != p_auth_data->size) {
-        memcpy(p_auth_data->auth_data, plaintext.authentication_data, p_auth_data->size);
-    }
-
-    if (NULL == p_certification_data) {
-        p_cert_encrypted_ppid_info_data = (sgx_ql_ppid_rsa3072_encrypted_cert_info_t *)p_certification_data_output->certification_data;
-        // Prepare the the certification data.  PPID_RSA3072_ENCRYPTED = Encrypted_PPID + PCE_TCB + PCEID is supported by the referecne.
-        p_certification_data_output->cert_key_type = PPID_RSA3072_ENCRYPTED;
-        p_certification_data_output->size = sizeof(sgx_ql_ppid_rsa3072_encrypted_cert_info_t);
-        // Get the cert_info_data from the ECDSA blob.
-        memcpy(p_cert_encrypted_ppid_info_data->enc_ppid, pciphertext->encrypted_ppid_data.encrypted_ppid, sizeof(p_cert_encrypted_ppid_info_data->enc_ppid));
-        p_cert_encrypted_ppid_info_data->pce_info = plaintext.cert_pce_info;
-        memcpy(&p_cert_encrypted_ppid_info_data->cpu_svn, &plaintext.cert_cpu_svn, sizeof(p_cert_encrypted_ppid_info_data->cpu_svn));
-
-        // update p_qe_report_cert_header->size
-        p_qe_report_cert_header->size = p_qe_report_cert_header->size + p_certification_data_output->size;
-    }
-    else {
-        sgx_ql_certification_data_t * p_input_certification_data_header = (sgx_ql_certification_data_t *)p_certification_data;
-        p_certification_data_output->cert_key_type = p_input_certification_data_header->cert_key_type;
-        p_certification_data_output->size = p_input_certification_data_header->size;
-        // Get the cert_info_data from the ECDSA blob.
-        if (0 != memcpy_s(p_certification_data_output->certification_data, p_certification_data_output->size,
-                    &p_input_certification_data_header->certification_data, p_input_certification_data_header->size)) {
-            ret = TDQE_ERROR_UNEXPECTED;
-            goto ret_point;
-        }
-
-        // update p_qe_report_cert_header->size
-        p_qe_report_cert_header->size = p_qe_report_cert_header->size + p_certification_data_output->size;
-    }
-
-    // Get the QE's report if requested.
-    ///todo:  It is possible that the untrusted code can change the certification data of the quote (including the
-    //the signature_length.  We may need to modify the quote hash generation to skip the modifiable values!!
-    if (NULL != p_nonce) {
-        ref_static_assert(sizeof(qe_report_data) >= sizeof(sgx_sha256_hash_t));
-
-        sgx_status = sgx_sha256_init(&sha_quote_context);
-        if (SGX_SUCCESS != sgx_status) {
-            ret = TDQE_ERROR_UNEXPECTED;
-            goto ret_point;
-        }
-
-        memset(&qe_report_data, 0, sizeof(qe_report_data));
-        // Update hash for nonce.
-        sgx_status = sgx_sha256_update((uint8_t *)const_cast<sgx_quote_nonce_t *>(p_nonce),
-            (uint32_t)sizeof(*p_nonce),
-            sha_quote_context);
-        if (SGX_SUCCESS != sgx_status) {
-            ret = TDQE_ERROR_UNEXPECTED;
-            goto ret_point;
-        }
-        // Update hash with the quote.
-        sgx_status = sgx_sha256_update(p_quote_buf,
-            (uint32_t)real_quote_size,
-            sha_quote_context);
-        if (SGX_SUCCESS != sgx_status) {
-            ret = TDQE_ERROR_UNEXPECTED;
-            goto ret_point;
-        }
-        sgx_status = sgx_sha256_get_hash(sha_quote_context,
-            (sgx_sha256_hash_t *)&qe_report_data);
-        if (SGX_SUCCESS != sgx_status) {
-            ret = TDQE_ERROR_UNEXPECTED;
-            goto ret_point;
-        }
-        ///todo:  Evaluate the requirements on the format of target_info structure.
-        sgx_status = sgx_create_report(p_app_enclave_target_info, &qe_report_data, &qe_report);
-        if (SGX_SUCCESS != sgx_status) {
-            if (SGX_ERROR_OUT_OF_MEMORY == sgx_status) {
-                ret = TDQE_ERROR_OUT_OF_MEMORY;
-            }
-            else {
-                ret = TDQE_UNABLE_TO_GENERATE_QE_REPORT;
-            }
-            goto ret_point;
-        }
-        if (NULL != p_qe_report_out) {
-            memcpy(p_qe_report_out, &qe_report, sizeof(*p_qe_report_out));
-        }
-    }
-
-ret_point:
-    // Clear out any senstive data.
-    memset_s(pciphertext, sizeof(*pciphertext), 0, sizeof(*pciphertext));
-    if (handle != NULL) {
-        sgx_ecc256_close_context(handle);
-    }
-    if (sha_quote_context != NULL) {
-        sgx_sha256_close(sha_quote_context);
-    }
-
-    return(ret);
+uint32_t gen_quote_mig_history(uint8_t *p_blob,
+    uint32_t blob_size,
+    const sgx_report2_t *p_td_report,
+    const sgx_quote_nonce_t *p_nonce,
+    const sgx_target_info_t *p_app_enclave_target_info,
+    sgx_report_t *p_qe_report_out,
+    uint8_t *p_quote_buf,
+    uint32_t quote_size,
+    const uint8_t * p_certification_data,
+    uint32_t cert_data_size,
+    const tdx_servtd_ext_t *p_servtd_ext)
+{
+    return gen_quote_impl(p_blob,
+        blob_size,
+        p_td_report,
+        p_nonce,
+        p_app_enclave_target_info,
+        p_qe_report_out,
+        p_quote_buf,
+        quote_size,
+        p_certification_data,
+        cert_data_size,
+        p_servtd_ext);
 }

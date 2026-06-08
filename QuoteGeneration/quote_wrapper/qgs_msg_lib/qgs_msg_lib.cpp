@@ -111,6 +111,68 @@ ret_point :
     return ret;
 }
 
+qgs_msg_error_t qgs_msg_gen_get_quote_mig_req(
+    const uint8_t *p_report, uint32_t report_size,
+    const uint8_t *p_servtd_ext, uint32_t servtd_ext_size,
+    const uint8_t *p_id_list, uint32_t id_list_size,
+    uint8_t **pp_req, uint32_t *p_req_size) {
+    qgs_msg_error_t ret = QGS_MSG_SUCCESS;
+    qgs_msg_get_quote_mig_req_t *p_req = NULL;
+    uint32_t buf_size = 0;
+    uint64_t temp = 0;
+
+    if (!p_report || !report_size || !p_servtd_ext || !servtd_ext_size) {
+        ret = QGS_MSG_ERROR_INVALID_PARAMETER;
+        goto ret_point;
+    }
+
+    if ((!p_id_list && id_list_size) || (p_id_list && !id_list_size)) {
+        ret = QGS_MSG_ERROR_INVALID_PARAMETER;
+        goto ret_point;
+    }
+
+    if (!pp_req || !p_req_size) {
+        ret = QGS_MSG_ERROR_INVALID_PARAMETER;
+        goto ret_point;
+    }
+
+    temp = sizeof(*p_req);
+    temp += report_size;
+    temp += servtd_ext_size;
+    temp += id_list_size;
+    if (temp < UINT32_MAX) {
+        buf_size = temp & UINT32_MAX;
+    } else {
+        ret = QGS_MSG_ERROR_UNEXPECTED;
+        goto ret_point;
+    }
+    p_req = (qgs_msg_get_quote_mig_req_t *)calloc(buf_size, sizeof(uint8_t));
+    if (!p_req) {
+        ret = QGS_MSG_ERROR_OUT_OF_MEMORY;
+        goto ret_point;
+    }
+
+    p_req->header.major_version = QGS_MSG_LIB_MAJOR_VER;
+    p_req->header.minor_version = QGS_MSG_LIB_MINOR_VER;
+    p_req->header.type = GET_QUOTE_MIG_REQ;
+    p_req->header.size = buf_size;
+    p_req->header.error_code = 0;
+
+    p_req->report_size = report_size;
+    p_req->servtd_ext_size = servtd_ext_size;
+    p_req->id_list_size = id_list_size;
+    memcpy(p_req->report_servtd_ext_id_list, p_report, report_size);
+    memcpy(p_req->report_servtd_ext_id_list + report_size, p_servtd_ext, servtd_ext_size);
+    if (id_list_size) {
+        memcpy(p_req->report_servtd_ext_id_list + report_size + servtd_ext_size, p_id_list, id_list_size);
+    }
+    *pp_req = (uint8_t *)p_req;
+    *p_req_size = buf_size;
+
+ret_point:
+    return ret;
+}
+
 /**
  * @brief Generate serialized get_collateral request
  *
@@ -256,6 +318,74 @@ qgs_msg_error_t qgs_msg_inflate_get_quote_req(
     }
 
     *p_report_size = p_req->report_size;
+    *p_id_list_size = p_req->id_list_size;
+
+ret_point:
+    return ret;
+}
+
+qgs_msg_error_t qgs_msg_inflate_get_quote_mig_req(
+    const uint8_t *p_serialized_req, uint32_t size,
+    const uint8_t **pp_report, uint32_t *p_report_size,
+    const uint8_t **pp_servtd_ext, uint32_t *p_servtd_ext_size,
+    const uint8_t **pp_id_list, uint32_t *p_id_list_size) {
+    qgs_msg_error_t ret = QGS_MSG_SUCCESS;
+    qgs_msg_get_quote_mig_req_t *p_req = NULL;
+    uint64_t temp = 0;
+
+    if (!p_serialized_req || !size || !pp_report || !p_report_size || !pp_servtd_ext || !p_servtd_ext_size || !pp_id_list || !p_id_list_size) {
+        ret = QGS_MSG_ERROR_INVALID_PARAMETER;
+        goto ret_point;
+    }
+
+    if (size < sizeof(qgs_msg_get_quote_mig_req_t)) {
+        ret = QGS_MSG_ERROR_INVALID_PARAMETER;
+        goto ret_point;
+    }
+
+    p_req = (qgs_msg_get_quote_mig_req_t *)p_serialized_req;
+    if (p_req->header.major_version != QGS_MSG_LIB_MAJOR_VER) {
+        ret = QGS_MSG_ERROR_INVALID_VERSION;
+        goto ret_point;
+    }
+
+    if (p_req->header.type != GET_QUOTE_MIG_REQ) {
+        ret = QGS_MSG_ERROR_INVALID_TYPE;
+        goto ret_point;
+    }
+
+    if (p_req->header.size != size) {
+        ret = QGS_MSG_ERROR_INVALID_SIZE;
+        goto ret_point;
+    }
+
+    if (p_req->header.error_code != 0 || !p_req->report_size || !p_req->servtd_ext_size) {
+        ret = QGS_MSG_ERROR_INVALID_CODE;
+        goto ret_point;
+    }
+
+    temp = sizeof(qgs_msg_get_quote_mig_req_t);
+    temp += p_req->report_size;
+    temp += p_req->servtd_ext_size;
+    temp += p_req->id_list_size;
+    if (temp >= UINT32_MAX) {
+        ret = QGS_MSG_ERROR_UNEXPECTED;
+        goto ret_point;
+    }
+    if (p_req->header.size != temp) {
+        ret = QGS_MSG_ERROR_INVALID_SIZE;
+        goto ret_point;
+    }
+
+    *pp_report = p_req->report_servtd_ext_id_list;
+    *p_report_size = p_req->report_size;
+    *pp_servtd_ext = p_req->report_servtd_ext_id_list + p_req->report_size;
+    *p_servtd_ext_size = p_req->servtd_ext_size;
+    if (p_req->id_list_size) {
+        *pp_id_list = p_req->report_servtd_ext_id_list + p_req->report_size + p_req->servtd_ext_size;
+    } else {
+        *pp_id_list = NULL;
+    }
     *p_id_list_size = p_req->id_list_size;
 
 ret_point:

@@ -32,6 +32,7 @@
 enclave {
 include "sgx_report.h"
 include "sgx_quote.h"
+include "sgx_quote_5.h"
 include "sgx_report2.h"
 include "user_types.h"
 include "ecdsa_quote.h"
@@ -75,5 +76,17 @@ trusted {
                               uint32_t quote_size,
                               [in, size = cert_data_size] const uint8_t * p_cert_data,
                               uint32_t cert_data_size);
+
+    public uint32_t gen_quote_mig_history([size = blob_size, in, out] uint8_t *p_blob,
+                                          uint32_t blob_size,
+                                          [in] const sgx_report2_t *p_app_report,
+                                          [in] const sgx_quote_nonce_t *p_nonce,
+                                          [in] const sgx_target_info_t *p_app_enclave_target_info,
+                                          [out] sgx_report_t *p_qe_report,
+                                          [size = quote_size, in, out] uint8_t *p_quote,
+                                          uint32_t quote_size,
+                                          [in, size = cert_data_size] const uint8_t * p_cert_data,
+                                          uint32_t cert_data_size,
+                                          [in] const tdx_servtd_ext_t *p_servtd_ext);
     };
 };

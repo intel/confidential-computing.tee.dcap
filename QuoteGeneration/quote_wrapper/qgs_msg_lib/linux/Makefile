@@ -29,6 +29,7 @@ endif
 SRC  := $(wildcard ../*.cpp)
 OBJS := $(sort $(SRC:.cpp=.o))
 LIBQGS_MSG_DEP := $(sort $(SRC:.cpp=.d))
+
 INCLUDES := -I../inc/
 
 LIBQGS_MSG := libqgs_msg.a
