@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <assert.h>
 
 /* Maximum byte length (excluding NUL) accepted for a single policy or token
  * string. ECALL entry validation and copy loops enforce this via
@@ -208,6 +209,35 @@ static quote3_error_t generate_qae_report_for_appraisal(const char *p_verificati
     return SGX_QL_SUCCESS;
 }
 
+// Function to copy the untrusted buffer to enclave
+static uint8_t *safe_copy_to_enclave(const uint8_t *p_untrusted, size_t max_size, quote3_error_t *p_ret)
+{
+    assert(p_ret != NULL);
+    // Confirm the p_untrusted is outside enclave before process
+    if (p_untrusted == NULL || !sgx_is_outside_enclave(p_untrusted, 1))
+    {
+        *p_ret = SGX_QL_ERROR_INVALID_PARAMETER;
+        return NULL;
+    }
+
+    size_t len = strnlen((const char *)p_untrusted, max_size);
+    if (len >= max_size || !sgx_is_outside_enclave(p_untrusted, len+1))
+    {
+        *p_ret = SGX_QL_ERROR_INVALID_PARAMETER;
+        return NULL;
+    }
+    uint8_t *p_trusted = (uint8_t *)malloc(len + 1);
+    if (p_trusted == NULL)
+    {
+        *p_ret = SGX_QL_ERROR_OUT_OF_MEMORY;
+        return NULL;
+    }
+    memcpy(p_trusted, p_untrusted, len);
+    p_trusted[len] = '\0';
+    *p_ret = SGX_QL_SUCCESS;
+    return p_trusted;
+}
+
 quote3_error_t qae_appraise_quote_result(const char *p_verification_result_token,
                                          uint8_t **p_qaps,
                                          uint8_t qaps_count,
@@ -288,27 +318,11 @@ quote3_error_t qae_appraise_quote_result(const char *p_verification_result_token
 
         for (; i < qaps_count; i++)
         {
-            const char *policy = (const char *)p_qaps[i];
-            size_t plen = strnlen(policy, MAX_POLICY_LEN + 1);
-            if (plen > MAX_POLICY_LEN || !sgx_is_outside_enclave(policy, plen + 1))
+            tmp_qaps[i] = safe_copy_to_enclave(p_qaps[i], MAX_POLICY_LEN + 1, &ret);
+            if (ret != SGX_QL_SUCCESS)
             {
-                ret = SGX_QL_ERROR_INVALID_PARAMETER;
                 break;
             }
-            uint8_t *p = (uint8_t *)malloc(plen + 1);
-            if (p == NULL)
-            {
-                ret = SGX_QL_ERROR_OUT_OF_MEMORY;
-                break;
-            }
-            if (memcpy_s(p, plen + 1, policy, plen) != 0)
-            {
-                free(p);
-                ret = SGX_QL_ERROR_UNEXPECTED;
-                break;
-            }
-            p[plen] = '\0';
-            tmp_qaps[i] = p;
         }
         if (i < qaps_count)
         {
@@ -539,6 +553,10 @@ quote3_error_t qae_authenticate_appraisal_result(const uint8_t *p_quote,
         return SGX_QL_ERROR_INVALID_PARAMETER;
     }
 
+    tee_policy_bundle_t tmp_policies = *p_policies;
+    tmp_policies.p_tenant_identity_policy = NULL;
+    tmp_policies.platform_policy.p_policy = NULL;
+    tmp_policies.tdqe_policy.p_policy = NULL;
     // Reject unsigned appraisal result tokens in QAE
     quote3_error_t ret = verify_jwt_is_signed(p_appraisal_result_token);
     if (ret != SGX_QL_SUCCESS)
@@ -546,54 +564,33 @@ quote3_error_t qae_authenticate_appraisal_result(const uint8_t *p_quote,
         return ret;
     }
     ret = SGX_QL_ERROR_UNEXPECTED;
-    tee_policy_bundle_t tmp_policies;
-    memset(&tmp_policies, 0, sizeof(tmp_policies));
-    uint8_t *ptr = NULL;
-    size_t str_size = 0;
 
     do
     {
         if (p_policies->p_tenant_identity_policy)
         {
-            str_size = strnlen((const char *)(p_policies->p_tenant_identity_policy), MAX_POLICY_LEN + 1);
-            if (str_size > MAX_POLICY_LEN ||
-                !sgx_is_outside_enclave(p_policies->p_tenant_identity_policy, str_size + 1))
-            { ret = SGX_QL_ERROR_INVALID_PARAMETER; break; }
-            ptr = (uint8_t *)malloc(str_size + 1);
-            CHECK_NULL_BREAK(ptr);
-            if (memcpy_s(ptr, str_size + 1, p_policies->p_tenant_identity_policy, str_size) != 0)
-            { free(ptr); ret = SGX_QL_ERROR_UNEXPECTED; break; }
-            ptr[str_size] = '\0';
-            tmp_policies.p_tenant_identity_policy = ptr;
+            tmp_policies.p_tenant_identity_policy = safe_copy_to_enclave(p_policies->p_tenant_identity_policy, MAX_POLICY_LEN + 1, &ret);
+            if (ret != SGX_QL_SUCCESS)
+            {
+                break;
+            }
         }
         if (p_policies->platform_policy.p_policy)
         {
-            str_size = strnlen((const char *)(p_policies->platform_policy.p_policy), MAX_POLICY_LEN + 1);
-            if (str_size > MAX_POLICY_LEN ||
-                !sgx_is_outside_enclave(p_policies->platform_policy.p_policy, str_size + 1))
-            { ret = SGX_QL_ERROR_INVALID_PARAMETER; break; }
-            ptr = (uint8_t *)malloc(str_size + 1);
-            CHECK_NULL_BREAK(ptr);
-            if (memcpy_s(ptr, str_size + 1, p_policies->platform_policy.p_policy, str_size) != 0)
-            { free(ptr); ret = SGX_QL_ERROR_UNEXPECTED; break; }
-            ptr[str_size] = '\0';
-            tmp_policies.platform_policy.p_policy = ptr;
+            tmp_policies.platform_policy.p_policy = safe_copy_to_enclave(p_policies->platform_policy.p_policy, MAX_POLICY_LEN + 1, &ret);
+            if (ret != SGX_QL_SUCCESS)
+            {
+                break;
+            }
         }
-        tmp_policies.platform_policy.pt = p_policies->platform_policy.pt;
         if (p_policies->tdqe_policy.p_policy)
         {
-            str_size = strnlen((const char *)(p_policies->tdqe_policy.p_policy), MAX_POLICY_LEN + 1);
-            if (str_size > MAX_POLICY_LEN ||
-                !sgx_is_outside_enclave(p_policies->tdqe_policy.p_policy, str_size + 1))
-            { ret = SGX_QL_ERROR_INVALID_PARAMETER; break; }
-            ptr = (uint8_t *)malloc(str_size + 1);
-            CHECK_NULL_BREAK(ptr);
-            if (memcpy_s(ptr, str_size + 1, p_policies->tdqe_policy.p_policy, str_size) != 0)
-            { free(ptr); ret = SGX_QL_ERROR_UNEXPECTED; break; }
-            ptr[str_size] = '\0';
-            tmp_policies.tdqe_policy.p_policy = ptr;
+            tmp_policies.tdqe_policy.p_policy = safe_copy_to_enclave(p_policies->tdqe_policy.p_policy, MAX_POLICY_LEN + 1, &ret);
+            if (ret != SGX_QL_SUCCESS)
+            {
+                break;
+            }
         }
-        tmp_policies.tdqe_policy.pt = p_policies->tdqe_policy.pt;
 
         try
         {
@@ -742,6 +739,7 @@ quote3_error_t qae_authenticate_policy_owner(const uint8_t *p_quote,
     ret = SGX_QL_ERROR_UNEXPECTED;
     uint8_t **tmp_key_policy_list = NULL;
     uint32_t i = 0;
+ 
     do
     {
         // Copy the policies to QAE before appraise
@@ -754,27 +752,11 @@ quote3_error_t qae_authenticate_policy_owner(const uint8_t *p_quote,
         memset(tmp_key_policy_list, 0, list_size * sizeof(uint8_t *));
         for (; i < list_size; i++)
         {
-            const char *key = (const char *)policy_key_list[i];
-            size_t klen = strnlen(key, MAX_POLICY_LEN + 1);
-            if (klen > MAX_POLICY_LEN || !sgx_is_outside_enclave(key, klen + 1))
+            tmp_key_policy_list[i] = safe_copy_to_enclave(policy_key_list[i], MAX_KEY_SIZE, &ret);
+            if (ret != SGX_QL_SUCCESS)
             {
-                ret = SGX_QL_ERROR_INVALID_PARAMETER;
                 break;
             }
-            uint8_t *p = (uint8_t *)malloc(klen + 1);
-            if (p == NULL)
-            {
-                ret = SGX_QL_ERROR_OUT_OF_MEMORY;
-                break;
-            }
-            if (memcpy_s(p, klen + 1, key, klen) != 0)
-            {
-                free(p);
-                ret = SGX_QL_ERROR_UNEXPECTED;
-                break;
-            }
-            p[klen] = '\0';
-            tmp_key_policy_list[i] = p;
         }
         if (i < list_size)
         {
