@@ -425,7 +425,7 @@ quote3_error_t tee_verify_evidence(
 
         std::lock_guard<std::mutex> lock(qve_mutex);
 
-        if (global_tee_qv || class_type != current_class_type) {
+        if (global_tee_qv && class_type != current_class_type) {
             //reset the object if the type change in next thread
             global_tee_qv.reset();
             global_tee_qv = NULL;
@@ -556,7 +556,7 @@ quote3_error_t sgx_qv_verify_quote(
     quote3_error_t ret = SGX_QL_SUCCESS;
 
     // set supplemental version if necessary
-    if (p_supplemental_data != NULL && supplemental_data_size > 0) {
+    if (p_supplemental_data != NULL && supplemental_data_size >= sizeof(sgx_ql_qv_supplemental_t)) {
         try {
             reinterpret_cast<sgx_ql_qv_supplemental_t*> (p_supplemental_data)->version = SUPPLEMENTAL_DATA_VERSION;
         }
@@ -580,7 +580,7 @@ quote3_error_t sgx_qv_verify_quote(
 
     // clear version info
     if (ret != SGX_QL_SUCCESS && p_supplemental_data != NULL) {
-        memset(p_supplemental_data, 0, sizeof(*p_supplemental_data));
+        memset(p_supplemental_data, 0, supplemental_data_size);
     }
 
     return ret;
@@ -611,7 +611,7 @@ quote3_error_t tdx_qv_verify_quote(
     quote3_error_t ret = SGX_QL_SUCCESS;
 
     // set supplemental version if necessary
-    if (p_supplemental_data != NULL && supplemental_data_size > 0) {
+    if (p_supplemental_data != NULL && supplemental_data_size >= sizeof(sgx_ql_qv_supplemental_t)) {
         try {
             reinterpret_cast<sgx_ql_qv_supplemental_t*> (p_supplemental_data)->version = SUPPLEMENTAL_DATA_VERSION;
         }
@@ -635,7 +635,7 @@ quote3_error_t tdx_qv_verify_quote(
 
     // clear version info
     if (ret != SGX_QL_SUCCESS && p_supplemental_data != NULL) {
-        memset(p_supplemental_data, 0, sizeof(*p_supplemental_data));
+        memset(p_supplemental_data, 0, supplemental_data_size);
     }
 
     return ret;
@@ -846,7 +846,7 @@ quote3_error_t tee_verify_quote(
 
     if (ret != SGX_QL_SUCCESS && p_supp_data_descriptor != NULL && p_supp_data_descriptor->p_data != NULL) {
         // defense in depth
-        memset(p_supp_data_descriptor->p_data, 0, sizeof(sgx_ql_qve_collateral_t));
+        memset(p_supp_data_descriptor->p_data, 0, p_supp_data_descriptor->data_size);
     }
 
     return ret;
@@ -975,12 +975,13 @@ static quote3_error_t tee_verify_quote_qvt_internal(
             tmp_ret = p_qv->tee_get_supplemental_data_version(&tmp_ver.version);
             if (tmp_ret != SGX_QL_SUCCESS) {
                 qve_ret = SGX_QL_ERROR_UNEXPECTED;
-                
+                break;
+            }
+
             if (tmp_ver.version != supp_ver.version) {
                 qve_ret = SGX_QL_ERROR_QVL_QVE_MISMATCH;
                 SE_TRACE(SE_TRACE_DEBUG,"\tWarning: Quote supplemental data version is different between QVL and QVE, please make sure you installed DCAP QVL and QvE from same release.\n");
                 break;
-            }break;
             }
 
             qve_ret = tee_qae_get_target_info(&tmp_report_info.app_enclave_target_info);
@@ -1163,7 +1164,7 @@ quote3_error_t tee_verify_quote_qvt(
 
         std::lock_guard<std::mutex> lock(qve_mutex);
 
-        if (global_tee_qv || class_type != current_class_type) {
+        if (global_tee_qv && class_type != current_class_type) {
             //reset the object if the type change in next thread
             global_tee_qv.reset();
             global_tee_qv = NULL;
