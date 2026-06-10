@@ -118,6 +118,8 @@ sgx_qcnl_error_t CertificationService::fetch_data(RequestType type, const Reques
         if (handler_ret == SGX_QCNL_SUCCESS) {
             ret = cacheProvider.set_certification(get_cache_type_of_request(type),
                                                   query_str, &pccs_resp_obj); // User query_str for caching key
+        } else {
+            ret = handler_ret;
         }
     }
     return ret;
