@@ -5,6 +5,7 @@
 #
 
 TOP_DIR := ../../../QuoteGeneration
+MITIGATION-CVE-2020-0551 := LOAD
 include $(TOP_DIR)/../ae/dep/buildenv.mk
 
 AENAME := tdqe
