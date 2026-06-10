@@ -346,6 +346,12 @@ namespace intel { namespace sgx { namespace dcap { namespace qgs {
             if (QGS_MSG_SUCCESS != qgs_msg_error_ret || fsmpc_size >= UINT16_MAX) {
                 resp_error_code = QGS_MSG_ERROR_UNEXPECTED;
                 QGS_LOG_ERROR("qgs_msg_inflate_get_collateral_req return error\n");
+            } else if (pckca_size == 0 || ((const char *)p_pckca)[pckca_size - 1] != '\0') {
+                // pck_ca is forwarded to strnlen(pck_ca, USHRT_MAX) in the QPL; reject
+                // any guest-supplied buffer that is not null-terminated within its declared
+                // size to prevent an out-of-bounds heap read on the host.
+                resp_error_code = QGS_MSG_ERROR_UNEXPECTED;
+                QGS_LOG_ERROR("pck_ca is not null-terminated\n");
             } else {
                 do {
                     char *error1 = NULL;
