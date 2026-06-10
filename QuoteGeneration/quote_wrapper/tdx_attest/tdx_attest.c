@@ -756,7 +756,8 @@ tdx_attest_error_t tdcall_get_quote_payload(
         return TDX_ATTEST_ERROR_QUOTE_FAILURE;
     }
     if (p_get_quote_blob->status
-        || p_get_quote_blob->out_len <= HEADER_SIZE) {
+        || p_get_quote_blob->out_len <= HEADER_SIZE
+        || p_get_quote_blob->out_len > REQ_BUF_SIZE - sizeof(struct tdx_quote_hdr)) {
         TDX_TRACE;
         if (GET_QUOTE_IN_FLIGHT == p_get_quote_blob->status) {
             return TDX_ATTEST_ERROR_BUSY;
