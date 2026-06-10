@@ -2778,12 +2778,10 @@ static quote3_error_t tdx_jwt_generator_internal(uint16_t quote_ver,
 #ifdef SGX_TRUSTED
 /**
  * Generate enclave report with:
- * SHA384([jwt || user_data] || 32 - 0x00s)
+ * SHA384([nonce || jwt]) || 16 - 0x00s
  *
  * @param p_token[IN] - Pointer to a tee JWT token.
  * @param token_size[IN] - Size of the buffer pointed to by p_token (in bytes).
- * @param p_user_data[IN] - Pointer to a user data.
- * @param user_data_size[IN] - Size of the buffer pointed to by p_user_data (in bytes).
  * @param p_qve_report_info[IN/OUT] - QvE will generate a report using the target_info provided in the sgx_ql_qe_report_info_t structure, and store it in qe_report.
  *
  * @return Status code of the operation, one of:
@@ -2813,9 +2811,14 @@ static quote3_error_t sgx_qve_token_generate_report(
     do {
         //Create QvE report
         //
-        //report_data =  SHA384([jwt] || 32 - 0x00s)
+        //report_data = SHA384([nonce || jwt]) || 16 - 0x00s
         //
         sgx_status = sgx_sha384_init(&sha_handle);
+        SGX_ERR_BREAK(sgx_status);
+
+        //nonce
+        //
+        sgx_status = sgx_sha384_update((p_qve_report_info->nonce.rand), sizeof(p_qve_report_info->nonce.rand), sha_handle);
         SGX_ERR_BREAK(sgx_status);
 
         //jwt token
