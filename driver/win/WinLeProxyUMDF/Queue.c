@@ -461,6 +461,8 @@ Return Value:
                 TraceEvents(TRACE_LEVEL_ERROR,
                     TRACE_QUEUE,
                     "sgx_get_token crashed");
+                buffer_size = 0;
+                status = STATUS_UNSUCCESSFUL;
                 goto end;
             }
 
@@ -468,8 +470,13 @@ Return Value:
 
             errno_t err = memcpy_s(buffer_out, buffer_size, &req.output, sizeof(sgx_le_output_t));
             if (err)
+            {
+                buffer_size = 0;
+                status = STATUS_UNSUCCESSFUL;
                 goto end;
+            }
 
+            buffer_size = sizeof(sgx_le_output_t);
             status = STATUS_SUCCESS;
         }
         else if(IoControlCode == IOCTL_SGX_GETLAUNCHSUPPORT)
@@ -518,7 +525,11 @@ Return Value:
             errno_t err = memcpy_s(buffer_out, buffer_size, &launch_support_output_Buffer, sizeof(sgx_get_launch_support_output_t));
 
             if (err)
+            {
+                buffer_size = 0;
+                status = STATUS_UNSUCCESSFUL;
                 goto end;
+            }
 
             buffer_size = sizeof(sgx_get_launch_support_output_t);
             status = STATUS_SUCCESS;
