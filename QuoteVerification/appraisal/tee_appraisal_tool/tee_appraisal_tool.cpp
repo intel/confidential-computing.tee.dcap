@@ -162,7 +162,12 @@ static bool convert_jwk_to_pem_str(std::string jwk_json, std::string &pem_str)
     }
     rapidjson::Document jwk_doc;
     jwk_doc.Parse<rapidjson::kParseCommentsFlag>(jwk_json.c_str());
-    if (jwk_doc.HasParseError() || jwk_doc.HasMember("x") == false || jwk_doc.HasMember("y") == false)
+    // rapidjson HasMember()/operator[] require IsObject(); the precondition is
+    // only enforced by RAPIDJSON_ASSERT, which is compiled out in release
+    // builds. Reject non-object roots up-front so a scalar/array/null JWK does
+    // not trigger a type-confused read of the value union.
+    if (jwk_doc.HasParseError() || jwk_doc.IsObject() == false ||
+        jwk_doc.HasMember("x") == false || jwk_doc.HasMember("y") == false)
     {
         return false;
     }
