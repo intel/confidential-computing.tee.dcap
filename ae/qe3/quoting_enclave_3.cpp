@@ -1468,6 +1468,9 @@ uint32_t gen_quote(uint8_t *p_blob,
     }
     if (NULL != p_certification_data)
     {
+        if (cert_data_size < sizeof(sgx_ql_certification_data_t)) {
+            return(REFQE3_ERROR_INVALID_PARAMETER);
+        }
         sgx_ql_certification_data_t * p_input_certification_data_header = (sgx_ql_certification_data_t *)p_certification_data;
         if (PPID_CLEARTEXT > p_input_certification_data_header->cert_key_type
             || QL_CERT_KEY_TYPE_MAX < p_input_certification_data_header->cert_key_type) {
