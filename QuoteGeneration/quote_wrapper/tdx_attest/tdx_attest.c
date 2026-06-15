@@ -26,6 +26,7 @@
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <syslog.h>
 #include <unistd.h>
 #include "dcap_safe_file_ops.h"
@@ -108,68 +109,85 @@ static const size_t QUOTE_BUF_SIZE = 8 * 1024; //8K
 static const size_t QUOTE_MIN_SIZE = 1020;
 static const unsigned MAX_PORT_NUMBER = 0xFFFF; // accepted port range 0..65535 (0xFFFF)
 static const unsigned WRONG_PORT_NUMBER = MAX_PORT_NUMBER + 1;
+static const long DEFAULT_VSOCK_TIMEOUT_SEC = 30;
+static const long MAX_VSOCK_TIMEOUT_SEC = 3600;
 
 static const tdx_uuid_t g_intel_tdqe_uuid = {TDX_SGX_ECDSA_ATTESTATION_ID};
 
-static unsigned int get_vsock_port(void)
+/* Read port and timeout from CFG_FILE_PATH in a single pass.
+ * port is set to WRONG_PORT_NUMBER if not found/invalid.
+ * timeout_sec is set to DEFAULT_VSOCK_TIMEOUT_SEC if not found/invalid;
+ * 0 means disable the receive timeout. */
+static void read_vsock_config(unsigned int *p_port, long *p_timeout_sec)
 {
-    FILE *p_config_fd = NULL;
-    char *p_line = NULL;
-    char *p = NULL;
-    size_t line_len = 0;
-    long long_num = 0;
-    unsigned int port = WRONG_PORT_NUMBER;
+    *p_port = WRONG_PORT_NUMBER;
+    *p_timeout_sec = DEFAULT_VSOCK_TIMEOUT_SEC;
 
-    p_config_fd = dcap_safe_fopen(CFG_FILE_PATH, "r");
+    FILE *p_config_fd = dcap_safe_fopen(CFG_FILE_PATH, "r");
     if (NULL == p_config_fd) {
         TDX_TRACE;
-        return port;
+        return;
     }
-    while(-1 != getline(&p_line, &line_len, p_config_fd)) {
+
+    char *p_line = NULL;
+    size_t line_len = 0;
+    int port_found = 0, timeout_found = 0;
+
+    while (-1 != getline(&p_line, &line_len, p_config_fd)) {
         char temp[11] = {0};
         int number = 0;
-        int ret = sscanf(p_line, " %10[#]", temp);
-        if (ret == 1) {
+
+        /* skip comment lines */
+        if (sscanf(p_line, " %10[#]", temp) == 1)
             continue;
-        }
-        /* leading or trailing white space are ignored, white space around '='
-           are also ignored. The number should no longer than 10 characters.
-           Trailing non-whitespace are not allowed. */
-        ret = sscanf(p_line, " port = %10[0-9] %n", temp, &number);
-        /* Make sure number is positive then make the cast. It's not likely to
-           have a negtive value, just a defense-in-depth. The cast is used to
-           suppress the -Wsign-compare warning. */
-        if (ret == 1 && number > 0 && ((size_t)number < line_len)
-            && !p_line[number]) {
-            errno = 0;
-            long_num = strtol(temp, &p, 10);
-            if (p == temp) {
-                TDX_TRACE;
-                port = WRONG_PORT_NUMBER;
-                break;
-            }
 
-            // make sure that no range error occurred
-            if (errno == ERANGE || long_num > MAX_PORT_NUMBER) {
-                TDX_TRACE;
-                port = WRONG_PORT_NUMBER;
-                break;
-            }
-
-            // range is ok, so we can convert to short
-            port = (unsigned int)long_num & 0xFFFF;
+        if (!port_found) {
+            /* leading or trailing white space are ignored, white space around '='
+               are also ignored. The number should no longer than 10 characters.
+               Trailing non-whitespace are not allowed. */
+            if (sscanf(p_line, " port = %10[0-9] %n", temp, &number) == 1
+                && number > 0 && ((size_t)number < line_len) && !p_line[number]) {
+                char *endp = NULL;
+                errno = 0;
+                long val = strtol(temp, &endp, 10);
+                /* Make sure number is positive then make the cast. It's not likely to
+                   have a negative value, just a defense-in-depth. */
+                if (endp == temp || errno == ERANGE || val > MAX_PORT_NUMBER) {
+                    TDX_TRACE;
+                    *p_port = WRONG_PORT_NUMBER;
+                } else {
+                    *p_port = (unsigned int)val & 0xFFFF;
 #ifdef DEBUG
-            fprintf(stdout, "\nGet the vsock port number [%u]\n", port);
+                    fprintf(stdout, "\nGet the vsock port number [%u]\n", *p_port);
 #endif
-            break;
+                    port_found = 1;
+                }
+            }
         }
+
+        if (!timeout_found) {
+            number = 0;
+            if (sscanf(p_line, " timeout = %10[0-9] %n", temp, &number) == 1
+                && number > 0 && ((size_t)number < line_len) && !p_line[number]) {
+                char *endp = NULL;
+                errno = 0;
+                long val = strtol(temp, &endp, 10);
+                if (endp == temp || errno == ERANGE || val < 0 || val > MAX_VSOCK_TIMEOUT_SEC) {
+                    TDX_TRACE;
+                    *p_timeout_sec = DEFAULT_VSOCK_TIMEOUT_SEC;
+                } else {
+                    *p_timeout_sec = val; // 0 means disable
+                    timeout_found = 1;
+                }
+            }
+        }
+
+        if (port_found && timeout_found)
+            break;
     }
 
-    /* p_line is allocated by sscanf */
     free(p_line);
     fclose(p_config_fd);
-
-    return port;
 }
 
 static tdx_attest_error_t get_tdx_report(
@@ -659,7 +677,9 @@ static tdx_attest_error_t vsock_get_quote_payload(
     uint32_t recieved_bytes = 0;
     uint32_t body_size = 0;
 
-    unsigned int vsock_port = get_vsock_port();
+    unsigned int vsock_port = WRONG_PORT_NUMBER;
+    long vsock_timeout = DEFAULT_VSOCK_TIMEOUT_SEC;
+    read_vsock_config(&vsock_port, &vsock_timeout);
     if (vsock_port == WRONG_PORT_NUMBER) {
         syslog(LOG_INFO, "libtdx_attest: cannot parse sock port - use configfs mode.");
         return TDX_ATTEST_ERROR_NOT_SUPPORTED;
@@ -668,6 +688,14 @@ static tdx_attest_error_t vsock_get_quote_payload(
     if (-1 == s) {
         syslog(LOG_ERR, "libtdx_attest: cannot create socket.");
         return TDX_ATTEST_ERROR_VSOCK_FAILURE;
+    }
+    if (vsock_timeout > 0) {
+        struct timeval rcvtimeo = { .tv_sec = vsock_timeout, .tv_usec = 0 };
+        if (setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &rcvtimeo, sizeof(rcvtimeo)) != 0) {
+            TDX_TRACE;
+            syslog(LOG_WARNING, "libtdx_attest: cannot set vsock receive timeout, "
+                   "recv may block indefinitely.");
+        }
     }
 
     struct sockaddr_vm vm_addr;
@@ -718,7 +746,8 @@ static tdx_attest_error_t vsock_get_quote_payload(
     while( recieved_bytes < body_size) {
         int recv_ret = (int)recv(s, p_blob_payload + HEADER_SIZE + recieved_bytes,
                                     body_size - recieved_bytes, 0);
-        if (recv_ret < 0) {
+        if (recv_ret <= 0) {
+            TDX_TRACE;
             ret = TDX_ATTEST_ERROR_VSOCK_FAILURE;
             goto ret_point;
         }
