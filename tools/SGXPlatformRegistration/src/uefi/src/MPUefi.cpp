@@ -5,6 +5,7 @@
  */
 
 #include <climits>
+#include <cstddef>
 #include <cstring>
 #include <cassert>
 #include <memory>
@@ -320,61 +321,96 @@ MpResult MPUefi::setServerResponse(const uint8_t *response, const uint16_t &size
             res = MP_INVALID_PARAMETER;
             break;
         }
-        // zero response uefi structure
-        memset(responseUefi, 0, sizeof(SgxUefiVar));
 
-        responseUefi->version = MP_BIOS_UEFI_VARIABLE_VERSION_1;
-        responseUefi->size = size;
-
-        // copy certs to uefi structure
-        memcpy(&(responseUefi->header), response, size);
-
-#if MP_VERIFY_INTERNAL_DATA_STRUCT_WRITE == 1
-        // verify PlatformMembershipCertificate response size
-        if (0 != size % sizeof(PlatformMembershipCertificate)) {
-            uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: response size check failed. response should contain PlatformMembershipCertificates, reponse size: %d, PlatformMembershipCertificate size: %d\n", size, sizeof(PlatformMembershipCertificate));
+        if (size > MAX_RESPONSE_SIZE) {
+            uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: response size %d exceeds maximum allowed %d\n", size, MAX_RESPONSE_SIZE);
             res = MP_INVALID_PARAMETER;
             break;
         }
 
-        // verify platform membership structure
-        for (size_t i = 0; i < size / sizeof(PlatformMembershipCertificate); i++) {
-            const PlatformMembershipCertificate *certs = (const PlatformMembershipCertificate *)response;
-            // structure version check
-            if (MP_STRUCTURE_VERSION != certs[i].header.version) {
-                uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: version check failed on cert %d, version number: %d\n", i, certs[i].header.version);
-                res = MP_INVALID_PARAMETER;
-                break;
-            }
+        // verify response contains at least one StructureHeader and is fully consumed by
+        // walking variable-length PlatformMembership cert entries
+        if (size < sizeof(StructureHeader)) {
+            uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: response too small to contain a StructureHeader, size: %d\n", size);
+            res = MP_INVALID_PARAMETER;
+            break;
+        }
 
-            if ((0 != memcmp(certs[i].header.guid, PlatformMemberShip_GUID, GUID_SIZE)) ||
-                (certs[i].header.size != (sizeof(certs[i]) - sizeof(certs[i].header)))) {
+        {
+            size_t offset = 0;
+            size_t certIndex = 0;
+            while (offset < size) {
+                if (size - offset < sizeof(StructureHeader)) {
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: truncated StructureHeader at offset %zu (cert %zu)\n", offset, certIndex);
+                    res = MP_INVALID_PARAMETER;
+                    break;
+                }
+                StructureHeader hdr;
+                memcpy(&hdr, response + offset, sizeof(StructureHeader));
 
-                uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: PlatformMemberShip structure is invalid.\n");
-                uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: i: %d, certs[i].header.size: %d, sizeof(certs[i]): %d, sizeof(certs[i].header): %d\n",
-                    i, certs[i].header.size, sizeof(certs[i]), sizeof(certs[i].header));
+                if (hdr.version != MP_STRUCTURE_VERSION) {
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: version check failed on cert %zu, version: %d\n", certIndex, hdr.version);
+                    res = MP_INVALID_PARAMETER;
+                    break;
+                }
 
-                const uint8_t* actual = certs[i].header.guid;
-                const uint8_t* expected = PlatformMemberShip_GUID;
-                uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: actual PlatformMemberShip_GUID:\n");
-                uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX\n",
-                    actual[0], actual[1], actual[2], actual[3], actual[4], actual[5],
-                    actual[6], actual[7], actual[8], actual[9], actual[10], actual[11],
-                    actual[12], actual[13], actual[14], actual[15]);
-                uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: expected PlatformMemberShip_GUID:\n");
-                uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX\n",
-                    expected[0], expected[1], expected[2], expected[3], expected[4], expected[5],
-                    expected[6], expected[7], expected[8], expected[9], expected[10], expected[11],
-                    expected[12], expected[13], expected[14], expected[15]);
+                // UefiVar.h: reserved bytes "Must be Zero"
+                static const uint8_t zeroes[sizeof(hdr.reserved)] = {};
+                if (0 != memcmp(hdr.reserved, zeroes, sizeof(hdr.reserved))) {
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: non-zero reserved bytes in cert %zu\n", certIndex);
+                    res = MP_INVALID_PARAMETER;
+                    break;
+                }
 
-                res = MP_INVALID_PARAMETER;
-                break;
+                if (0 != memcmp(hdr.guid, PlatformMemberShip_GUID, GUID_SIZE)) {
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: GUID mismatch on cert %zu\n", certIndex);
+                    const uint8_t* actual = hdr.guid;
+                    const uint8_t* expected = PlatformMemberShip_GUID;
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: actual GUID:\n");
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX\n",
+                        actual[0], actual[1], actual[2], actual[3], actual[4], actual[5],
+                        actual[6], actual[7], actual[8], actual[9], actual[10], actual[11],
+                        actual[12], actual[13], actual[14], actual[15]);
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: expected GUID:\n");
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX\n",
+                        expected[0], expected[1], expected[2], expected[3], expected[4], expected[5],
+                        expected[6], expected[7], expected[8], expected[9], expected[10], expected[11],
+                        expected[12], expected[13], expected[14], expected[15]);
+                    res = MP_INVALID_PARAMETER;
+                    break;
+                }
+
+                // advance past this cert entry (header + payload declared in header.size)
+                // hdr.size is uint16_t so sizeof(StructureHeader)+hdr.size cannot overflow size_t
+                const size_t certSize = sizeof(StructureHeader) + hdr.size;
+                if (size - offset < certSize) {
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: cert %zu declares header.size %d which exceeds remaining buffer\n", certIndex, hdr.size);
+                    res = MP_INVALID_PARAMETER;
+                    break;
+                }
+
+                offset += certSize;
+                certIndex++;
             }
         }
-#endif
-        // write certs to uefi: for the UEFI variable, it has one 4 bytes header: 2 bytes for version, 2 bytes for size
-        int numOfBytes = m_uefi->writeUEFIVar(UEFI_VAR_SERVER_RESPONSE, (const uint8_t*)(responseUefi), responseUefi->size + 4, true);
-        if (numOfBytes != responseUefi->size + 4) {
+        if (MP_SUCCESS != res) {
+            break;
+        }
+
+        // structural validation passed: only now populate the uefi structure so
+        // that a validation failure leaves responseUefi untouched (nothing to clean up)
+        memset(responseUefi, 0, sizeof(SgxUefiVar));
+        responseUefi->version = MP_BIOS_UEFI_VARIABLE_VERSION_1;
+        responseUefi->size = size;
+
+        // copy certs to uefi structure (only after structural validation)
+        memcpy(&(responseUefi->header), response, size);
+
+        // write certs to uefi: the UEFI variable is prefixed by a header of
+        // UEFI_VAR_HEADER_SIZE bytes (2 bytes version + 2 bytes size)
+        const uint16_t UEFI_VAR_HEADER_SIZE = static_cast<uint16_t>(offsetof(SgxUefiVar, header));
+        int numOfBytes = m_uefi->writeUEFIVar(UEFI_VAR_SERVER_RESPONSE, (const uint8_t*)(responseUefi), responseUefi->size + UEFI_VAR_HEADER_SIZE, true);
+        if (numOfBytes != responseUefi->size + UEFI_VAR_HEADER_SIZE) {
             uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: failed to write uefi variable.\n");
             res = MP_UEFI_INTERNAL_ERROR;
             break;

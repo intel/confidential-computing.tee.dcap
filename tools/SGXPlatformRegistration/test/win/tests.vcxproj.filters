@@ -29,6 +29,9 @@
     <ClCompile Include="..\MPUefi_getKeyBlobsUT.cpp">
       <Filter>Src</Filter>
     </ClCompile>
+    <ClCompile Include="..\MPUefi_setServerResponseUT.cpp">
+      <Filter>Src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
