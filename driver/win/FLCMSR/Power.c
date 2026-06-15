@@ -48,6 +48,7 @@ PKDPC pkdpc = NULL;
 ULONG allocatedProcessorCount = 0;
 PKTHREAD gFLCNotifyRegistryChangeThreadObject = NULL;
 BOOLEAN gFLCNotifyRegistryChangeThreadStatus = FALSE;
+WDFKEY gRegKey = NULL;
 HANDLE gRegKeyHandle = NULL;
 
 KDEFERRED_ROUTINE WriteMsrRoutine;
@@ -319,13 +320,17 @@ void FLCMSRNotifyRegistryChangeRoutine(PVOID StartContext)
         return;
     }
 
+    //Publish the WDFKEY and its framework-owned WDM handle so D0Exit can
+    //tear them down via WdfRegistryClose (which also cancels the synchronous
+    //ZwNotifyChangeKey wait in watch_registry).
+    gRegKey = key;
     gRegKeyHandle = WdfRegistryWdmGetHandle(key);
-   
+
     while (gFLCNotifyRegistryChangeThreadStatus == TRUE)
     {
         watch_registry(gRegKeyHandle);
     }
-  
+
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_POWER, "%!FUNC! exit");
     PsTerminateSystemThread(STATUS_SUCCESS);
     return;
@@ -362,9 +367,12 @@ static BOOLEAN FLCMSRNotifyRegistryChange()
     if (!NT_SUCCESS(status))
     {
         gFLCNotifyRegistryChangeThreadStatus = FALSE;
+        //Release the thread handle on the error path; the worker thread will
+        //still terminate on its own once it observes the cleared status flag.
+        ZwClose(thread_handle);
         return FALSE;
     }
-    
+
     ZwClose(thread_handle);
     return TRUE;
 }
@@ -439,9 +447,15 @@ FLCMSREvtDeviceD0Exit(
     if (gFLCNotifyRegistryChangeThreadStatus == TRUE)
     {
         gFLCNotifyRegistryChangeThreadStatus = FALSE;
-        if (gRegKeyHandle != NULL)
+        //The WDM handle returned by WdfRegistryWdmGetHandle is owned by the
+        //framework; closing it with ZwClose would be a CWE-672 lifecycle
+        //violation. Closing the parent WDFKEY releases the underlying handle
+        //and cancels the pending synchronous ZwNotifyChangeKey wait, letting
+        //the worker thread observe the cleared status flag and exit.
+        if (gRegKey != NULL)
         {
-            ZwClose(gRegKeyHandle);
+            WdfRegistryClose(gRegKey);
+            gRegKey = NULL;
             gRegKeyHandle = NULL;
         }
 
