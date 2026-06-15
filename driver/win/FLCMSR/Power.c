@@ -45,6 +45,7 @@ SGX_PUBKEYHASH  legacypubKeyHash = { 0 };
 
 ULONG *PROCESSOR_MSR_FLAG = NULL;
 PKDPC pkdpc = NULL;
+ULONG allocatedProcessorCount = 0;
 PKTHREAD gFLCNotifyRegistryChangeThreadObject = NULL;
 BOOLEAN gFLCNotifyRegistryChangeThreadStatus = FALSE;
 HANDLE gRegKeyHandle = NULL;
@@ -182,20 +183,24 @@ static BOOLEAN FLCWriteMSRs(BOOLEAN UsePLEOptIn)
     maximumProcessor = KeQueryActiveProcessorCount(NULL);
     if (PROCESSOR_MSR_FLAG == NULL)
     {
-        PROCESSOR_MSR_FLAG = (ULONG*)ExAllocatePoolWithTag(NonPagedPool, maximumProcessor * sizeof(ULONG), 'flag');
+        PROCESSOR_MSR_FLAG = (ULONG*)ExAllocatePoolWithTag(NonPagedPoolNx, maximumProcessor * sizeof(ULONG), 'flag');
         if (PROCESSOR_MSR_FLAG == NULL)
         {
             TraceEvents(TRACE_LEVEL_ERROR, TRACE_POWER, " Insufficient memory");
             return FALSE;
         }
+        allocatedProcessorCount = maximumProcessor;
     }
 
     if (pkdpc == NULL)
     {
-        pkdpc = (PKDPC)ExAllocatePoolWithTag(NonPagedPool, maximumProcessor * sizeof(KDPC), 'kdpc');
+        pkdpc = (PKDPC)ExAllocatePoolWithTag(NonPagedPoolNx, maximumProcessor * sizeof(KDPC), 'kdpc');
         if (pkdpc == NULL)
         {
             TraceEvents(TRACE_LEVEL_ERROR, TRACE_POWER, " Insufficient memory");
+            ExFreePoolWithTag(PROCESSOR_MSR_FLAG, 'flag');
+            PROCESSOR_MSR_FLAG = NULL;
+            allocatedProcessorCount = 0;
             return FALSE;
         }
         tmp_pkdc = pkdpc;
@@ -204,6 +209,12 @@ static BOOLEAN FLCWriteMSRs(BOOLEAN UsePLEOptIn)
             KeInitializeThreadedDpc(tmp_pkdc, WriteMsrRoutine, NULL);
         }
     }
+
+    // Cap to the number of processors for which the arrays were allocated.
+    // KeQueryActiveProcessorCount may return a larger value after CPU hot-add;
+    // iterating beyond allocatedProcessorCount would write past the pool allocation.
+    if (maximumProcessor > allocatedProcessorCount)
+        maximumProcessor = allocatedProcessorCount;
 
     tmp_pkdc = pkdpc;
     for (i = 0; i < maximumProcessor; i++, tmp_pkdc++)
@@ -454,6 +465,7 @@ FLCMSREvtDeviceD0Exit(
     {
         ExFreePoolWithTag(PROCESSOR_MSR_FLAG, 'flag');
         PROCESSOR_MSR_FLAG = NULL;
+        allocatedProcessorCount = 0;
     }
     if (pkdpc)
     {
