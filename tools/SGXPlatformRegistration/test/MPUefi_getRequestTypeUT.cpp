@@ -193,18 +193,48 @@ GTEST_TEST_CASE_P(
   ::testing::Values(
 
     ReqTypeTestInput_PMV1{
+      "varDataSize too small to parse header fields",
+      test::withManifest(
+        SgxUefiVar{
+          MP_BIOS_UEFI_VARIABLE_VERSION_1,
+          sizeof(StructureHeader),
+          StructureHeader{}
+        },
+        PlatformManifest_GUID
+      ),
+      3, // less than sizeof(UefiVersion) + sizeof(S3mUefiSize) == 6
+      MpRequestType::MP_REQ_NONE,
+      MpResult::MP_UEFI_INTERNAL_ERROR
+    },
+
+    ReqTypeTestInput_PMV1{
       "PlatformManifest MP_BIOS_UEFI_VARIABLE_VERSION_1",
       test::withManifest(
         SgxUefiVar{
           MP_BIOS_UEFI_VARIABLE_VERSION_1,
-          5, //size
+          sizeof(StructureHeader), //size
+          StructureHeader{}
+        },
+        PlatformManifest_GUID
+      ),
+      sizeof(StructureHeader) + sizeof(SgxUefiVar::version) + sizeof(SgxUefiVar::size),
+      MpRequestType::MP_REQ_REGISTRATION,
+      MpResult::MP_SUCCESS
+    },
+
+    ReqTypeTestInput_PMV1{
+      "PlatformManifest MP_BIOS_UEFI_VARIABLE_VERSION_1 varSize too small for GUID",
+      test::withManifest(
+        SgxUefiVar{
+          MP_BIOS_UEFI_VARIABLE_VERSION_1,
+          5, //size < GUID_SIZE
           StructureHeader{}
         },
         PlatformManifest_GUID
       ),
       5 + sizeof(SgxUefiVar::version) + sizeof(SgxUefiVar::size),
-      MpRequestType::MP_REQ_REGISTRATION,
-      MpResult::MP_SUCCESS
+      MpRequestType::MP_REQ_NONE,
+      MpResult::MP_UEFI_INTERNAL_ERROR
     },
 
     ReqTypeTestInput_PMV1{
@@ -212,14 +242,29 @@ GTEST_TEST_CASE_P(
       test::withManifest(
         SgxUefiVar{
           MP_BIOS_UEFI_VARIABLE_VERSION_2,
-          5, //size
+          sizeof(StructureHeader), //size
+          StructureHeader{}
+        },
+        PlatformManifest_GUID
+      ),
+      sizeof(StructureHeader) + sizeof(SgxUefiVar::version) + sizeof(SgxUefiVar::size),
+      MpRequestType::MP_REQ_REGISTRATION,
+      MpResult::MP_SUCCESS
+    },
+
+    ReqTypeTestInput_PMV1{
+      "PlatformManifest MP_BIOS_UEFI_VARIABLE_VERSION_2 varSize too small for GUID",
+      test::withManifest(
+        SgxUefiVar{
+          MP_BIOS_UEFI_VARIABLE_VERSION_2,
+          5, //size < GUID_SIZE
           StructureHeader{}
         },
         PlatformManifest_GUID
       ),
       5 + sizeof(SgxUefiVar::version) + sizeof(SgxUefiVar::size),
-      MpRequestType::MP_REQ_REGISTRATION,
-      MpResult::MP_SUCCESS
+      MpRequestType::MP_REQ_NONE,
+      MpResult::MP_UEFI_INTERNAL_ERROR
     },
 
     ReqTypeTestInput_PMV1{
@@ -302,14 +347,29 @@ GTEST_TEST_CASE_P(
       test::withManifest(
         SgxUefiVar{
           MP_BIOS_UEFI_VARIABLE_VERSION_1,
-          5, //size
+          sizeof(StructureHeader), //size
+          StructureHeader{}
+        },
+        AddRequest_GUID
+      ),
+      sizeof(StructureHeader) + sizeof(SgxUefiVar::version) + sizeof(SgxUefiVar::size),
+      MpRequestType::MP_REQ_ADD_PACKAGE,
+      MpResult::MP_SUCCESS
+    },
+
+    ReqTypeTestInput_PMV1{
+      "AddRequest MP_BIOS_UEFI_VARIABLE_VERSION_1 varSize too small for GUID",
+      test::withManifest(
+        SgxUefiVar{
+          MP_BIOS_UEFI_VARIABLE_VERSION_1,
+          5, //size < GUID_SIZE
           StructureHeader{}
         },
         AddRequest_GUID
       ),
       5 + sizeof(SgxUefiVar::version) + sizeof(SgxUefiVar::size),
-      MpRequestType::MP_REQ_ADD_PACKAGE,
-      MpResult::MP_SUCCESS
+      MpRequestType::MP_REQ_NONE,
+      MpResult::MP_UEFI_INTERNAL_ERROR
     },
 
     ReqTypeTestInput_PMV1{
@@ -317,14 +377,29 @@ GTEST_TEST_CASE_P(
       test::withManifest(
         SgxUefiVar{
           MP_BIOS_UEFI_VARIABLE_VERSION_2,
-          5, //size
+          sizeof(StructureHeader), //size
+          StructureHeader{}
+        },
+        AddRequest_GUID
+      ),
+      sizeof(StructureHeader) + sizeof(SgxUefiVar::version) + sizeof(SgxUefiVar::size),
+      MpRequestType::MP_REQ_ADD_PACKAGE,
+      MpResult::MP_SUCCESS
+    },
+
+    ReqTypeTestInput_PMV1{
+      "AddRequest MP_BIOS_UEFI_VARIABLE_VERSION_2 varSize too small for GUID",
+      test::withManifest(
+        SgxUefiVar{
+          MP_BIOS_UEFI_VARIABLE_VERSION_2,
+          5, //size < GUID_SIZE
           StructureHeader{}
         },
         AddRequest_GUID
       ),
       5 + sizeof(SgxUefiVar::version) + sizeof(SgxUefiVar::size),
-      MpRequestType::MP_REQ_ADD_PACKAGE,
-      MpResult::MP_SUCCESS
+      MpRequestType::MP_REQ_NONE,
+      MpResult::MP_UEFI_INTERNAL_ERROR
     },
 
     ReqTypeTestInput_PMV1{
@@ -468,6 +543,21 @@ GTEST_TEST_CASE_P(
       sizeof(TlvHeader) + sizeof(S3mUefiVar::version) + sizeof(S3mUefiVar::size),
       MpRequestType::MP_REQ_ADD_PACKAGE,
       MpResult::MP_SUCCESS
+    },
+
+    ReqTypeTestInput_PMV2{
+      "MP_BIOS_UEFI_VARIABLE_VERSION_3 varSize too small for GUID",
+      test::withManifest(
+        S3mUefiVar{
+          MP_BIOS_UEFI_VARIABLE_VERSION_3,
+          GUID_SIZE - 1, //size < GUID_SIZE
+          TlvHeader{}
+        },
+        PlatformManifest_GUID
+      ),
+      (GUID_SIZE - 1) + sizeof(S3mUefiVar::version) + sizeof(S3mUefiVar::size),
+      MpRequestType::MP_REQ_NONE,
+      MpResult::MP_UEFI_INTERNAL_ERROR
     }
 
   )

@@ -146,6 +146,16 @@ MpResult MPUefi::getRequestType(MpRequestType& type)
     return MP_SUCCESS;
   }
 
+  // Ensure the buffer is large enough for getRequestInfo() to safely parse
+  // both the version field (uint16_t) and the widest size field (uint32_t for
+  // V3).  All three fields are at fixed offsets 0-5 in the raw UEFI variable.
+  if (varDataSize < sizeof(UefiVersion) + sizeof(S3mUefiSize))
+  {
+    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRequestType: SgxRegistrationServerRequest UEFI variable is too small to parse header.\n");
+    type = MP_REQ_NONE;
+    return MP_UEFI_INTERNAL_ERROR;
+  }
+
   const auto [version, uefiVarSize, requiredSize, headerOffset] = getRequestInfo(requestUefi.get());
 
 #ifdef MP_VERIFY_UEFI_VERSION_READ
@@ -169,6 +179,16 @@ MpResult MPUefi::getRequestType(MpRequestType& type)
     return MP_UEFI_INTERNAL_ERROR;
   }
 #endif
+  // Ensure the buffer is large enough to contain a full GUID at headerOffset.
+  // varSize is BIOS-controlled and may be smaller than GUID_SIZE even when
+  // varDataSize == requiredSize, which would cause an over-read below.
+  if (varDataSize < headerOffset + GUID_SIZE)
+  {
+    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRequestType: SgxRegistrationServerRequest UEFI variable too small to contain GUID.\n");
+    type = MP_REQ_NONE;
+    return MP_UEFI_INTERNAL_ERROR;
+  }
+
   const uint8_t *guidPtr = requestUefi.get() + headerOffset;
 
   // TODO:
@@ -222,6 +242,15 @@ MpResult MPUefi::getRequest(uint8_t *request, uint32_t &requestSize)
   if(!requestUefi)
     return MP_NO_PENDING_DATA;
 
+  // Ensure the buffer is large enough for getRequestInfo() to safely parse
+  // both the version field (uint16_t) and the widest size field (uint32_t for
+  // V3).  All three fields are at fixed offsets 0-5 in the raw UEFI variable.
+  if (varDataSize < sizeof(UefiVersion) + sizeof(S3mUefiSize))
+  {
+    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRequest: SgxRegistrationServerRequest UEFI variable is too small to parse header.\n");
+    return MP_UEFI_INTERNAL_ERROR;
+  }
+
   const auto [version, uefiVarSize, requiredSize, headerOffset] = getRequestInfo(requestUefi.get());
 
 #ifdef MP_VERIFY_UEFI_VERSION_READ
@@ -255,6 +284,17 @@ MpResult MPUefi::getRequest(uint8_t *request, uint32_t &requestSize)
     {
       uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRequest: Request buffer too small for pending request, given size: %d, actual size: %d.\n", requestSize, uefiVarSize);
       return MP_USER_INSUFFICIENT_MEM;
+    }
+
+    // Unconditional bound check: headerOffset + uefiVarSize must not exceed
+    // the allocation.  Use an overflow-safe form to guard against a crafted
+    // uefiVarSize that would wrap on 32-bit builds.
+    // The MP_VERIFY_UEFI_STRUCT_READ guard above already enforces this when
+    // enabled, but add a hard stop for defense-in-depth.
+    if (headerOffset > varDataSize || static_cast<size_t>(uefiVarSize) > varDataSize - headerOffset)
+    {
+      uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRequest: UEFI variable payload overruns allocated buffer.\n");
+      return MP_UEFI_INTERNAL_ERROR;
     }
 
     requestSize = uefiVarSize;
