@@ -357,6 +357,13 @@ MpResult MPUefi::getKeyBlobs(uint8_t *blobs, uint16_t &blobsSize) {
             break;
         }
 
+        if (varDataSize < offsetof(SgxUefiVar, header)) {
+            uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getKeyBlobs: UEFI variable too small: %zu bytes, expected at least %zu\n",
+                varDataSize, offsetof(SgxUefiVar, header));
+            res = MP_UEFI_INTERNAL_ERROR;
+            break;
+        }
+
 #ifdef MP_VERIFY_UEFI_VERSION_READ
         // structure version check
         if (MP_BIOS_UEFI_VARIABLE_VERSION_1 != packageInfoUefi->version) {
@@ -500,9 +507,30 @@ MpResult MPUefi::getRegistrationServerInfo(uint16_t &flags, std::string &serverA
             break;
         }
 
+        if (varDataSize < offsetof(ConfigurationUEFI, url)) {
+            uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRegistrationServerInfo: UEFI variable too small: %zu bytes, expected at least %zu\n",
+                varDataSize, offsetof(ConfigurationUEFI, url));
+            res = MP_UEFI_INTERNAL_ERROR;
+            break;
+        }
+
         if (configurationUefi->urlSize > MAX_URL_SIZE) {
             uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRegistrationServerInfo: URL size in UEFI variable is invalid, urlSize: %d, MAX_URL_SIZE: %d\n",
                 configurationUefi->urlSize, MAX_URL_SIZE);
+            res = MP_UEFI_INTERNAL_ERROR;
+            break;
+        }
+
+        if (varDataSize < offsetof(ConfigurationUEFI, url) + configurationUefi->urlSize) {
+            uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRegistrationServerInfo: UEFI variable too small for URL: %zu bytes, need %zu\n",
+                varDataSize, offsetof(ConfigurationUEFI, url) + configurationUefi->urlSize);
+            res = MP_UEFI_INTERNAL_ERROR;
+            break;
+        }
+
+        if (varDataSize < offsetof(ConfigurationUEFI, headerId) + sizeof(StructureHeader)) {
+            uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRegistrationServerInfo: UEFI variable too small for headerId: %zu bytes, need %zu\n",
+                varDataSize, offsetof(ConfigurationUEFI, headerId) + sizeof(StructureHeader));
             res = MP_UEFI_INTERNAL_ERROR;
             break;
         }
