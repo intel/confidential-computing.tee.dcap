@@ -2896,6 +2896,40 @@ static quote3_error_t user_report_verify_internal(
             return TEE_ERROR_REPORT;
         }
     }
+    else if(tee_type == TDX_EVIDENCE && p_user_data){
+        tee_report_data_t tdx_report_data;
+        memset(&tdx_report_data, 0, sizeof(tee_report_data_t));
+        if(quote_ver == QUOTE_VERSION_4)
+        {
+            const sgx_quote4_t *p_tmp_quote4 = reinterpret_cast<const sgx_quote4_t *> (p_quote);
+            memcpy(&tdx_report_data, (void *)&(p_tmp_quote4->report_body.report_data), sizeof(tee_report_data_t));
+        }
+        else if(quote_ver == QUOTE_VERSION_5)
+        {
+            const sgx_quote5_t *p_tmp_quote5 = reinterpret_cast<const sgx_quote5_t *> (p_quote);
+            // Validate body type is a known TDX variant before accessing report_data.
+            // report_data is at the same offset in sgx_report2_body_t, sgx_report2_body_v1_5_t,
+            // and sgx_report2_body_v1_5_ex_t, so offsetof(sgx_report2_body_t, report_data) is
+            // correct for all supported TDX body types.
+            if (p_tmp_quote5->type != TDX10_REPORT &&
+                p_tmp_quote5->type != TDX15_REPORT &&
+                p_tmp_quote5->type != TDX15EX_REPORT)
+            {
+                return TEE_ERROR_INVALID_PARAMETER;
+            }
+            memcpy(&tdx_report_data, p_tmp_quote5->body + offsetof(sgx_report2_body_t, report_data), sizeof(tee_report_data_t));
+        }
+        else {
+            return TEE_ERROR_INVALID_PARAMETER;
+        }
+        uint8_t data_hash[SHA384_LEN] = { 0 };
+        if (SHA384((const unsigned char *)p_user_data, user_data_size, data_hash) == NULL) {
+            return TEE_ERROR_UNEXPECTED;
+        }
+        if (memcmp(&tdx_report_data.d, data_hash, SHA384_LEN) != 0) {
+            return TEE_ERROR_REPORT;
+        }
+    }
 
     return TEE_SUCCESS;
 }
