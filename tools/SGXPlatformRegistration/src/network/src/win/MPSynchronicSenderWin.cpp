@@ -377,7 +377,7 @@ static MpResult http_network_send_data(http_network_info_t *info, const string& 
         break;
     } while (1);
 
-    uint16_t old_size = 0;
+    DWORD old_size = 0;
     //using a loop since the response may arrive as multiple packages
     while (ret == MP_SUCCESS)
     {
@@ -448,7 +448,12 @@ static MpResult http_network_send_data(http_network_info_t *info, const string& 
 
             break;
         } else {
-            assert(old_size + ret_size < MAX_RESPONSE_SIZE);
+            static_assert(sizeof(response) <= (size_t)UINT16_MAX, "response buffer too large for uint16_t resp_size");
+            if (ret_size > sizeof(response) || old_size > sizeof(response) - ret_size) {
+                network_log_message(MP_REG_LOG_LEVEL_ERROR, "Response size exceeds maximum allowed size of %zu bytes\n", sizeof(response));
+                ret = MP_USER_INSUFFICIENT_MEM;
+                break;
+            }
             memset(response_ptr + old_size, 0, ret_size);
             DWORD download_size = 0;
             //get response message from server
@@ -457,22 +462,22 @@ static MpResult http_network_send_data(http_network_info_t *info, const string& 
                 break;
             }
             else {
-                old_size += (uint16_t)download_size;
+                old_size += download_size;
             }
         }
     };
 
     if ((0 < old_size) && (resp_msg)) {
         if (old_size > resp_size) {
-            network_log_message(MP_REG_LOG_LEVEL_ERROR, "Reponse buffer too small for pending response, required size: %d\n", old_size);
+            network_log_message(MP_REG_LOG_LEVEL_ERROR, "Response buffer too small for pending response, required size: %lu\n", old_size);
             ret = MP_USER_INSUFFICIENT_MEM;
         } else {
             memcpy(resp_msg, response, old_size);
         }
     }
 
-    // set response size
-    resp_size = old_size;
+    // set response size (old_size is bounded to sizeof(response) which fits in uint16_t per static_assert above)
+    resp_size = static_cast<uint16_t>(old_size);
 
     return ret;
 }
