@@ -1109,6 +1109,15 @@ __attribute__ ((visibility("default"))) tdx_attest_error_t tdx_att_get_quote_by_
         goto ret_point;
     }
 
+    /* VMM-authored: upper-bound out_len against the trusted allocation before any
+     * derived arithmetic.  The only trusted size is SERVTD_REQ_BUF_SIZE (TD-local
+     * constant); the VMM controls every byte of p_get_quote_blob after the VMCALL. */
+    if (p_get_quote_blob->out_len >
+            SERVTD_REQ_BUF_SIZE - sizeof(struct servtd_tdx_quote_hdr)) {
+        ret = TDX_ATTEST_ERROR_UNEXPECTED;
+        goto ret_point;
+    }
+
     if (p_get_quote_blob->status
         || p_get_quote_blob->out_len <= SERVTD_HEADER_SIZE) {
         if (GET_QUOTE_IN_FLIGHT == p_get_quote_blob->status) {
@@ -1150,6 +1159,19 @@ __attribute__ ((visibility("default"))) tdx_attest_error_t tdx_att_get_quote_by_
         ret = TDX_ATTEST_ERROR_OUT_OF_MEMORY;
         goto ret_point;
     }
+
+    /* Verify the source pointer and length derived from VMM-supplied fields lie
+     * wholly within the trusted p_get_quote_blob allocation.  Prevents the VMM
+     * from using selected_id_size to position tmp_p_quote past the 64 KiB buffer
+     * and exfiltrating adjacent service-TD heap contents as a "quote". */
+    if ((uintptr_t)tmp_p_quote <  (uintptr_t)p_get_quote_blob ||
+        (uintptr_t)tmp_p_quote >= (uintptr_t)p_get_quote_blob + SERVTD_REQ_BUF_SIZE ||
+        quote_size > SERVTD_REQ_BUF_SIZE -
+                     ((uintptr_t)tmp_p_quote - (uintptr_t)p_get_quote_blob)) {
+        ret = TDX_ATTEST_ERROR_UNEXPECTED;
+        goto ret_point;
+    }
+
     memcpy(p_quote, tmp_p_quote, quote_size);
 
     *p_quote_size = quote_size;
