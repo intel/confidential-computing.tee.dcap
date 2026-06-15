@@ -69,16 +69,28 @@ pub struct QuoteCollateral {
     pub qe_identity: Vec<c_char>,
 }
 
-impl From<sgx_ql_qve_collateral_t> for QuoteCollateral {
-    fn from(collateral: sgx_ql_qve_collateral_t) -> Self {
+impl QuoteCollateral {
+    /// Build a [`QuoteCollateral`] by copying the data referenced by an
+    /// `sgx_ql_qve_collateral_t` FFI struct.
+    ///
+    /// # Safety
+    ///
+    /// All `*mut c_char` pointers inside `collateral` must be non-null and
+    /// point to a valid, initialized buffer of at least the corresponding
+    /// `_size` bytes for the duration of the call. The union field
+    /// `__bindgen_anon_1` must have its `major_version` / `minor_version`
+    /// variant initialized. Typical sound usage is to pass a struct just
+    /// returned by `tee_qv_get_collateral` (or an equivalent FFI call) and
+    /// not yet freed.
+    pub unsafe fn from_raw(collateral: &sgx_ql_qve_collateral_t) -> Self {
         fn raw_ptr_to_vec(data: *mut c_char, len: u32) -> Vec<c_char> {
             assert!(!data.is_null());
             unsafe { slice::from_raw_parts(data, len as _) }.to_vec()
         }
 
         QuoteCollateral {
-            major_version: unsafe { collateral.__bindgen_anon_1.__bindgen_anon_1.major_version },
-            minor_version: unsafe { collateral.__bindgen_anon_1.__bindgen_anon_1.minor_version },
+            major_version: collateral.__bindgen_anon_1.__bindgen_anon_1.major_version,
+            minor_version: collateral.__bindgen_anon_1.__bindgen_anon_1.minor_version,
             tee_type: collateral.tee_type,
             pck_crl_issuer_chain: raw_ptr_to_vec(
                 collateral.pck_crl_issuer_chain,
@@ -422,8 +434,9 @@ pub fn tee_qv_get_collateral(quote: &[u8]) -> Result<QuoteCollateral, quote3_err
                 0
             );
 
-            let collateral =
-                QuoteCollateral::from(unsafe { *(buf as *const sgx_ql_qve_collateral_t) });
+            let collateral = unsafe {
+                QuoteCollateral::from_raw(&*(buf as *const sgx_ql_qve_collateral_t))
+            };
 
             match unsafe { qvl_sys::tee_qv_free_collateral(buf) } {
                 quote3_error_t::SGX_QL_SUCCESS => Ok(collateral),
@@ -500,7 +513,16 @@ pub fn tee_get_supplemental_data_version_and_size(
 /// - *SGX_QL_CRL_UNSUPPORTED_FORMAT*
 /// - *SGX_QL_ERROR_UNEXPECTED*
 ///
-pub fn tee_verify_quote(
+/// # Safety
+///
+/// `supp_data_descriptor` carries the raw `*mut u8` `p_data` and `u32`
+/// `data_size` fields of `tee_supp_data_descriptor_t`, which are forwarded
+/// unchecked to the C library. The caller must guarantee that, when
+/// `supp_data_descriptor` is `Some`, either `data_size == 0` and `p_data`
+/// is unused, or `p_data` points to a writable, properly aligned buffer of
+/// at least `data_size` bytes that remains valid for the duration of the
+/// call and is not aliased.
+pub unsafe fn tee_verify_quote(
     quote: &[u8],
     quote_collateral: Option<&QuoteCollateral>,
     expiration_check_date: i64,

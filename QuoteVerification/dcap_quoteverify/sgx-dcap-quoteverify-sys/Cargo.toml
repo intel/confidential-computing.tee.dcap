@@ -1,6 +1,6 @@
 [package]
 name = "intel-tee-quote-verification-sys"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 links = "sgx_dcap_quoteverify"
 license = "BSD-3-Clause"

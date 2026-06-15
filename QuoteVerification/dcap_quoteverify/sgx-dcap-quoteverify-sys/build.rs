@@ -60,10 +60,23 @@ fn main() {
         // The input header we would like to generate
         // bindings for.
         .header("bindings.h")
-        // Convert C enum to Rust enum
-        .rustified_enum("_quote3_error_t")
+        // C enums returned by the QVL across the FFI boundary need
+        // newtype_enum, not rustified_enum: the library is loaded from
+        // the system (`cargo:rustc-link-lib=sgx_dcap_quoteverify`) and
+        // may be a newer version than the headers used at build time.
+        // If such a library ever returns a discriminant the bindgen-
+        // generated Rust `enum` does not list, materialising that value
+        // as the Rust enum is instant UB (invalid-enum-variant).
+        // `newtype_enum` keeps the underlying integer representation
+        // while still exposing the named values as associated constants,
+        // so unknown discriminants are merely unrecognised, not UB.
+        .newtype_enum("_quote3_error_t")
+        .newtype_enum("_sgx_ql_qv_result_t")
+        // Input-only enums (Rust -> C) keep `rustified_enum`: Rust only
+        // ever constructs the known variants, so there is no invalid-
+        // discriminant hazard, and a closed enum preserves type safety
+        // on the safe-wrapper API surface.
         .rustified_enum("_sgx_ql_request_policy")
-        .rustified_enum("_sgx_ql_qv_result_t")
         .rustified_enum("sgx_qv_path_type_t")
         // Disable Debug trait for packed C structures
         .no_debug("_quote_t")

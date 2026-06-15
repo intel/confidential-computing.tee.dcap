@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.0", features = ["derive"] }
-intel-tee-quote-verification-rs = "0.3.0"
-intel-tee-quote-verification-sys = "0.2.1"
+intel-tee-quote-verification-rs = "0.4.0"
+intel-tee-quote-verification-sys = "0.3.0"
 
 [features]
 TD_ENV = []
