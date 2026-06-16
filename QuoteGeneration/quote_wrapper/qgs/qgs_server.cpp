@@ -205,12 +205,6 @@ class QgsConnection : public boost::enable_shared_from_this<QgsConnection> {
             QGS_LOG_INFO("handle_read:[%s]\n", oss.str().c_str());
 
             unsigned msg_len = decode_header(m_readbuf);
-            if (msg_len > 1 * 1024 * 1024) {
-                QGS_LOG_ERROR("invalid message length, close connection!.\n");
-                m_timer.cancel();
-                stop();
-                return;
-            }
             uint32_t msg_type = QGS_MSG_TYPE_MAX;
             auto ptr = reinterpret_cast<qgs_msg_header_t *>(&m_readbuf[HEADER_SIZE]);
             if (!msg_len
@@ -237,6 +231,12 @@ class QgsConnection : public boost::enable_shared_from_this<QgsConnection> {
                 }
                 return;
             } else {
+                if (msg_len > 1 * 1024 * 1024) {
+                    QGS_LOG_ERROR("invalid message length, close connection!.\n");
+                    m_timer.cancel();
+                    stop();
+                    return;
+                }
                 if (msg_len + HEADER_SIZE > bytes_transferred) {
                     QGS_LOG_INFO("wait for [%zu] bytes!.\n", msg_len + HEADER_SIZE - bytes_transferred);
                     continue_read(bytes_transferred,
