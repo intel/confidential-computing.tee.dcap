@@ -1789,22 +1789,22 @@ quote3_error_t sgx_qve_verify_quote(
 
 #ifdef SERVTD_ATTEST
 extern "C" EXPORT_API
-uint8_t do_verify_quote_integrity(
-		const uint8_t *p_quote,
-		uint32_t quote_size,
-		const uint8_t * root_pub_key,
-		uint32_t root_pub_key_size,
+quote3_error_t do_verify_quote_integrity(
+                const uint8_t *p_quote,
+                uint32_t quote_size,
+                const uint8_t * root_pub_key,
+                uint32_t root_pub_key_size,
         const tdx_ql_qv_collateral_t *p_quote_collateral,
-		uint8_t *p_td_report_body,
-		uint32_t * p_td_report_body_size) {
+                uint8_t *p_td_report_body,
+                uint32_t * p_td_report_body_size) {
 
-	uint32_t collateral_expiration_status;
-	sgx_ql_qv_result_t quote_verification_result;
+        uint32_t collateral_expiration_status;
+        sgx_ql_qv_result_t quote_verification_result;
 
   // 3 report types supported, minimum size is TD_REPORT10_BYTE_LEN. The input size should be larger than the minimum size
-	if (p_td_report_body == NULL || root_pub_key == NULL || p_td_report_body_size == NULL || (*p_td_report_body_size) < TD_REPORT10_BYTE_LEN || root_pub_key_size <= 0)  {
-		return SGX_TD_VERIFY_ERROR(SGX_QL_ERROR_INVALID_PARAMETER);
-	}
+        if (p_td_report_body == NULL || root_pub_key == NULL || p_td_report_body_size == NULL || (*p_td_report_body_size) < TD_REPORT10_BYTE_LEN || root_pub_key_size <= 0)  {
+                return SGX_QL_ERROR_INVALID_PARAMETER;
+        }
 
     quote3_error_t ret = sgx_qve_verify_quote(
             p_quote,
@@ -1820,9 +1820,8 @@ uint8_t do_verify_quote_integrity(
             root_pub_key_size,
             p_td_report_body,
             p_td_report_body_size);
-	return static_cast<uint8_t>(SGX_TD_VERIFY_ERROR(ret));
+	return ret;
 }
-
 #endif
 
 #ifndef _MSC_VER

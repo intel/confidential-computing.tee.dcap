@@ -7,7 +7,7 @@
 extern "C"  {
 #endif
 
-__attribute__ ((visibility("default"))) uint8_t do_verify_quote_integrity(
+__attribute__ ((visibility("default"))) quote3_error_t do_verify_quote_integrity(
 		const uint8_t *p_quote,
 		uint32_t quote_size,
 		const uint8_t * root_pub_key,
