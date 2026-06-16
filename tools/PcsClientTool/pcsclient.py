@@ -399,15 +399,25 @@ class CacheCreator:
     def write_to_cache_file(self, platform, output_dir, expire_hours, tcbcomponent, sgx_tcbinfo, pckcerts):
         SGX_QPL_CACHE_MULTICERTS = 1 << 2
         cache_item_header = struct.pack('<HIQ', 1, SGX_QPL_CACHE_MULTICERTS, int(time.time() + expire_hours * 60 * 60))
+
         cache_file_dir = output_dir
         if self.sub_dir:
-            cache_file_dir = os.path.join(output_dir, platform["qe_id"])
+            qe_id = platform.get("qe_id", "")
+            if not re.fullmatch(r'[0-9a-fA-F]{32}', qe_id):
+                raise ValueError(f"Invalid qe_id value: {qe_id!r}")
+            cache_file_dir = os.path.join(output_dir, qe_id)
             if not os.path.exists(cache_file_dir):
                 os.makedirs(cache_file_dir)
         if tcbcomponent == CacheCreator.DEFAULT_TCBCOMPONENT:
             output_file = os.path.join(cache_file_dir, "0000000000000000_0000")
         else:
-            output_file = os.path.join(cache_file_dir, (platform["qe_id"] + "_" + platform["pce_id"]).lower())
+            qe_id = platform.get("qe_id", "")
+            pce_id = platform.get("pce_id", "")
+            if not re.fullmatch(r'[0-9a-fA-F]{32}', qe_id):
+                raise ValueError(f"Invalid qe_id value: {qe_id!r}")
+            if not re.fullmatch(r'[0-9a-fA-F]{4}', pce_id):
+                raise ValueError(f"Invalid pce_id value: {pce_id!r}")
+            output_file = os.path.join(cache_file_dir, (qe_id + "_" + pce_id).lower())
 
         with open(output_file, "wb") as ofile:
             # Write cache header
@@ -440,8 +450,11 @@ class CacheCreator:
 
         # Check if 'pckid_filename' is in the platform dictionary
         if 'pckid_filename' in platform:
+            pckid_filename = os.path.basename(platform['pckid_filename'])
+            if not pckid_filename or pckid_filename != platform['pckid_filename']:
+                raise ValueError(f"Invalid pckid_filename value: {platform['pckid_filename']!r}")
             # Create a subdirectory named after the 'pckid_filename' within the output_dir
-            output_subdir = os.path.join(output_dir, platform['pckid_filename'])
+            output_subdir = os.path.join(output_dir, pckid_filename)
             os.makedirs(output_subdir, exist_ok=True)  # Create the directory if it doesn't exist
         else:
             # If 'pckid_filename' is not provided, use the output_dir as is
