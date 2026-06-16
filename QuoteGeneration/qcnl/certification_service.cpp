@@ -330,9 +330,95 @@ sgx_qcnl_error_t CertificationService::build_qveidentity_options(Request &reques
     return SGX_QCNL_SUCCESS;
 }
 
+// The root CA CRL distribution point URL is parsed out of a certificate that
+// was received over the network from the configured collateral service. Even
+// when that service is the real Intel PCS, this string reaches us before the
+// surrounding cert chain has been verified, and it can in principle carry any
+// scheme that the underlying transport library is willing to dial (file://,
+// gopher://, ldap://, an internal http://169.254.169.254/... metadata URL,
+// etc.). Restrict CDP URLs that get promoted into request.endpoint to https
+// pointing at a host that the configured PCS endpoint also accepts, so a
+// tampered cert cannot turn this call site into a server-side request forgery
+// primitive against the host running the QPL.
+static bool is_safe_pcs_cdp_url(const std::string &cdp_url) {
+    static const std::string kHttpsPrefix = "https://";
+    if (cdp_url.compare(0, kHttpsPrefix.size(), kHttpsPrefix) != 0) {
+        return false;
+    }
+    const std::string::size_type host_begin = kHttpsPrefix.size();
+    const std::string::size_type host_end = cdp_url.find_first_of("/?#", host_begin);
+    const std::string host = cdp_url.substr(host_begin,
+        host_end == std::string::npos ? std::string::npos : host_end - host_begin);
+    if (host.empty()) {
+        return false;
+    }
+    // Reject any URL whose authority component carries a userinfo segment
+    // ("user@host"). Without this, an attacker-supplied CDP like
+    // "https://trustedservices.intel.com@evil.com/" would have the substring
+    // host check evaluate against the userinfo while libcurl ultimately
+    // connects to the host after '@', enabling an SSRF bypass.
+    if (host.find('@') != std::string::npos) {
+        return false;
+    }
+    // Strip optional :port for the host comparison.
+    const std::string::size_type colon = host.find(':');
+    const std::string hostname = (colon == std::string::npos) ? host : host.substr(0, colon);
+    // is_collateral_service_pcs() already gated us into this branch by looking
+    // for trustedservices.intel.com inside the configured collateral URL;
+    // require the CDP host to be in that same DNS suffix.
+    static const std::string kPcsHostSuffix = ".trustedservices.intel.com";
+    if (hostname == "trustedservices.intel.com") {
+        return true;
+    }
+    if (hostname.size() > kPcsHostSuffix.size() &&
+        hostname.compare(hostname.size() - kPcsHostSuffix.size(), kPcsHostSuffix.size(),
+                         kPcsHostSuffix) == 0) {
+        return true;
+    }
+    return false;
+}
+
+// Percent-encode every character that is not in the RFC 3986 "unreserved"
+// set plus the small path/scheme punctuation we expect to appear in a
+// well-formed https CDP URL. Used when embedding the (already validated)
+// CDP URL as a value inside a PCCS query string so that meta-characters
+// like '&' or '#' in the CDP cannot inject or terminate additional query
+// parameters.
+static std::string percent_encode_query_value(const std::string &in) {
+    static const char kHexDigits[] = "0123456789ABCDEF";
+    std::string out;
+    out.reserve(in.size());
+    for (unsigned char c : in) {
+        const bool unreserved =
+            (c >= 'A' && c <= 'Z') ||
+            (c >= 'a' && c <= 'z') ||
+            (c >= '0' && c <= '9') ||
+            c == '-' || c == '.' || c == '_' || c == '~';
+        if (unreserved) {
+            out.push_back(static_cast<char>(c));
+        } else {
+            out.push_back('%');
+            out.push_back(kHexDigits[(c >> 4) & 0x0F]);
+            out.push_back(kHexDigits[c & 0x0F]);
+        }
+    }
+    return out;
+}
+
 sgx_qcnl_error_t CertificationService::build_root_ca_crl_options(Request &request, const char *root_ca_cdp_url) {
+    if (root_ca_cdp_url == NULL) {
+        return SGX_QCNL_INVALID_PARAMETER;
+    }
+    // Snapshot the caller's URL once so the bytes we validate are the same
+    // bytes we later hand to libcurl / append into the PCCS query string.
+    const std::string cdp_url(root_ca_cdp_url);
     if (is_collateral_service_pcs()) {
-        request.endpoint = root_ca_cdp_url;
+        if (!is_safe_pcs_cdp_url(cdp_url)) {
+            qcnl_log(SGX_QL_LOG_ERROR,
+                "[QCNL] Refusing to fetch root CA CRL: CDP URL is not an https URL on the Intel PCS host.\n");
+            return SGX_QCNL_INVALID_PARAMETER;
+        }
+        request.endpoint = cdp_url;
     } else {
         request.endpoint = QcnlConfig::Instance()->getCollateralServiceUrl();
 
@@ -343,8 +429,13 @@ sgx_qcnl_error_t CertificationService::build_root_ca_crl_options(Request &reques
                 request.params.append("?").append(get_custom_param_string());
             }
         } else if (QcnlConfig::Instance()->getCollateralVersion() == "3.1") {
-            // For PCCS API version 3.0, will call API /crl, and it will return raw DER buffer
-            request.params.append("crl?uri=").append(root_ca_cdp_url);
+            // For PCCS API version 3.1, will call API /crl, and it will return raw DER buffer
+            if (!is_safe_pcs_cdp_url(cdp_url)) {
+                qcnl_log(SGX_QL_LOG_ERROR,
+                    "[QCNL] Refusing to forward root CA CRL CDP URL to PCCS: not an https URL on the Intel PCS host.\n");
+                return SGX_QCNL_INVALID_PARAMETER;
+            }
+            request.params.append("crl?uri=").append(percent_encode_query_value(cdp_url));
             if (!custom_param_.empty()) {
                 request.params.append("&").append(get_custom_param_string());
             }
