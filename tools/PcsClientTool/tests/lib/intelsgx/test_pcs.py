@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# encoding: utf-8
+
+#
+# Copyright(c) 2026 Intel Corporation
+# SPDX-License-Identifier: BSD-3-Clause
+#
+
 import unittest
 from unittest.mock import patch
 from dataclasses import dataclass

@@ -2,7 +2,7 @@
 # encoding: utf-8
 
 #
-# Copyright(c) 2020-2025 Intel Corporation
+# Copyright(c) 2020-2026 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -79,6 +79,16 @@ class Utils:
             return int_value
         else:
             raise argparse.ArgumentTypeError(f"{value} is not in the range [0, 8760]")
+
+    @staticmethod
+    def check_qe_id(qe_id):
+        if not isinstance(qe_id, str) or len(qe_id) != 32 or not all(c in '0123456789abcdefABCDEF' for c in qe_id):
+            raise ValueError(f"Invalid qe_id {qe_id!r} - expected exactly 32 hexadecimal characters (16 bytes)")
+
+    @staticmethod
+    def check_pce_id(pce_id):
+        if not isinstance(pce_id, str) or len(pce_id) != 4 or not all(c in '0123456789abcdefABCDEF' for c in pce_id):
+            raise ValueError(f"Invalid pce_id {pce_id!r} - expected exactly 4 hexadecimal characters (2 bytes)")
 
     @staticmethod
     def check_file_writable(filename):
@@ -401,6 +411,8 @@ class CacheCreator:
         cache_item_header = struct.pack('<HIQ', 1, SGX_QPL_CACHE_MULTICERTS, int(time.time() + expire_hours * 60 * 60))
 
         cache_file_dir = output_dir
+        Utils.check_qe_id(platform["qe_id"])
+        Utils.check_pce_id(platform["pce_id"])
         if self.sub_dir:
             qe_id = platform.get("qe_id", "")
             if not re.fullmatch(r'[0-9a-fA-F]{32}', qe_id):
@@ -509,4 +521,5 @@ def pcs_cache(args):
     pcsWrapper = CacheCreator(credentials, args)
     pcsWrapper.generate_cache()
 
-main()
+if __name__ == "__main__":
+    main()
