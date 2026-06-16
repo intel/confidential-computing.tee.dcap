@@ -1,8 +1,9 @@
 /*
- * Copyright(c) 2011-2026 Intel Corporation
+ * Copyright(c) 2011-2025 Intel Corporation
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
+
 #include <climits>
 #include <string.h>
 #include <limits.h>
@@ -12,10 +13,6 @@
 #include "user_types.h"
 #include "tdqe_u.h"
 #include "id_enclave_u.h"
-#include "dcap_safe_file_ops.h"
-#ifdef _MSC_VER
-#include "dcap_secure_load_library.h"
-#endif
 
 #ifndef _MSC_VER
     #define TDQE_ENCLAVE_NAME "libsgx_tdqe.signed.so.1"
@@ -133,10 +130,9 @@ tee_att_config_t::get_qpl_handle()
         return m_qpl_handle;
 #ifndef _MSC_VER
     if (qpl_path[0]) {
-        m_qpl_handle = dcap_safe_dlopen(qpl_path, RTLD_LAZY);
+        m_qpl_handle = dlopen(qpl_path, RTLD_LAZY);
         if (NULL == m_qpl_handle) {
-            const char *dl_err = dlerror();
-            SE_PROD_LOG("Cannot open Quote Provider Library %s: %s\n", qpl_path, dl_err ? dl_err : strerror(errno));
+            SE_PROD_LOG("Cannot open Quote Provider Library %s\n", qpl_path);
         }
         return m_qpl_handle;
     }
@@ -161,7 +157,7 @@ tee_att_config_t::get_qpl_handle()
     return m_qpl_handle;
 }
 #else
-    m_qpl_handle = dcap_secure_load_library(TEE_ATT_QUOTE_CONFIG_LIB_FILE_NAME);
+    m_qpl_handle = LoadLibrary(TEE_ATT_QUOTE_CONFIG_LIB_FILE_NAME);
     if (m_qpl_handle == NULL) {
         SE_PROD_LOG("Couldn't find the platform library. %d\n", GetLastError());
         return NULL;

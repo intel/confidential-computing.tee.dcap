@@ -53,7 +53,7 @@ QGS_MSG_LFLAGS = -L../../qgs_msg_lib/linux -lqgs_msg
 
 Tdx_Attest_C_Files := ../tdx_attest.c
 
-Tdx_Attest_Include_Paths := -I./ -I../../qgs_msg_lib/inc -I../../../common/inc/internal
+Tdx_Attest_Include_Paths := -I./ -I../../qgs_msg_lib/inc
 
 ifeq ($(V3_DRIVER), 1)
     CFLAGS += -DV3_DRIVER

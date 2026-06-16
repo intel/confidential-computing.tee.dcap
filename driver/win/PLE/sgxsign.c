@@ -1,8 +1,34 @@
 /*
- * Copyright(c) 2011-2026 Intel Corporation
+ * Copyright (C) 2011-2021 Intel Corporation. All rights reserved.
  *
- * SPDX-License-Identifier: BSD-3-Clause
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in
+ *     the documentation and/or other materials provided with the
+ *     distribution.
+ *   * Neither the name of Intel Corporation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
+
 #define _GNU_SOURCE
 #include <getopt.h>
 #include <stdbool.h>
@@ -17,9 +43,6 @@
 #include <asm/sgx_arch.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
-
-#include "dcap_safe_file_ops.h"
-#define SAFE_FOPEN(p, m) dcap_safe_fopen((p), (m))
 
 static const char *sign_key_pass;
 
@@ -85,7 +108,7 @@ static RSA *load_sign_key(const char *path)
 	RSA *key = NULL;
 	bool passed = false;
 
-	f = SAFE_FOPEN(path, "rb");
+	f = fopen(path, "rb");
 	if (!f) {
 		fprintf(stderr, "Unable to open %s\n", path);
 		goto out;
@@ -118,7 +141,7 @@ static RSA *load_public_key(const char *path)
 	RSA *key = NULL;
 	bool passed = false;
 
-	f = SAFE_FOPEN(path, "rb");
+	f = fopen(path, "rb");
 	if (!f) {
 		fprintf(stderr, "Unable to open %s\n", path);
 		goto out;
@@ -302,7 +325,7 @@ static bool measure_encl(const char *path, uint8_t *mrenclave, uint32_t *date)
 	if (!ctx)
 		return false;
 
-	file = SAFE_FOPEN(path, "rb");
+	file = fopen(path, "rb");
 	if (!file) {
 		perror("fopen");
 		EVP_MD_CTX_destroy(ctx);
@@ -484,7 +507,7 @@ out:
 static bool save_output(const void *data, size_t len,
 			   const char *path)
 {
-	FILE *f = SAFE_FOPEN(path, "wb");
+	FILE *f = fopen(path, "wb");
 
 	if (!f) {
 		fprintf(stderr, "Unable to open %s\n", path);
@@ -539,7 +562,7 @@ static bool load_sig(const char *path, struct sgx_sigstruct *ss)
 		return false;
 	}
 
-	f = SAFE_FOPEN(path, "rb");
+	f = fopen(path, "rb");
 	if (!f) {
 		fprintf(stderr, "Unable to open %s\n", path);
 		return false;
@@ -689,9 +712,6 @@ int main(int argc, char **argv)
 	int opt;
     bool res;
 
-#ifdef _MSC_VER
-    (void)SetDllDirectory(TEXT(""));
-#endif
 
 	sign_key_pass = getenv("KBUILD_SGX_SIGN_PIN");
 	program = argv[0];

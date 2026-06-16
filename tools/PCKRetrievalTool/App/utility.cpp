@@ -1,6 +1,5 @@
 /*
- * Copyright(c) 2011-2026 Intel Corporation
- *
+ * Copyright(c) 2011-2025 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 /**
@@ -22,9 +21,6 @@
 #include "pce_u.h"
 #include "sgx_urts.h"     
 #include "utility.h"
-#ifdef _MSC_VER
-#include "dcap_secure_load_library.h"
-#endif
 
 #ifndef MAX_PATH
 #define MAX_PATH 260
@@ -177,7 +173,7 @@ bool get_urts_library_handle()
 {
     // try to sgx_urts library to create enclave.
 #if defined(_MSC_VER)
-    sgx_urts_handle = dcap_secure_load_library(SGX_URTS_LIBRARY);
+    sgx_urts_handle = LoadLibrary(SGX_URTS_LIBRARY);
     if (sgx_urts_handle == NULL) {
         printf("ERROR: didn't find the sgx_urts.dll library, please make sure you have installed PSW installer package. \n");
         return false;
@@ -280,7 +276,7 @@ uefi_status_t get_platform_manifest(uint8_t ** buffer, uint32_t &out_buffer_size
 {
     uefi_status_t ret = UEFI_OPERATION_UNEXPECTED_ERROR;
 #ifdef _MSC_VER
-    HINSTANCE uefi_lib_handle = dcap_secure_load_library(SGX_MULTI_PACKAGE_AGENT_UEFI_LIBRARY);
+    HINSTANCE uefi_lib_handle = LoadLibrary(SGX_MULTI_PACKAGE_AGENT_UEFI_LIBRARY);
     if (uefi_lib_handle != NULL) {
         PRINT_MESSAGE("Found the UEFI library. \n");
     }
@@ -386,7 +382,7 @@ uefi_status_t set_registration_status()
 {
     uefi_status_t ret = UEFI_OPERATION_UNEXPECTED_ERROR;
 #ifdef _MSC_VER
-    HINSTANCE uefi_lib_handle = dcap_secure_load_library(SGX_MULTI_PACKAGE_AGENT_UEFI_LIBRARY);
+    HINSTANCE uefi_lib_handle = LoadLibrary(SGX_MULTI_PACKAGE_AGENT_UEFI_LIBRARY);
     if (uefi_lib_handle != NULL) {
         PRINT_MESSAGE("Found the UEFI library. \n");
     }

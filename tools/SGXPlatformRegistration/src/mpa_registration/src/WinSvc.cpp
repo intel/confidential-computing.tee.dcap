@@ -1,14 +1,4 @@
-/*
- * Copyright(c) 2026 Intel Corporation
- *
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-// Portions adapted from Microsoft's "The Complete Service Sample":
-// https://learn.microsoft.com/en-us/windows/win32/services/the-complete-service-sample
-// The original snippet is published by Microsoft without a copyright or
-// license header. Modifications by Intel are licensed under BSD-3-Clause
-// per the header above.
+// code taken from: https://docs.microsoft.com/en-us/windows/desktop/services/the-complete-service-sample
 
 #include <windows.h>
 #include <tchar.h>
@@ -16,7 +6,6 @@
 #include <netlistmgr.h>
 #include <atlbase.h>
 #include "RegistrationLogic.h"
-#include "dcap_secure_load_library.h"
 
 #pragma comment(lib, "advapi32.lib")
 
@@ -52,11 +41,6 @@ bool SvcUninstall();
 //
 int __cdecl _tmain(int argc, TCHAR *argv[])
 {
-	if (!dcap_harden_dll_search_path())
-	{
-		SvcReportEvent(TEXT("dcap_harden_dll_search_path"));
-		return 1;
-	}
 
 	if (argc > 1 && lstrcmpi(argv[1], TEXT("/Install")) == 0)
 	{

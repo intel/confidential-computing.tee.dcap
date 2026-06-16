@@ -60,7 +60,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\..\include;..\common;..\uefi\inc;..\agent\inc;..\common\inc;$(SolutionDir)..\..\QuoteGeneration\common\inc\internal</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\include;..\common;..\uefi\inc;..\agent\inc;..\common\inc</AdditionalIncludeDirectories>
       <ControlFlowGuard>Guard</ControlFlowGuard>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -96,7 +96,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\..\include;..\common;..\uefi\inc;..\agent\inc;..\common\inc;$(SolutionDir)..\..\QuoteGeneration\common\inc\internal</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\include;..\common;..\uefi\inc;..\agent\inc;..\common\inc</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <ControlFlowGuard>Guard</ControlFlowGuard>
       <LanguageStandard>stdcpp17</LanguageStandard>

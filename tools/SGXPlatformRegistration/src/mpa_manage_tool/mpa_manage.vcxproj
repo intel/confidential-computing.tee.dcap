@@ -50,7 +50,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>inc;..\common\inc;..\management\inc;..\agent\inc;..\..\include;..\windows\regex-2.7\src;$(SolutionDir)..\..\QuoteGeneration\common\inc\internal</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;..\common\inc;..\management\inc;..\agent\inc;..\..\include;..\windows\regex-2.7\src</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ControlFlowGuard>Guard</ControlFlowGuard>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
@@ -71,7 +71,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>inc;..\common\inc;..\management\inc;..\agent\inc;..\..\include;..\windows\regex-2.7\src;$(SolutionDir)..\..\QuoteGeneration\common\inc\internal</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;..\common\inc;..\management\inc;..\agent\inc;..\..\include;..\windows\regex-2.7\src</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <ControlFlowGuard>Guard</ControlFlowGuard>
       <LanguageStandard>stdcpp17</LanguageStandard>
