@@ -49,6 +49,7 @@ std::string get_cdp_url_from_pem_cert(const char *p_cert) {
 
     /*
      * Convert from PEM format to DER format - removes header and footer and decodes from base64
+     * First call gets the required buffer size.
      */
     DWORD derPubKeyLen = 0;
     if (!CryptStringToBinaryA(p_cert, 0, CRYPT_STRING_BASE64HEADER, NULL, &derPubKeyLen, NULL, NULL)) {
@@ -86,12 +87,28 @@ std::string get_cdp_url_from_pem_cert(const char *p_cert) {
         return "";
     }
 
-    std::wstring pwszURL = pCrlDistPoints->rgDistPoint[0].DistPointName.FullName.rgAltEntry->pwszURL;
     std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
-    std::string pszURL = converter.to_bytes(pwszURL);
+    std::string pszURL;
+
+    bool found = false;
+    for (DWORD i = 0; i < pCrlDistPoints->cDistPoint && !found; i++) {
+        CRL_DIST_POINT &dp = pCrlDistPoints->rgDistPoint[i];
+        if (dp.DistPointName.dwDistPointNameChoice != CRL_DIST_POINT_FULL_NAME)
+            continue;
+        CERT_ALT_NAME_INFO &fullName = dp.DistPointName.FullName;
+        if (fullName.cAltEntry == 0 || fullName.rgAltEntry == NULL)
+            continue;
+        for (DWORD k = 0; k < fullName.cAltEntry; k++) {
+            CERT_ALT_NAME_ENTRY &entry = fullName.rgAltEntry[k];
+            if (entry.dwAltNameChoice != CERT_ALT_NAME_URL || entry.pwszURL == NULL)
+                continue;
+            pszURL = converter.to_bytes(entry.pwszURL);
+            found = true;
+            break;
+        }
+    }
 
     LocalFree(pCrlDistPoints);
     LocalFree(publicKeyInfo);
-
     return pszURL;
 }
