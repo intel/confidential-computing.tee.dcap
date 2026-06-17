@@ -1,7 +1,7 @@
 <EnclaveConfiguration>
     <IntelSigned>1</IntelSigned>
     <ProdID>0x2</ProdID>
-    <ISVSVN>0xE</ISVSVN>
+    <ISVSVN>0xF</ISVSVN>
 <!--     QvE enclave must be single thread enclave. Otherwise getCurrentTime() will have a race condition, which may cause wrong results. -->
     <TCSNum>1</TCSNum>
     <TCSPolicy>1</TCSPolicy>
