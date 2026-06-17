@@ -36,6 +36,7 @@
  */
 #include <curl/curl.h>
 #include <cstring>
+#include <climits>
 #include <unistd.h>
 
 #include "network_logger.h"
@@ -80,7 +81,8 @@ static size_t responseHeaderCallBack(char* b, size_t size, size_t nitems, void *
     string strline = string(b, numbytes);
     string *errorCodeStr = (string*)userdata;
     if (numbytes > 2) {
-        network_log_message_aux(mpNetworkLoglevel, MP_REG_LOG_LEVEL_DEBUG, "%.*s", numbytes, b);
+        int logLen = (numbytes > static_cast<size_t>(INT_MAX)) ? INT_MAX : static_cast<int>(numbytes);
+        network_log_message_aux(mpNetworkLoglevel, MP_REG_LOG_LEVEL_DEBUG, "%.*s", logLen, b);
     }
 
     size_t found = strline.find(ERROR_CODE_STR_RESPONSE_HEADER);
