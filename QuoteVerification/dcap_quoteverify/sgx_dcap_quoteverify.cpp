@@ -41,6 +41,7 @@
 #include "tee_qv_class.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <new>
 #include <memory>
 #include <mutex>
@@ -684,22 +685,22 @@ quote3_error_t tee_qv_get_collateral(
                                                         (sgx_ql_qve_collateral_t **)pp_quote_collateral);
         if (ret == SGX_QL_SUCCESS)
         {
-		 *p_collateral_size =
-                (uint32_t)sizeof(sgx_ql_qve_collateral_t) +
-                ((sgx_ql_qve_collateral_t *)(*pp_quote_collateral))
-                    ->pck_crl_issuer_chain_size +
-                ((sgx_ql_qve_collateral_t *)(*pp_quote_collateral))
-                    ->root_ca_crl_size +
-                ((sgx_ql_qve_collateral_t *)(*pp_quote_collateral))
-                    ->pck_crl_size +
-                ((sgx_ql_qve_collateral_t *)(*pp_quote_collateral))
-                    ->tcb_info_issuer_chain_size +
-                ((sgx_ql_qve_collateral_t *)(*pp_quote_collateral))
-                    ->qe_identity_issuer_chain_size +
-                ((sgx_ql_qve_collateral_t *)(*pp_quote_collateral))
-                    ->qe_identity_size +
-                ((sgx_ql_qve_collateral_t *)(*pp_quote_collateral))
-                    ->tcb_info_size;
+            const sgx_ql_qve_collateral_t *p_c =
+                (const sgx_ql_qve_collateral_t *)(*pp_quote_collateral);
+            uint64_t total = (uint64_t)sizeof(sgx_ql_qve_collateral_t) +
+                             (uint64_t)p_c->pck_crl_issuer_chain_size +
+                             (uint64_t)p_c->root_ca_crl_size +
+                             (uint64_t)p_c->pck_crl_size +
+                             (uint64_t)p_c->tcb_info_issuer_chain_size +
+                             (uint64_t)p_c->qe_identity_issuer_chain_size +
+                             (uint64_t)p_c->qe_identity_size +
+                             (uint64_t)p_c->tcb_info_size;
+            if (total > UINT32_MAX) {
+                sgx_dcap_free_verification_collateral((sgx_ql_qve_collateral_t *)*pp_quote_collateral);
+                *pp_quote_collateral = NULL;
+                return SGX_QL_ERROR_UNEXPECTED;
+            }
+            *p_collateral_size = (uint32_t)total;
 	    }
     }
     else if (quote_type == TDX_QUOTE_TYPE)
@@ -710,22 +711,22 @@ quote3_error_t tee_qv_get_collateral(
                                                         (tdx_ql_qv_collateral_t **)pp_quote_collateral);
         if (ret == SGX_QL_SUCCESS)
         {
-		 *p_collateral_size =
-                (uint32_t)sizeof(tdx_ql_qv_collateral_t) +
-                ((tdx_ql_qv_collateral_t *)(*pp_quote_collateral))
-                    ->pck_crl_issuer_chain_size +
-                ((tdx_ql_qv_collateral_t *)(*pp_quote_collateral))
-                    ->root_ca_crl_size +
-                ((tdx_ql_qv_collateral_t *)(*pp_quote_collateral))
-                    ->pck_crl_size +
-                ((tdx_ql_qv_collateral_t *)(*pp_quote_collateral))
-                    ->tcb_info_issuer_chain_size +
-                ((tdx_ql_qv_collateral_t *)(*pp_quote_collateral))
-                    ->qe_identity_issuer_chain_size +
-                ((tdx_ql_qv_collateral_t *)(*pp_quote_collateral))
-                    ->qe_identity_size +
-                ((tdx_ql_qv_collateral_t *)(*pp_quote_collateral))
-                    ->tcb_info_size;
+            const tdx_ql_qv_collateral_t *p_c =
+                (const tdx_ql_qv_collateral_t *)(*pp_quote_collateral);
+            uint64_t total = (uint64_t)sizeof(tdx_ql_qv_collateral_t) +
+                             (uint64_t)p_c->pck_crl_issuer_chain_size +
+                             (uint64_t)p_c->root_ca_crl_size +
+                             (uint64_t)p_c->pck_crl_size +
+                             (uint64_t)p_c->tcb_info_issuer_chain_size +
+                             (uint64_t)p_c->qe_identity_issuer_chain_size +
+                             (uint64_t)p_c->qe_identity_size +
+                             (uint64_t)p_c->tcb_info_size;
+            if (total > UINT32_MAX) {
+                tdx_dcap_free_verification_collateral((tdx_ql_qv_collateral_t *)*pp_quote_collateral);
+                *pp_quote_collateral = NULL;
+                return SGX_QL_ERROR_UNEXPECTED;
+            }
+            *p_collateral_size = (uint32_t)total;
 	    }
     }
     else
