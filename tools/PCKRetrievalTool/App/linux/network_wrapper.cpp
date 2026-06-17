@@ -11,6 +11,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <curl/curl.h>
 #include <fstream>
@@ -55,12 +56,15 @@ static size_t write_callback(void *ptr, size_t size, size_t nmemb, void *stream)
 {
     network_malloc_info_t* s=reinterpret_cast<network_malloc_info_t *>(stream);
     size_t start=0;
+    size_t data_size = 0;
+    if(__builtin_mul_overflow(size, nmemb, &data_size)) return 0;
     if(s->base==NULL){
-        s->base = reinterpret_cast<char *>(malloc(size*nmemb));
-        s->size = static_cast<uint32_t>(size*nmemb);
+        s->base = reinterpret_cast<char *>(malloc(data_size));
+        s->size = data_size;
         if(s->base==NULL)return 0;
     }else{
-        size_t newsize = s->size + size*nmemb;
+        if(data_size > SIZE_MAX - s->size) return 0;
+        size_t newsize = s->size + data_size;
         char *p=reinterpret_cast<char *>(realloc(s->base, newsize));
         if(p == NULL){
             return 0;
@@ -69,8 +73,8 @@ static size_t write_callback(void *ptr, size_t size, size_t nmemb, void *stream)
         s->base = p;
         s->size = newsize;
     }
-    memcpy(s->base +start, ptr, size*nmemb);
-    return size*nmemb;
+    memcpy(s->base + start, ptr, data_size);
+    return data_size;
 }
 
 /**
