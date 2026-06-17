@@ -121,6 +121,14 @@ sgx_qcnl_error_t CertificationService::fetch_data(RequestType type, const Reques
         } else {
             ret = handler_ret;
         }
+        else {
+            // Propagate the handler's error instead of masking it with the
+            // prior SGX_QCNL_SUCCESS from remoteProvider.get_certification.
+            // Otherwise callers (e.g. qe_logic.cpp) believe the fetch
+            // succeeded and may dereference a partially-initialized or
+            // already-freed *pp_quote_config (UAF / double-free).
+            ret = handler_ret;
+        }
     }
     return ret;
 }
@@ -171,6 +179,11 @@ sgx_qcnl_error_t CertificationService::setup_quote_config(const string &tcbm,
     } while (0);
 
     sgx_qcnl_free_pck_cert_chain(*pp_quote_config);
+    // sgx_qcnl_free_pck_cert_chain receives the struct pointer by value, so it
+    // cannot null the caller's variable. Reset *pp_quote_config here so the
+    // caller does not double-free or use-after-free a dangling pointer on the
+    // error path.
+    *pp_quote_config = NULL;
     return ret;
 }
 
@@ -512,6 +525,11 @@ sgx_qcnl_error_t CertificationService::resp_obj_to_pck_crl(PccsResponseObject *p
     } while (0);
 
     sgx_qcnl_free_pck_crl_chain(*pp_crl_chain);
+    // Free helpers take their argument by value and cannot null the caller's
+    // pointer. Reset out-params here so callers cannot double-free or read a
+    // dangling pointer on the error path.
+    *pp_crl_chain = NULL;
+    *p_crl_chain_size = 0;
     return ret;
 }
 
@@ -544,6 +562,8 @@ sgx_qcnl_error_t CertificationService::resp_obj_to_tcbinfo(PccsResponseObject *p
     } while (0);
 
     sgx_qcnl_free_tcbinfo(*pp_tcbinfo);
+    *pp_tcbinfo = NULL;
+    *p_tcbinfo_size = 0;
     return ret;
 }
 
@@ -576,6 +596,8 @@ sgx_qcnl_error_t CertificationService::resp_obj_to_qe_identity(PccsResponseObjec
     } while (0);
 
     sgx_qcnl_free_qe_identity(*pp_qe_identity);
+    *pp_qe_identity = NULL;
+    *p_qe_identity_size = 0;
     return ret;
 }
 
@@ -617,6 +639,10 @@ sgx_qcnl_error_t CertificationService::resp_obj_to_qve_identity(PccsResponseObje
     } while (0);
 
     sgx_qcnl_free_qve_identity(*pp_qve_identity, *pp_qve_identity_issuer_chain);
+    *pp_qve_identity = NULL;
+    *p_qve_identity_size = 0;
+    *pp_qve_identity_issuer_chain = NULL;
+    *p_qve_identity_issuer_chain_size = 0;
     return ret;
 }
 
@@ -639,6 +665,8 @@ sgx_qcnl_error_t CertificationService::resp_obj_to_root_ca_crl(PccsResponseObjec
     } while (0);
 
     sgx_qcnl_free_root_ca_crl(*pp_root_ca_crl);
+    *pp_root_ca_crl = NULL;
+    *p_root_ca_crl_size = 0;
     return ret;
 }
 
@@ -663,9 +691,9 @@ sgx_qcnl_error_t CertificationService::resp_obj_to_appraisalpolicy(PccsResponseO
         return SGX_QCNL_SUCCESS;
     } while (0);
 
+    tee_qcnl_free_platform_policy(*pp_platform_policy);
     *pp_platform_policy = NULL;
     *p_platform_policy_size = 0;
-    tee_qcnl_free_platform_policy(*pp_platform_policy);
     return ret;
 }
 
