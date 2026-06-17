@@ -641,7 +641,36 @@ MpResult MPUefi::getRegistrationServerInfo(uint16_t &flags, std::string &serverA
         flags = configurationUefi->flags;
         serverAddress = std::string((const char*)configurationUefi->url, (size_t)configurationUefi->urlSize);
 
-        requiredSize = (uint16_t)(configurationUefi->headerId.size + (uint16_t)sizeof(configurationUefi->headerId));
+        // The headerId structure is followed by a variable-length trailer whose
+        // length is taken from configurationUefi->headerId.size, which is read
+        // straight from the UEFI variable backing store. Make sure the fixed
+        // headerId struct itself is fully contained in the buffer returned by
+        // readUEFIVar() before dereferencing any of its fields, then bound
+        // the trailer against the remaining buffer so a malformed UEFI
+        // variable cannot make the memcpy() below read past the heap
+        // allocation, and refuse sizes that cannot be reported back through
+        // the uint16_t serverIdSize out-parameter.
+        {
+            const size_t headerIdOffset = offsetof(ConfigurationUEFI, headerId);
+            if (varDataSize < headerIdOffset + sizeof(configurationUefi->headerId)) {
+                uefi_log_message(MP_REG_LOG_LEVEL_ERROR,
+                    "getRegistrationServerInfo: UEFI variable data size %zu is too small to contain headerId.\n",
+                    varDataSize);
+                res = MP_UEFI_INTERNAL_ERROR;
+                break;
+            }
+            const size_t fullIdSize =
+                (size_t)configurationUefi->headerId.size + sizeof(configurationUefi->headerId);
+            if (fullIdSize > varDataSize - headerIdOffset ||
+                fullIdSize > UINT16_MAX) {
+                uefi_log_message(MP_REG_LOG_LEVEL_ERROR,
+                    "getRegistrationServerInfo: headerId trailer length %u is inconsistent with UEFI variable data size %zu.\n",
+                    configurationUefi->headerId.size, varDataSize);
+                res = MP_UEFI_INTERNAL_ERROR;
+                break;
+            }
+            requiredSize = (uint16_t)fullIdSize;
+        }
         if (serverId) {
             if (serverIdSize < requiredSize) {
                 uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRegistrationServerInfo: Request buffer too small for pending request, given size: %d, actual size: %d.\n",
