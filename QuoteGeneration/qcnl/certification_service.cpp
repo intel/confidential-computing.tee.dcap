@@ -119,9 +119,6 @@ sgx_qcnl_error_t CertificationService::fetch_data(RequestType type, const Reques
             ret = cacheProvider.set_certification(get_cache_type_of_request(type),
                                                   query_str, &pccs_resp_obj); // User query_str for caching key
         } else {
-            ret = handler_ret;
-        }
-        else {
             // Propagate the handler's error instead of masking it with the
             // prior SGX_QCNL_SUCCESS from remoteProvider.get_certification.
             // Otherwise callers (e.g. qe_logic.cpp) believe the fetch
