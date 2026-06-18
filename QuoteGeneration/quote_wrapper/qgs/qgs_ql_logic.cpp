@@ -48,19 +48,6 @@ typedef quote3_error_t (*free_collateral_func)(tdx_ql_qv_collateral_t *p_quote_c
 typedef quote3_error_t (*sgx_ql_set_logging_callback_t)(sgx_ql_logging_callback_t logger,
                                                         sgx_ql_log_level_t loglevel);
 
-static bool report_has_servtd_ext(const sgx_report2_t *p_report) {
-    switch (p_report->report_mac_struct.report_type.version) {
-    case TEE_REPORT2_VERSION_0:
-        return false;
-    case TEE_REPORT2_VERSION_1:
-        return ((reinterpret_cast<const tee_info_v1_5_t *>(p_report->tee_info)->attributes.a[0]) & tee_info_v1_5_ex_t::servtd_ext) != 0;
-    case TEE_REPORT2_VERSION_3:
-        return ((reinterpret_cast<const tee_info_v1_5_ex_t *>(p_report->tee_info)->attributes.a[0]) & tee_info_v1_5_ex_t::servtd_ext) != 0;
-    default:
-        return false;
-    }
-}
-
 void sgx_ql_logging_callback(sgx_ql_log_level_t level, const char *message) {
     int qgs_level;
     switch (level) {
@@ -506,12 +493,10 @@ namespace intel { namespace sgx { namespace dcap { namespace qgs {
             }
         }
 
-        if (req_size == sizeof(sgx_report2_t) || req_size == sizeof(sgx_report2_t) + sizeof(tdx_servtd_ext_t)) {
+        if (req_size == sizeof(sgx_report2_t)) {
             sgx_report2_t report = {};
             memcpy(&report, req, sizeof(report));
             const uint8_t *p_report_buf = reinterpret_cast<const uint8_t *>(&report);
-            tdx_servtd_ext_t servtd_ext = {};
-            const tdx_servtd_ext_t *p_servtd_ext = NULL;
             if (report.report_mac_struct.report_type.type != TEE_REPORT2_TYPE
                 || (report.report_mac_struct.report_type.subtype != TEE_REPORT2_SUBTYPE_0
                     && report.report_mac_struct.report_type.subtype != TEE_REPORT2_SUBTYPE_1)
@@ -527,17 +512,6 @@ namespace intel { namespace sgx { namespace dcap { namespace qgs {
                 return {};
             }
 
-            if (report_has_servtd_ext(&report)) {
-                if (req_size != sizeof(sgx_report2_t) + sizeof(tdx_servtd_ext_t)) {
-                    QGS_LOG_ERROR("SERVTD_EXT report is missing migration-history payload\n");
-                    return {};
-                }
-                memcpy(&servtd_ext, req + sizeof(sgx_report2_t), sizeof(servtd_ext));
-                p_servtd_ext = &servtd_ext;
-            } else if (req_size != sizeof(sgx_report2_t)) {
-                QGS_LOG_ERROR("Unexpected raw request size\n");
-                return {};
-            }
 
             int retry = 1;
             do {
@@ -561,22 +535,12 @@ namespace intel { namespace sgx { namespace dcap { namespace qgs {
                 } else {
                     QGS_LOG_INFO("tee_att_get_quote_size return Success\n");
                     resp.resize(size);
-                    if (p_servtd_ext == NULL) {
-                        tee_att_ret = tee_att_get_quote(ptr.get(),
-                                                        p_report_buf,
-                                                        sizeof(sgx_report2_t),
-                                                        NULL,
-                                                        resp.data(),
-                                                        size);
-                    } else {
-                        tee_att_ret = tee_att_get_quote_mig_history(ptr.get(),
-                                                                    p_report_buf,
-                                                                    sizeof(sgx_report2_t),
-                                                                    NULL,
-                                                                    resp.data(),
-                                                                    size,
-                                                                    p_servtd_ext);
-                    }
+                    tee_att_ret = tee_att_get_quote(ptr.get(),
+                                                    p_report_buf,
+                                                    sizeof(sgx_report2_t),
+                                                    NULL,
+                                                    resp.data(),
+                                                    size);
                     if (TEE_ATT_SUCCESS != tee_att_ret) {
                         resp.resize(0);
                         QGS_LOG_ERROR("tee_att_get_quote raw path return 0x%x\n", tee_att_ret);

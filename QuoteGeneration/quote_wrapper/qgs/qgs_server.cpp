@@ -33,8 +33,8 @@
 #include "qgs_log.h"
 #include "qgs_ql_logic.h"
 #include "qgs_msg_lib.h"
-#include <sgx_quote_5.h>
 #include "se_trace.h"
+#include <sgx_report2.h>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <boost/cstdint.hpp>
@@ -70,25 +70,6 @@ uint32_t decode_header(const data_buffer &buf) {
         msg_size = msg_size * 256 + (static_cast<uint32_t>(buf[i]) & 0xFF);
     }
     return msg_size;
-}
-
-static bool raw_request_has_servtd_ext(const data_buffer &buf) {
-    if (buf.size() < sizeof(sgx_report2_t)) {
-        return false;
-    }
-
-    sgx_report2_t report = {};
-    memcpy(&report, buf.data(), sizeof(report));
-    switch (report.report_mac_struct.report_type.version) {
-    case TEE_REPORT2_VERSION_0:
-        return false;
-    case TEE_REPORT2_VERSION_1:
-        return ((((const tee_info_v1_5_t *)report.tee_info)->attributes.a[0]) & tee_info_v1_5_ex_t::servtd_ext) != 0;
-    case TEE_REPORT2_VERSION_3:
-        return ((((const tee_info_v1_5_ex_t *)report.tee_info)->attributes.a[0]) & tee_info_v1_5_ex_t::servtd_ext) != 0;
-    default:
-        return false;
-    }
 }
 
 void encode_header(data_buffer &buf, uint32_t size) {
@@ -212,18 +193,13 @@ class QgsConnection : public boost::enable_shared_from_this<QgsConnection> {
                 || QGS_MSG_SUCCESS != qgs_msg_get_type(&m_readbuf[HEADER_SIZE],
                         (uint32_t)bytes_transferred - HEADER_SIZE, &msg_type)) {
                 const std::size_t raw_report_size = sizeof(sgx_report2_t);
-                const std::size_t raw_mig_report_size = sizeof(sgx_report2_t) + sizeof(tdx_servtd_ext_t);
-                std::size_t expected_raw_size = raw_report_size;
-                if (bytes_transferred >= raw_report_size && raw_request_has_servtd_ext(m_readbuf)) {
-                    expected_raw_size = raw_mig_report_size;
-                }
-                if (bytes_transferred == expected_raw_size) {
+                if (bytes_transferred == raw_report_size) {
                     QGS_LOG_INFO("process raw request [%zu] bytes!.\n", bytes_transferred);
                     m_readbuf.resize(bytes_transferred);
                     handle_raw_request();
-                } else if (bytes_transferred < expected_raw_size) {
-                    QGS_LOG_INFO("wait for [%zu] bytes!.\n", expected_raw_size - bytes_transferred);
-                    continue_read(bytes_transferred, expected_raw_size);
+                } else if (bytes_transferred < raw_report_size) {
+                    QGS_LOG_INFO("wait for [%zu] bytes!.\n", raw_report_size - bytes_transferred);
+                    continue_read(bytes_transferred, raw_report_size);
                 } else {
                     QGS_LOG_ERROR("invalid request, close connection!.\n");
                     m_timer.cancel();
