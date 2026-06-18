@@ -584,6 +584,7 @@ static qe3_error_t verify_blob_internal(uint8_t *p_blob,
 
     if ((p_plaintext_ecdsa_data->ecdsa_key_version == SGX_QL_ECDSA_KEY_BLOB_VERSION_0 &&
         (decryptedtext_length != sizeof(ref_ciphertext_ecdsa_data_sdk_t) || plaintext_length != sizeof(ref_plaintext_ecdsa_data_sdk_t)))) {
+        ret = REFQE3_ECDSABLOB_ERROR;
         goto ret_point;
     }
 
