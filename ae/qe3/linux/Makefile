@@ -34,6 +34,8 @@ TOP_DIR := ../../../QuoteGeneration
 MITIGATION-CVE-2020-0551 := LOAD
 include $(TOP_DIR)/../ae/dep/buildenv.mk
 
+CXXFLAGS := $(filter-out -std=c++14,$(CXXFLAGS)) -std=c++17
+
 AENAME := qe3
 SONAME := $(AENAME).so
 SIGNED_QE3_NAME := libsgx_$(AENAME)$(if $(FIPS),-fips).signed.so

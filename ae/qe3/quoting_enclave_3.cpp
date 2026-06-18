@@ -53,6 +53,13 @@
 #include "user_types.h"
 #include <sgx_pce.h>
 #include "sgx_lfence.h"
+#include <stdlib.h>
+#ifdef __linux__
+    // AEX Notify is only supported on Linux
+    #include "sgx_aex_notify_region.h"
+#else
+    #define SGX_REPEAT_AEX_REGION(BLOCK) BLOCK
+#endif
 
   //Compile switches for debug and for currently unsupported features.
   //#define ALLOW_DEBUG_PCE 1
@@ -165,6 +172,27 @@ static const sgx_key_128bit_t empty_qe_id = {0};
 
 #define MAX_CERT_DATA_SIZE (4098*3)
 #define MIN_CERT_DATA_SIZE (500)
+
+#ifdef __linux__
+// AEX Notify is only supported on Linux
+__attribute__((constructor)) static void qe3_global_init()
+{
+    sgx_status_t ret = SGX_SUCCESS;
+    if ((ret = sgx_register_aex_region_handler()) != SGX_SUCCESS)
+    {
+        abort();
+    }
+}
+
+__attribute__((destructor)) static void qe3_global_dinit()
+{
+    sgx_status_t ret = SGX_SUCCESS;
+    if ((ret = sgx_unregister_aex_region_handler()) != SGX_SUCCESS)
+    {
+        abort();
+    }
+}
+#endif
 
 #ifdef ENABLE_QE3_LOGGING
 /*
@@ -374,10 +402,12 @@ static qe3_error_t get_att_key_based_from_seal_key(sgx_ec256_private_t *p_att_pr
         goto ret_point;
     }
 
-    if (sgx_ecc256_calculate_pub_from_priv(p_att_priv_key, p_att_pub_key) != SGX_SUCCESS) {
-        ret = REFQE3_ERROR_CRYPTO;
-        goto ret_point;
-    }
+    SGX_REPEAT_AEX_REGION({
+        if (sgx_ecc256_calculate_pub_from_priv(p_att_priv_key, p_att_pub_key) != SGX_SUCCESS) {
+            ret = REFQE3_ERROR_CRYPTO;
+            goto ret_point;
+        }
+    });
 
     //little endian to big endian
     SWAP_ENDIAN_32B(p_att_pub_key->gx);
@@ -395,7 +425,6 @@ ret_point:
         (void)memset_s(p_att_priv_key, sizeof(sgx_ec256_private_t), 0, sizeof(sgx_ec256_private_t)); //clear private key in stack
         (void)memset_s(p_att_pub_key, sizeof(ref_ec256_public_t), 0, sizeof(ref_ec256_public_t)); //clear private key in stack
     }
-
     return ret;
 }
 
@@ -1155,7 +1184,7 @@ ret_point:
 
     // Clear out any sensitive data from the stack before returning.
     memset_s(pciphertext_data, sizeof(*pciphertext_data), 0, sizeof(*pciphertext_data));
-    return(ret);
+    return (ret);
 }
 
 /**
@@ -1636,21 +1665,26 @@ uint32_t gen_quote(uint8_t *p_blob,
         ret = (qe3_error_t)sgx_status;
         goto ret_point;
     }
-    // Sign everything in the quote except the signature_data_len.  This allows the quote certification information to change
-    // to contain the actual PCK cert after initially only carring the PPID+PCEID+TCB without making the quote invalid.
-    sgx_status = sgx_ecdsa_sign(reinterpret_cast<const uint8_t *>(p_quote),
-        sizeof(*p_quote) - sizeof(p_quote->signature_data_len),
-        &pciphertext->ecdsa_private_key,
-        reinterpret_cast<sgx_ec256_signature_t *>(p_quote_sig->sig),
-        handle);
-    if (SGX_ERROR_OUT_OF_MEMORY == sgx_status) {
-        ret = REFQE3_ERROR_OUT_OF_MEMORY;
-        goto ret_point;
-    }
-    else if (SGX_SUCCESS != sgx_status) {
-        ret = REFQE3_ERROR_UNEXPECTED;
-        goto ret_point;
-    }
+
+    SGX_REPEAT_AEX_REGION({
+        // Sign everything in the quote except the signature_data_len. This allows the quote certification information to change
+        // to contain the actual PCK cert after initially only carrying the PPID+PCEID+TCB without making the quote invalid.
+        sgx_status = sgx_ecdsa_sign(reinterpret_cast<const uint8_t *>(p_quote),
+                                    sizeof(*p_quote) - sizeof(p_quote->signature_data_len),
+                                    &pciphertext->ecdsa_private_key,
+                                    reinterpret_cast<sgx_ec256_signature_t *>(p_quote_sig->sig),
+                                    handle);
+        if (SGX_ERROR_OUT_OF_MEMORY == sgx_status)
+        {
+            ret = REFQE3_ERROR_OUT_OF_MEMORY;
+            goto ret_point;
+        }
+        else if (SGX_SUCCESS != sgx_status)
+        {
+            ret = REFQE3_ERROR_UNEXPECTED;
+            goto ret_point;
+        }
+    });
 
     memcpy(&le_att_pub_key, &plaintext.ecdsa_att_public_key, sizeof(le_att_pub_key));
     //big endian to little endian

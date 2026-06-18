@@ -8,6 +8,8 @@ TOP_DIR := ../../../QuoteGeneration
 MITIGATION-CVE-2020-0551 := LOAD
 include $(TOP_DIR)/../ae/dep/buildenv.mk
 
+CXXFLAGS := $(filter-out -std=c++14,$(CXXFLAGS)) -std=c++17
+
 AENAME := tdqe
 SONAME := $(AENAME).so
 SIGNED_TDQE_NAME := libsgx_$(AENAME)$(if $(FIPS),-fips).signed.so
