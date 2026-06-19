@@ -58,7 +58,7 @@
     // AEX Notify is only supported on Linux
     #include "sgx_aex_notify_region.h"
 #else
-    #define SGX_REPEAT_AEX_REGION(BLOCK) BLOCK
+    #define SGX_REPEAT_AEX_REGION(BLOCK) do { BLOCK } while (0)
 #endif
 
   //Compile switches for debug and for currently unsupported features.
