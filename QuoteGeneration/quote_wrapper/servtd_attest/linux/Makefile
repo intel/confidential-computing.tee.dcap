@@ -101,6 +101,19 @@ clean:
 	@rm -rf $(SERVTD_ATTEST_BUILD_DIR)
 
 # For Test
+#
+# NOTE: the test binaries below are built with "-z norelro".
+# Commit 5026b5303 in the SGX repository placed the tlibc heap anchor
+# (heap_base) in .data.rel.ro for the SERVTD_ATTEST build, where it had
+# previously been a plain writable global. The anchor is set at runtime
+# via set_heap_base()/init_heap() with a caller-supplied heap. The
+# intended consumer is a freestanding TD payload with no loader, so the
+# anchor's page stays writable when that runtime write happens. A hosted
+# ELF test, by contrast, has ld.so freeze RELRO read-only at load,
+# before .preinit_array runs init_heap -- so the init-time write to
+# heap_base would fault (SIGSEGV). Disabling RELRO restores that "init
+# before freeze" ordering. This affects only the test shared library
+# (libservtd_attest.so, used by test_app) and test_app_static; libservtd_attest.a is unchanged.
 ServTd_Attest_Lib_Name := libservtd_attest.so
 
 Servtd_Attest_External_Lib := -lqgs_msg -lsgx_tstdc -lsgx_tcxx -lrdrand -l$(SGXSSL_TCRYPTO)
@@ -111,7 +124,7 @@ Servtd_Attest_LDFLAGS := $(SERVTD_ATTEST_LDFLAGS) \
 	-L$(SGXSSL_PACKAGE_PATH)/lib64/ \
 	-L../../qgs_msg_lib/linux \
 	-L$(RDRAND_LIB_DIR) \
-	-Wl,-z,relro,-z,now,-z,noexecstack -fPIC \
+	-Wl,-z,norelro,-z,now,-z,noexecstack -fPIC \
 	-Wl,--gc-sections \
 	-Wl,--whole-archive -l$(SGXSSL_TLIB) \
 	-Wl,--no-whole-archive \
@@ -126,6 +139,7 @@ $(ServTd_Attest_Lib_Name): $(CPP_Objects) submodule
 
 test_app_static: $(ServTd_Attest_Static_Lib_Name)
 	$(CXX) -fpie -pie -I../inc -I../../common/inc -I$(SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH)/common/inc -I$(DCAP_QG_DIR)/pce_wrapper/inc -I$(QV_QVE_INC_DIR) ../test_servtd_attest.cpp -L. -Wl,-Bstatic -lservtd_attest -Wl,-Bdynamic \
+	-Wl,-z,norelro \
 	-Wl,--defsym,__ImageBase=0 -Wl,--gc-sections -g -O0 -ggdb -o $@
 
 test_app: $(ServTd_Attest_Lib_Name)

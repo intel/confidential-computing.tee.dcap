@@ -42,8 +42,21 @@ int* get_errno_addr(void)
     return &l_errno;
 }
 
-extern void* heap_base;
-void* get_heap_base(void) { return heap_base; }
+/*
+ * Shadow of the TD heap base supplied to init_heap() (see
+ * servtd_attest_wrapper.cpp). The SGX SDK keeps its own heap base private
+ * (static in tlibc/gen/sbrk.c) for DOP hardening, so it can no longer be read
+ * back from here. tlibc's malloc still needs the heap base for its bounds
+ * check (ok_heap_range() in tlibc/stdlib/malloc.c, which calls get_heap_base()
+ * declared in trts/trts_util.h). init_heap() sets this from the SAME value it
+ * passes to the SDK's set_heap_base(), so the two stay in sync. Note that
+ * init_heap() writes this variable at runtime, so hosted ELF builds that
+ * enforce RELRO must be linked with -Wl,-z,norelro (or otherwise keep this
+ * section writable until after init_heap runs).
+ */
+#define RELRO_SECTION_NAME ".data.rel.ro"
+void* g_servtd_heap_base __attribute__((section(RELRO_SECTION_NAME))) = NULL;
+void* get_heap_base(void) { return g_servtd_heap_base; }
 
 int apply_EPC_pages(void* start_address, size_t page_count)
 {
@@ -59,7 +72,6 @@ int trim_EPC_pages(void* start_address, size_t page_count)
     return 0; 
 }
 
-#define RELRO_SECTION_NAME ".data.rel.ro"
 uintptr_t __stack_chk_guard __attribute__((section(RELRO_SECTION_NAME))) = 0;
 
 // add this func since rust-lld compiler_builtins didn't have this

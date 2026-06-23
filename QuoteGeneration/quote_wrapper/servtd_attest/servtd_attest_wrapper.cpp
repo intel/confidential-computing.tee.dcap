@@ -179,11 +179,19 @@ servtd_attest_error_t verify_quote_integrity_ex(
  */
 extern "C" int set_heap_base(const void *_heap_base, size_t _heap_size);
 
+// DCAP-owned shadow of the heap base, read back by get_heap_base() in
+// servtd_utils.c (the SDK's own heap_base is static/private for DOP hardening).
+extern "C" void *g_servtd_heap_base;
+
 servtd_attest_error_t init_heap(const void* p_td_heap_base, const uint32_t td_heap_size)
 {
     if (0 != set_heap_base(p_td_heap_base, td_heap_size)) {
         return SERVTD_ATTEST_ERROR_UNEXPECTED;
     }
+
+    // Keep the shadow in sync with the value just handed to the SDK so tlibc's
+    // malloc bounds check (get_heap_base()) sees the same heap base.
+    g_servtd_heap_base = const_cast<void*>(p_td_heap_base);
 
     return SERVTD_ATTEST_SUCCESS;
 }
