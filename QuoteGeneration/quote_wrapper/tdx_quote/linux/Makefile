@@ -50,6 +50,7 @@ Quote_Major := $(Quote_Name).$(call get_major_version,TDQE_WRAPPER_VERSION)
 -include $(Quote_C_Depends)
 -include $(Quote_Cpp_Depends)
 
+.NOTPARALLEL: td_ql_logic.o
 .PHONY: all
 all: install_lib
 
@@ -70,6 +71,8 @@ tdqe_u.c: $(SGX_EDGER8R) ../../../../ae/tdqe/tdqe.edl
 id_enclave_u.c: $(SGX_EDGER8R) $(ID_ENCLAVE_Dir)/../id_enclave.edl
 	$(SGX_EDGER8R) --untrusted $(ID_ENCLAVE_Dir)/../id_enclave.edl
 	@echo "GEN  =>  $@"
+
+td_ql_logic.o : tdqe_u.c id_enclave_u.c
 
 %.o: %.c
 	@$(CC) $(Quote_C_Flags) -c $< -o $@

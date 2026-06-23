@@ -40,6 +40,7 @@ Quote_Cpp_Objects := $(Quote_Cpp_Files:.cpp=.o)
 
 Quote_Name := libsgx_qe3_logic.so
 
+.NOTPARALLEL: qe_logic.o
 .PHONY: all
 all: install_lib
 
