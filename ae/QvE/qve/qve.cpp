@@ -3175,6 +3175,10 @@ quote3_error_t  tee_qve_verify_quote_qvt(
     if(dcap_ret == TEE_SUCCESS){
         ocall_qvt_token_malloc(token_buf_size + 1, p_verification_result_token);
         if (*p_verification_result_token != NULL) {
+#ifndef SERVTD_ATTEST
+            // In a real enclave, verify the host did not return an in-enclave
+            // pointer. In SERVTD_ATTEST there is no enclave boundary, so this
+            // check is not applicable.
             if (!sgx_is_outside_enclave(*p_verification_result_token,
                                         token_buf_size + 1)) {
                 *p_verification_result_token = NULL;
@@ -3183,6 +3187,7 @@ quote3_error_t  tee_qve_verify_quote_qvt(
                 free(supp_data.p_data);
                 return TEE_ERROR_UNEXPECTED;
             }
+#endif
             memcpy(*p_verification_result_token, tmp_result_token, token_buf_size);
         }
         else{
