@@ -94,6 +94,7 @@
     </ProjectReference>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="inc\ByteSerialization.h" />
     <ClInclude Include="inc\common.h" />
     <ClInclude Include="inc\logger.h" />
     <ClInclude Include="inc\MPConfigurations.h" />

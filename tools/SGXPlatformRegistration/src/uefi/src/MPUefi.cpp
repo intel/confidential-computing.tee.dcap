@@ -20,6 +20,7 @@
 #endif
 #include "MPUefi.h"
 #include "UefiVar.h"
+#include "ByteSerialization.h"
 #include "uefi_logger.h"
 
 #define REGISTRATION_COMPLETE_BIT_MASK 0x0001
@@ -38,36 +39,15 @@ namespace {
   using S3mUefiVersion = decltype(std::declval<S3mUefiVar>().version);
   using S3mUefiSize = decltype(std::declval<S3mUefiVar>().size);
 
+  using mp::parseBytesLE;
+  using mp::writeBytesLE;
+
   struct RequestInfo
   {
     UefiVersion version;
     S3mUefiSize uefiVarSize;
     size_t requiredSize, headerOffset;
   };
-
-  // TODO: This should probably go to common and get its own tests
-  template
-  <
-    typename T,
-    typename std::enable_if<std::is_integral<T>::value, int>::type = 0
-  >
-  T parseBytesLE(const uint8_t *raw, size_t offset = 0)
-  {
-    assert(raw != nullptr && "Requires raw pointer to be non nullptr");
-
-    static_assert(CHAR_BIT == 8, "Requires 8 bit byte");
-
-    constexpr size_t SIZE = sizeof(T);
-
-    T ret{0};
-    for(size_t i = offset, pos = SIZE - 1; i < offset + SIZE; ++i, --pos)
-    {
-      const size_t op = (SIZE - 1 - pos) * 8;
-      ret |= static_cast<T>(raw[i]) << op;
-    }
-
-    return ret;
-  }
 
   RequestInfo getRequestInfo(const uint8_t *request)
   {
@@ -308,22 +288,29 @@ MpResult MPUefi::getRequest(uint8_t *request, uint32_t &requestSize)
 MpResult MPUefi::setServerResponse(const uint8_t *response, const uint16_t &size) {
     MpResult res = MP_SUCCESS;
 
-    // FIXME: below is UB in C++ due to strict aliasing rule
-    // buffer should be define with alignas(SgxUefiVar)
-    // then responseUefi should be placement new with such buffer
-    // OR
-    // we parse bytes into structure like we do in getRequest or getRequestType
-    alignas(alignof(SgxUefiVar)) uint8_t responseBuff[MAX_RESPONSE_SIZE + sizeof(SgxUefiVar) - sizeof(StructureHeader)];
-    SgxUefiVar *responseUefi = reinterpret_cast<SgxUefiVar*>(responseBuff);
+    // On-wire layout of the SgxRegistrationServerResponse UEFI variable:
+    //   [version : uint16_t LE][size : uint16_t LE][payload : `size` bytes]
+    // The payload is `size` bytes of back-to-back PlatformMembershipCertificates.
+    // We serialize directly into a byte buffer (mirroring how getRequest /
+    // getRequestType parse bytes) instead of overlaying an SgxUefiVar on raw
+    // storage. This avoids both the strict-aliasing UB of the previous
+    // reinterpret_cast<SgxUefiVar*> and the flexible-array write past the struct.
+    constexpr size_t HEADER_SIZE = sizeof(UefiVersion) + sizeof(UefiSize);
+    uint8_t responseBuff[HEADER_SIZE + MAX_RESPONSE_SIZE];
 
     do {
         if (NULL == response || 0 == size) {
             res = MP_INVALID_PARAMETER;
             break;
         }
-
+        // Bound the caller-supplied length against the fixed-size buffer below
+        // before any byte is copied into it. Without this, a uint16_t size
+        // greater than MAX_RESPONSE_SIZE would let the memcpy() below overrun
+        // responseBuff.
         if (size > MAX_RESPONSE_SIZE) {
-            uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: response size %d exceeds maximum allowed %d\n", size, MAX_RESPONSE_SIZE);
+            uefi_log_message(MP_REG_LOG_LEVEL_ERROR,
+                "setServerResponse: response size %u exceeds MAX_RESPONSE_SIZE %u.\n",
+                static_cast<unsigned>(size), static_cast<unsigned>(MAX_RESPONSE_SIZE));
             res = MP_INVALID_PARAMETER;
             break;
         }
@@ -397,20 +384,17 @@ MpResult MPUefi::setServerResponse(const uint8_t *response, const uint16_t &size
             break;
         }
 
-        // structural validation passed: only now populate the uefi structure so
-        // that a validation failure leaves responseUefi untouched (nothing to clean up)
-        memset(responseUefi, 0, sizeof(SgxUefiVar));
-        responseUefi->version = MP_BIOS_UEFI_VARIABLE_VERSION_1;
-        responseUefi->size = size;
+        // structural validation passed: serialize header + payload into the flat
+        // byte buffer: [version LE][size LE][certs...]. Using writeBytesLE instead
+        // of overlaying an SgxUefiVar avoids the strict-aliasing UB and the
+        // flexible-array write past the struct.
+        writeBytesLE<UefiVersion>(responseBuff, MP_BIOS_UEFI_VARIABLE_VERSION_1, 0);
+        writeBytesLE<UefiSize>(responseBuff, static_cast<UefiSize>(size), sizeof(UefiVersion));
+        memcpy(responseBuff + HEADER_SIZE, response, size);
 
-        // copy certs to uefi structure (only after structural validation)
-        memcpy(&(responseUefi->header), response, size);
-
-        // write certs to uefi: the UEFI variable is prefixed by a header of
-        // UEFI_VAR_HEADER_SIZE bytes (2 bytes version + 2 bytes size)
-        const uint16_t UEFI_VAR_HEADER_SIZE = static_cast<uint16_t>(offsetof(SgxUefiVar, header));
-        int numOfBytes = m_uefi->writeUEFIVar(UEFI_VAR_SERVER_RESPONSE, (const uint8_t*)(responseUefi), responseUefi->size + UEFI_VAR_HEADER_SIZE, true);
-        if (numOfBytes != responseUefi->size + UEFI_VAR_HEADER_SIZE) {
+        const size_t totalSize = HEADER_SIZE + size;
+        int numOfBytes = m_uefi->writeUEFIVar(UEFI_VAR_SERVER_RESPONSE, responseBuff, totalSize, true);
+        if (numOfBytes != static_cast<int>(totalSize)) {
             uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: failed to write uefi variable.\n");
             res = MP_UEFI_INTERNAL_ERROR;
             break;
