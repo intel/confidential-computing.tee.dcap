@@ -17,8 +17,8 @@
 #define TDQE_WRAPPER_VERSION         "1.14.110.0"
 #define PCE_WRAPPER_VERSION          "1.14.110.0"
 
-#define QE3_VERSION                  "1.22.100.1"
-#define QVE_VERSION                  "1.25.100.1"
-#define IDE_VERSION                  "1.22.100.1"
-#define TDQE_VERSION                 "1.25.100.1"
-#define QAE_VERSION                  "1.25.100.1"
+#define QE3_VERSION                  "1.27.100.1"
+#define QVE_VERSION                  "1.27.100.1"
+#define IDE_VERSION                  "1.27.100.1"
+#define TDQE_VERSION                 "1.27.100.1"
+#define QAE_VERSION                  "1.27.100.1"
