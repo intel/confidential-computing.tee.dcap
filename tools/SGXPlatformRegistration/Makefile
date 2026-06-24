@@ -113,6 +113,7 @@ OBJ_TEST_PATH := $(OBJ_PATH)/test
 OBJS_TEST := $(patsubst $(TEST_PATH)/%.cpp,$(OBJ_TEST_PATH)/%.o, $(SRC_TEST))
 
 LDFLAGS_SO := -shared -Wl,-z,relro,-z,now,-z,noexecstack
+LDFLAGS_EXE := -pie -Wl,-z,relro,-z,now,-z,noexecstack
 LD_REGI_APP := -L$(LIB_PATH) -Wl,-Bstatic -lmpa_registration -Wl,-Bdynamic -lmpa_network -lmpa_uefi
 LD_MANAGE_APP := -L$(LIB_PATH) -Wl,-Bstatic -lmpa_management -lmpa_registration -Wl,-Bdynamic -lmpa_uefi
 
@@ -199,11 +200,11 @@ clean:
 	./installer/rpm/sgx-ra-service/clean.sh
 
 $(BIN_PATH)/mpa_registration: $(OBJS_COMMON) $(OBJS_REGISTRATION_APP) static dynamic
-	@$(CXX) $(INCLUDE) $(CXXFLAGS) $(OBJS_COMMON) $(OBJS_REGISTRATION_APP) $(LD_REGI_APP) -o $@
+	@$(CXX) $(INCLUDE) $(CXXFLAGS) $(OBJS_COMMON) $(OBJS_REGISTRATION_APP) $(LD_REGI_APP) $(LDFLAGS_EXE) -o $@
 	@echo "$@"
 
 $(BIN_PATH)/mpa_manage: $(OBJ_COMMON_PATH)/common.o $(OBJS_MPA_MANAGE_APP) static dynamic
-	@$(CXX) $(INCLUDE) $(CXXFLAGS) $(OBJ_COMMON_PATH)/common.o $(OBJS_MPA_MANAGE_APP) $(LD_MANAGE_APP) -o $@
+	@$(CXX) $(INCLUDE) $(CXXFLAGS) $(OBJ_COMMON_PATH)/common.o $(OBJS_MPA_MANAGE_APP) $(LD_MANAGE_APP) $(LDFLAGS_EXE) -o $@
 	@echo "$@"
 
 $(BIN_PATH)/UnitTests: ThirdParty $(OBJS_TEST) $(OBJS_SRC)
