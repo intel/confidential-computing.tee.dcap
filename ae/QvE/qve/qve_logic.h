@@ -18,6 +18,8 @@
 #include <sgx_ql_lib_common.h>
 
 #define NUMBER_OF_DATES_TO_COMPARE 8
+#define VER_COLLAT_ADVISORY_IDS_SIZE 450
+#define VER_COLLAT_TCB_STATUS_SIZE   50
 
 using namespace intel::sgx::dcap::parser;
 using namespace intel::sgx::dcap::parser::x509;
@@ -38,9 +40,15 @@ struct verification_collateral_info_t
     time_t expiration_date_min {0};
 
     uint32_t tcb_eval_data_num {0};
-    time_t tcb_date_min {0};
 
-    char sa_list[MAX_SA_LIST_SIZE] = {0};
+    time_t launch_tcb_date {0};
+    time_t current_tcb_date {0};
+
+    char launch_advisory_ids[VER_COLLAT_ADVISORY_IDS_SIZE] = {0};
+    char current_advisory_ids[VER_COLLAT_ADVISORY_IDS_SIZE] = {0};
+
+    char launch_tcb_status[VER_COLLAT_TCB_STATUS_SIZE] = {0};
+    char current_tcb_status[VER_COLLAT_TCB_STATUS_SIZE] = {0};
 };
 #pragma pack(pop) // Restore default alignment
 

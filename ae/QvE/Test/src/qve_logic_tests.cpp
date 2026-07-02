@@ -100,17 +100,28 @@ TEST(ParseBytesLETest, ParseWithOffset) {
 
 TEST(DeserializeVerCollatInfoTest, ValidInput) {
     // given
-    std::vector<uint8_t> input = {
-            0x01, 0x00,                                        // id = 1
-            0x02, 0x00,                                        // version = 2
-            0x4A, 0x7E, 0xBE, 0x68, 0x00, 0x00, 0x00, 0x00,    // issue_date_min = 0x5ED460 (Unix timestamp)
-            0x01, 0x88, 0xBE, 0x68, 0x00, 0x00, 0x00, 0x00,    // issue_date_max = 0x5ED470
-            0x80, 0xD4, 0x5E, 0x00, 0x00, 0x00, 0x00, 0x00,    // expiration_date_min = 0x5ED480
-            0x03, 0x00, 0x00, 0x00,                            // tcb_eval_data_num = 3
-            0x90, 0xD4, 0x5E, 0x00, 0x00, 0x00, 0x00, 0x00,    // tcb_date_min = 0x5ED490
-            'A', 'B', 'C', '\0',                               // sa_list = "ABC"
-            0x00                                               // Padding for MAX_SA_LIST_SIZE
-    };
+    std::vector<uint8_t> input(sizeof(verification_collateral_info_t), 0);
+    size_t off = 0;
+    auto put16 = [&](uint16_t v){ for (int i = 0; i < 2; ++i) input[off + i] = static_cast<uint8_t>((v >> (8 * i)) & 0xff); off += 2; };
+    auto put32 = [&](uint32_t v){ for (int i = 0; i < 4; ++i) input[off + i] = static_cast<uint8_t>((v >> (8 * i)) & 0xff); off += 4; };
+    // Time fields are serialized as sizeof(time_t) bytes; match that here so
+    // the buffer layout stays correct on platforms where time_t isn't 8 bytes.
+    auto putTime = [&](uint64_t v){ for (size_t i = 0; i < sizeof(time_t); ++i) input[off + i] = static_cast<uint8_t>((v >> (8 * i)) & 0xff); off += sizeof(time_t); };
+    auto putStr = [&](const char* s, size_t field){ for (size_t i = 0; i < field && s[i] != '\0'; ++i) input[off + i] = static_cast<uint8_t>(s[i]); off += field; };
+
+    put16(1);            // id
+    put16(2);            // version
+    putTime(0x68BE7E4A); // issue_date_min
+    putTime(0x68BE8801); // issue_date_max
+    putTime(0x5ED480);   // expiration_date_min
+    put32(3);            // tcb_eval_data_num
+    putTime(0x5ED490);   // launch_tcb_date
+    putTime(0x5ED4A0);   // current_tcb_date
+    putStr("ABC", VER_COLLAT_ADVISORY_IDS_SIZE);      // launch_advisory_ids
+    putStr("DEF", VER_COLLAT_ADVISORY_IDS_SIZE);      // current_advisory_ids
+    putStr("UpToDate", VER_COLLAT_TCB_STATUS_SIZE);   // launch_tcb_status
+    putStr("OutOfDate", VER_COLLAT_TCB_STATUS_SIZE);  // current_tcb_status
+
     verification_collateral_info_t verification_collateral_info;
 
     // when
@@ -124,8 +135,12 @@ TEST(DeserializeVerCollatInfoTest, ValidInput) {
     EXPECT_EQ(verification_collateral_info.issue_date_max, 0x68BE8801);
     EXPECT_EQ(verification_collateral_info.expiration_date_min, 0x5ED480);
     EXPECT_EQ(verification_collateral_info.tcb_eval_data_num, 3);
-    EXPECT_EQ(verification_collateral_info.tcb_date_min, 0x5ED490);
-    EXPECT_STREQ(verification_collateral_info.sa_list, "ABC");
+    EXPECT_EQ(verification_collateral_info.launch_tcb_date, 0x5ED490);
+    EXPECT_EQ(verification_collateral_info.current_tcb_date, 0x5ED4A0);
+    EXPECT_STREQ(verification_collateral_info.launch_advisory_ids, "ABC");
+    EXPECT_STREQ(verification_collateral_info.current_advisory_ids, "DEF");
+    EXPECT_STREQ(verification_collateral_info.launch_tcb_status, "UpToDate");
+    EXPECT_STREQ(verification_collateral_info.current_tcb_status, "OutOfDate");
 }
 
 TEST(DeserializeVerCollatInfoTest, EmptyInput) {
@@ -152,23 +167,9 @@ TEST(DeserializeVerCollatInfoTest, InsufficientData) {
     EXPECT_EQ(ret, SGX_QL_ERROR_INVALID_PARAMETER);
 }
 
-TEST(DeserializeVerCollatInfoTest, DataTooLarge) {
-    // given
-    std::vector<uint8_t> input(offsetof(verification_collateral_info_t, sa_list) + MAX_SA_LIST_SIZE + 1, 0); // exceeds max size.
-    verification_collateral_info_t verification_collateral_info;
-
-    // when
-    quote3_error_t ret = deserializeVerCollatInfo(input, verification_collateral_info);
-
-    // then
-    EXPECT_EQ(ret, SGX_QL_ERROR_INVALID_PARAMETER);
-}
-
-TEST(DeserializeVerCollatInfoTest, MaxSaListSize) {
-    // given
-    std::vector<uint8_t> input(offsetof(verification_collateral_info_t, sa_list) + MAX_SA_LIST_SIZE, 0);
-    input[offsetof(verification_collateral_info_t, sa_list)] = 'X';
-    input[offsetof(verification_collateral_info_t, sa_list) + MAX_SA_LIST_SIZE - 1] = '\0';
+TEST(DeserializeVerCollatInfoTest, ExtraTrailingBytesIgnored) {
+    // given: buffer larger than the fixed-size record; trailing bytes are ignored.
+    std::vector<uint8_t> input(sizeof(verification_collateral_info_t) + 16, 0);
     verification_collateral_info_t verification_collateral_info;
 
     // when
@@ -176,8 +177,23 @@ TEST(DeserializeVerCollatInfoTest, MaxSaListSize) {
 
     // then
     EXPECT_EQ(ret, SGX_QL_SUCCESS);
-    EXPECT_EQ(verification_collateral_info.sa_list[0], 'X');
-    EXPECT_EQ(verification_collateral_info.sa_list[MAX_SA_LIST_SIZE - 1], '\0');
+}
+
+TEST(DeserializeVerCollatInfoTest, AdvisoryIdsBoundary) {
+    // given: exact-size buffer with content at the current_advisory_ids boundaries.
+    std::vector<uint8_t> input(sizeof(verification_collateral_info_t), 0);
+    const size_t currentAdvOffset = offsetof(verification_collateral_info_t, current_advisory_ids);
+    input[currentAdvOffset] = 'X';
+    input[currentAdvOffset + VER_COLLAT_ADVISORY_IDS_SIZE - 1] = '\0';
+    verification_collateral_info_t verification_collateral_info;
+
+    // when
+    quote3_error_t ret = deserializeVerCollatInfo(input, verification_collateral_info);
+
+    // then
+    EXPECT_EQ(ret, SGX_QL_SUCCESS);
+    EXPECT_EQ(verification_collateral_info.current_advisory_ids[0], 'X');
+    EXPECT_EQ(verification_collateral_info.current_advisory_ids[VER_COLLAT_ADVISORY_IDS_SIZE - 1], '\0');
 }
 
 TEST(GetEarliestIssueDateTest, EmptyChain) {
