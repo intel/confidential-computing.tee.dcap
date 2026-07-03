@@ -874,12 +874,15 @@ static quote3_error_t qve_set_quote_supplemental_data(const Quote &quote,
         // Copy as much of the advisory list as both buffers allow, always
         // reserving one byte for the NUL terminator. Using a compile-time min
         // keeps this safe if either buffer size changes independently.
+        // A plain constexpr ternary is used instead of std::min because MSVC
+        // (C2131) does not reliably treat std::min as a constant expression here.
         // Use std::memcpy (not the memcpy_s macro): in non-trusted builds
         // memcpy_s is redefined to memcpy(dst, src, dstSize), which would
         // ignore sa_list_copy_len and over-read launch_advisory_ids.
         constexpr size_t sa_list_copy_len =
-            std::min(static_cast<size_t>(MAX_SA_LIST_SIZE),
-                     static_cast<size_t>(VER_COLLAT_ADVISORY_IDS_SIZE)) - 1;
+            (static_cast<size_t>(MAX_SA_LIST_SIZE) < static_cast<size_t>(VER_COLLAT_ADVISORY_IDS_SIZE)
+                 ? static_cast<size_t>(MAX_SA_LIST_SIZE)
+                 : static_cast<size_t>(VER_COLLAT_ADVISORY_IDS_SIZE)) - 1;
         std::memcpy(supplemental_data->sa_list, verCollatInfo.launch_advisory_ids, sa_list_copy_len);
         supplemental_data->sa_list[sa_list_copy_len] = '\0';
 
