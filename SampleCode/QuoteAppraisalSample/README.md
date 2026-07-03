@@ -1,5 +1,9 @@
 Intel(R) Software Guard Extensions Data Center Attestation Primitives (Intel(R) SGX DCAP) Quote Appraisal SampleCode
-====================================================================================================================
+================================================
+
+## Linux
+See [Supported Linux operating systems](../README.md#supported-linux-operating-systems).
+
 Purpose of Quote Appraisal Sample Code
 --------------------------------------
 The sample code demonstrates two quote appraisal solutions:
@@ -12,7 +16,7 @@ Requirements:
 * make
 * gcc
 * g++
-* openssl
+* openssl (`openssl-devel` on RPM-based systems, `libssl-dev` on DEB-based systems)
 * bash shell
 
 Prerequisite:
@@ -87,7 +91,7 @@ Requirements:
 * make
 * gcc
 * g++
-* openssl
+* openssl (`openssl-devel` on RPM-based systems, `libssl-dev` on DEB-based systems)
 * bash shell
 
 Prerequisite:

@@ -1,18 +1,9 @@
 Intel(R) Software Guard Extensions Data Center Attestation Primitives (Intel(R) SGX DCAP) Quote Generation SampleCode
 ================================================
-# Linux
-## Supported operating systems:
-* Ubuntu* 22.04 LTS Server 64bits
-* Ubuntu* 24.04 LTS Server 64bits
-* Red Hat Enterprise Linux Server release 9.4 64bits
-* Red Hat Enterprise Linux Server release 10.0 64bits
-* CentOS Stream 9 64bits
-* CentOS Stream 10 64bits
-* SUSE Linux Enterprise Server 15.6 64bits
-* Anolis OS 8.10 64bits
-* Azure Linux 3.0 64bits
-* Debian 10 64bits
-* Debian 12 64bits
+
+## Linux
+See [Supported Linux operating systems](../README.md#supported-linux-operating-systems).
+
 ## Requirements:
 * make
 * gcc
@@ -69,9 +60,8 @@ $ SGX_AESM_ADDR=1 ./app
 ```
 **Note**: Our libdcap_quoteprov.so is not built with Intel(R) Control Flow Enforcement Technology(CET) feature. If the sample is built with CET feature(it can be enabled by the compiler's default setting) and it is running on a CET enabled platform, you may encounter such an error message(or something similar): "Couldn't find the platform library. rebuild shared object with SHSTK support enabled". It means the system glibc enforces that a CET-enabled application can't load a non-CET shared library. You need to rebuild the sample by adding `-fcf-protection=none` option explicitly to disable CET.
 
-# Windows
-## Supported operating systems:
-* Windows* Server 2019 (Long-Term Servicing Channel)
+## Windows
+See [Supported Windows operating systems](../README.md#supported-windows-operating-systems).
 
 ## Requirements:
 * Microsoft Visual Studio 2019 or newer.
