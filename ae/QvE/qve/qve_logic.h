@@ -6,8 +6,11 @@
 #ifndef _QVE_UTILS_H
 #define _QVE_UTILS_H
 
+#include <algorithm>
 #include <climits>
+#include <cstring>
 #include <map>
+#include <type_traits>
 
 #include "CertVerification/CertificateChain.h"
 #include "PckParser/CrlStore.h"
@@ -144,6 +147,47 @@ inline sgx_ql_qv_result_t status_error_to_ql_qve_result(TcbStatus status) {
     };
     auto ret_it = translation_map.find(status);
     return ret_it != translation_map.end() ? ret_it->second : SGX_QL_QV_RESULT_UNSPECIFIED;
+}
+
+/**
+ * Map a TCB status string, as emitted by the low-level QVL in the verification
+ * collateral info, to sgx_ql_qv_result_t. The accepted strings mirror QVL's
+ * STATUS_TO_TCB_STRING_MAP (see StatusPrinter.cpp).
+ *
+ * @param tcb_status[IN] - NUL-terminated TCB status string.
+ *
+ * @return sgx_ql_qv_result_t that matches tcb_status, or
+ *         SGX_QL_QV_RESULT_UNSPECIFIED if the string is null or unrecognized.
+ **/
+inline sgx_ql_qv_result_t tcb_status_string_to_ql_qve_result(const char *tcb_status) {
+    if (tcb_status == NULL) {
+        return SGX_QL_QV_RESULT_UNSPECIFIED;
+    }
+
+    // Table-driven lookup. A static const array (rather than std::map) keeps this
+    // allocation-free and enclave-safe while remaining easy to keep in sync with
+    // QVL's STATUS_TO_TCB_STRING_MAP (see StatusPrinter.cpp).
+    static const struct {
+        const char *status;
+        sgx_ql_qv_result_t result;
+    } tcb_status_map[] = {
+        { "UpToDate",                             SGX_QL_QV_RESULT_OK },
+        { "OutOfDate",                            SGX_QL_QV_RESULT_OUT_OF_DATE },
+        { "OutOfDateConfigurationNeeded",         SGX_QL_QV_RESULT_OUT_OF_DATE_CONFIG_NEEDED },
+        { "ConfigurationNeeded",                  SGX_QL_QV_RESULT_CONFIG_NEEDED },
+        { "ConfigurationAndSWHardeningNeeded",    SGX_QL_QV_RESULT_CONFIG_AND_SW_HARDENING_NEEDED },
+        { "SWHardeningNeeded",                    SGX_QL_QV_RESULT_SW_HARDENING_NEEDED },
+        { "Revoked",                              SGX_QL_QV_RESULT_REVOKED },
+        { "TDRelaunchAdvised",                    TEE_QV_RESULT_TD_RELAUNCH_ADVISED },
+        { "TDRelaunchAdvisedConfigurationNeeded", TEE_QV_RESULT_TD_RELAUNCH_ADVISED_CONFIG_NEEDED },
+    };
+
+    for (const auto &entry : tcb_status_map) {
+        if (strcmp(tcb_status, entry.status) == 0) {
+            return entry.result;
+        }
+    }
+    return SGX_QL_QV_RESULT_UNSPECIFIED;
 }
 
 /**

@@ -886,6 +886,15 @@ static quote3_error_t qve_set_quote_supplemental_data(const Quote &quote,
         std::memcpy(supplemental_data->sa_list, verCollatInfo.launch_advisory_ids, sa_list_copy_len);
         supplemental_data->sa_list[sa_list_copy_len] = '\0';
 
+        // Supplemental data minor_version 5: "current" TCB endorsement values
+        if (supplemental_data->major_version == 3 &&
+            supplemental_data->minor_version >= 5) {
+            supplemental_data->tcb_date_current = verCollatInfo.current_tcb_date;
+            supplemental_data->tcb_status_current = tcb_status_string_to_ql_qve_result(verCollatInfo.current_tcb_status);
+            std::memcpy(supplemental_data->sa_list_current, verCollatInfo.current_advisory_ids, sa_list_copy_len);
+            supplemental_data->sa_list_current[sa_list_copy_len] = '\0';
+        }
+
         //get matching QE identity TCB level
         //
         try {
@@ -2206,6 +2215,51 @@ static quote3_error_t tee_platform_tcb_generator(
                     advisory_id_array.PushBack(str_advisory_id, allocator);
                 }
             obj_plat_tcb.AddMember("advisory_ids", advisory_id_array, allocator);
+            }
+        }
+
+        // "current" TCB endorsement values for TDX 1.5 and later platforms.
+        if (strcmp(plat_type, TEE_SGX_PALTFORM_TOKEN_UUID) != 0 &&
+            strcmp(plat_type, TEE_TDX10_PALTFORM_TOKEN_UUID) != 0 &&
+            p_supplemental_data->major_version == 3 &&
+            p_supplemental_data->minor_version >= 5
+            ) {
+            // tcb_status_current (array of strings)
+            Value tcb_status_cur_array(kArrayType);
+            Value str_tcb_status_cur(kStringType);
+            std::vector<std::string> tcb_status_cur;
+            qv_result_tcb_status_map(tcb_status_cur, p_supplemental_data->tcb_status_current);
+            if(!tcb_status_cur.empty()){
+                for(size_t i=0; i<tcb_status_cur.size(); i++){
+                    str_tcb_status_cur.SetString(tcb_status_cur[i].c_str(), (unsigned int)(tcb_status_cur[i].length()), allocator);
+                    tcb_status_cur_array.PushBack(str_tcb_status_cur, allocator);
+                }
+                obj_plat_tcb.AddMember("tcb_status_current", tcb_status_cur_array, allocator);
+            }
+
+            // tcb_date_current (string)
+            char time_str_cur[TIME_STR_LEN] = {0};
+            time_to_string(p_supplemental_data->tcb_date_current, time_str_cur, sizeof(time_str_cur));
+            Value str_tcb_date_cur(kStringType);
+            str_tcb_date_cur.SetString(time_str_cur, (unsigned int)strlen(time_str_cur), allocator);
+            if(str_tcb_date_cur.GetStringLength() != 0){
+                obj_plat_tcb.AddMember("tcb_date_current", str_tcb_date_cur, allocator);
+            }
+
+            // advisory_ids_current (array of strings)
+            if (strlen(p_supplemental_data->sa_list_current) > 0) {
+                Value advisory_id_cur_array(kArrayType);
+                Value str_advisory_id_cur(kStringType);
+                std::string s_ad_id_cur(p_supplemental_data->sa_list_current);
+                std::vector<std::string> vec_ad_id_cur;
+                advisory_id_vec(vec_ad_id_cur, s_ad_id_cur);
+                if(!vec_ad_id_cur.empty()){
+                    for(size_t i=0; i<vec_ad_id_cur.size(); i++){
+                        str_advisory_id_cur.SetString(vec_ad_id_cur[i].c_str(), (unsigned int)(vec_ad_id_cur[i].length()), allocator);
+                        advisory_id_cur_array.PushBack(str_advisory_id_cur, allocator);
+                    }
+                    obj_plat_tcb.AddMember("advisory_ids_current", advisory_id_cur_array, allocator);
+                }
             }
         }
         Value str_keyid(kStringType);

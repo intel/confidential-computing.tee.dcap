@@ -54,6 +54,28 @@ TEST(StatusErrorToQlQveResultTest, ReturnsCorrectResult) {
     EXPECT_EQ(status_error_to_ql_qve_result(static_cast<json::TcbStatus>(-1)), SGX_QL_QV_RESULT_UNSPECIFIED);
 }
 
+TEST(TcbStatusStringToQlQveResultTest, MapsKnownStrings) {
+    EXPECT_EQ(tcb_status_string_to_ql_qve_result("UpToDate"), SGX_QL_QV_RESULT_OK);
+    EXPECT_EQ(tcb_status_string_to_ql_qve_result("OutOfDate"), SGX_QL_QV_RESULT_OUT_OF_DATE);
+    EXPECT_EQ(tcb_status_string_to_ql_qve_result("OutOfDateConfigurationNeeded"), SGX_QL_QV_RESULT_OUT_OF_DATE_CONFIG_NEEDED);
+    EXPECT_EQ(tcb_status_string_to_ql_qve_result("ConfigurationNeeded"), SGX_QL_QV_RESULT_CONFIG_NEEDED);
+    EXPECT_EQ(tcb_status_string_to_ql_qve_result("ConfigurationAndSWHardeningNeeded"), SGX_QL_QV_RESULT_CONFIG_AND_SW_HARDENING_NEEDED);
+    EXPECT_EQ(tcb_status_string_to_ql_qve_result("SWHardeningNeeded"), SGX_QL_QV_RESULT_SW_HARDENING_NEEDED);
+    EXPECT_EQ(tcb_status_string_to_ql_qve_result("Revoked"), SGX_QL_QV_RESULT_REVOKED);
+    EXPECT_EQ(tcb_status_string_to_ql_qve_result("TDRelaunchAdvised"), TEE_QV_RESULT_TD_RELAUNCH_ADVISED);
+    EXPECT_EQ(tcb_status_string_to_ql_qve_result("TDRelaunchAdvisedConfigurationNeeded"), TEE_QV_RESULT_TD_RELAUNCH_ADVISED_CONFIG_NEEDED);
+}
+
+TEST(TcbStatusStringToQlQveResultTest, NullReturnsUnspecified) {
+    EXPECT_EQ(tcb_status_string_to_ql_qve_result(nullptr), SGX_QL_QV_RESULT_UNSPECIFIED);
+}
+
+TEST(TcbStatusStringToQlQveResultTest, UnknownOrMiscasedReturnsUnspecified) {
+    EXPECT_EQ(tcb_status_string_to_ql_qve_result(""), SGX_QL_QV_RESULT_UNSPECIFIED);
+    EXPECT_EQ(tcb_status_string_to_ql_qve_result("uptodate"), SGX_QL_QV_RESULT_UNSPECIFIED); // case-sensitive
+    EXPECT_EQ(tcb_status_string_to_ql_qve_result("NotAStatus"), SGX_QL_QV_RESULT_UNSPECIFIED);
+}
+
 TEST(ParseBytesLETest, ParseUint16) {
     // given
     uint8_t raw[] = {0x34, 0x12}; // Little-endian representation of 0x1234
