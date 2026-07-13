@@ -8,4 +8,4 @@ This crate is for **Linux only**.
 Please refer to the prerequisite of [`intel-tee-quote-verification-sys`](https://crates.io/crates/intel-tee-quote-verification-sys).
 
 ## Sample Code
-A [sample code](https://github.com/intel-innersource/frameworks.security.confidential-computing.tee.dcap-trunk/tree/master/dcap_source/SampleCode/RustQuoteVerificationSample) of how to use this crate to provide quote verification. 
+A [sample code](https://github.com/intel/confidential-computing.tee.dcap/tree/main/SampleCode/RustQuoteVerificationSample) of how to use this crate to provide quote verification.

@@ -5,9 +5,9 @@ edition = "2021"
 links = "sgx_dcap_quoteverify"
 license = "BSD-3-Clause"
 description = "Intel(R) TEE Quote Verification Rust Library"
-documentation = "https://intel.github.io/SGXDataCenterAttestationPrimitives/docs/rust-qvl-doc/intel_tee_quote_verification_sys"
+documentation = "https://intel.github.io/confidential-computing.tee.dcap/docs/rust-qvl-doc/intel_tee_quote_verification_sys"
 readme = "README.md"
-homepage = "https://github.com/intel/SGXDataCenterAttestationPrimitives"
+homepage = "https://github.com/intel/confidential-computing.tee.dcap"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
