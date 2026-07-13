@@ -45,11 +45,7 @@ Urts_Library_Name := sgx_urts
 
 
 App_Cpp_Files := App/App.cpp
-ifeq ($(QVL_ONLY), 1)
-App_Include_Paths := -IApp -I../../QuoteGeneration/qpl/inc
-else
 App_Include_Paths := -IApp -I$(SGX_SDK)/include -I../../QuoteVerification/dcap_quoteverify/inc -I../../QuoteGeneration/qpl/inc
-endif
 
 App_C_Flags := -fPIC -Wno-attributes $(App_Include_Paths)
 
