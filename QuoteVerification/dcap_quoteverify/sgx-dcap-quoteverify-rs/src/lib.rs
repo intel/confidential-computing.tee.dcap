@@ -34,6 +34,12 @@
 //!
 //! This is a safe wrapper for **sgx-dcap-quoteverify-sys**.
 
+// Doc comments in this crate use `\` hard line-breaks inside list items, which
+// triggers clippy::doc_lazy_continuation on the continuation lines.  The
+// rendered output is correct; allow the lint rather than reformatting all
+// existing API documentation.
+#![allow(clippy::doc_lazy_continuation)]
+
 use std::ffi::CString;
 use std::marker::PhantomData;
 use std::mem;
@@ -434,9 +440,8 @@ pub fn tee_qv_get_collateral(quote: &[u8]) -> Result<QuoteCollateral, quote3_err
                 0
             );
 
-            let collateral = unsafe {
-                QuoteCollateral::from_raw(&*(buf as *const sgx_ql_qve_collateral_t))
-            };
+            let collateral =
+                unsafe { QuoteCollateral::from_raw(&*(buf as *const sgx_ql_qve_collateral_t)) };
 
             match unsafe { qvl_sys::tee_qv_free_collateral(buf) } {
                 quote3_error_t::SGX_QL_SUCCESS => Ok(collateral),
