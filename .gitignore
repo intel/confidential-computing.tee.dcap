@@ -34,8 +34,8 @@ SHA256SUM_prebuilt_dcap_*.cfg
 
 # Built executables
 tools/PCKRetrievalTool/PCKIDRetrievalTool
-QuoteGeneration/quote_wrapper/qgs
-QuoteGeneration/quote_wrapper/test_client
+QuoteGeneration/quote_wrapper/qgs/qgs
+QuoteGeneration/quote_wrapper/qgs/test_client
 QuoteVerification/appraisal/tee_appraisal_tool/tee_appraisal_tool
 
 #CMake outputs
