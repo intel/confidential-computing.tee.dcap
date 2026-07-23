@@ -247,8 +247,3 @@ const json::TcbLevel& getMatchingTcbLevel(const json::TcbInfo *tcbInfo,
 
     throw SGX_QL_TCBINFO_UNSUPPORTED_FORMAT;  // FIXME(pre-existing): throws raw quote3_error_t, not a descendant of std::exception
 }
-
-time_t getEarlierDate(const time_t& date1, const time_t& date2)
-{
-    return (date1 < date2) ? date1 : date2;
-}

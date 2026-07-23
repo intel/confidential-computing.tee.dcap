@@ -541,39 +541,6 @@ TEST_F(QveGetCollateralDates, ValidInputs_ReturnsSuccess) {
     EXPECT_EQ(supplemental_dates.qe_iden_earliest_expiration_date, 1775094400);
 }
 
-TEST(getEarlierDateTest, ReturnsOlderDate) {
-    // Test when date1 is older
-    time_t date1 = 1735686000; // 2025-01-01 00:00:00 UTC
-    time_t date2 = 1767222000; // 2026-01-01 00:00:00 UTC
-    EXPECT_EQ(getEarlierDate(date1, date2), date1);
-
-    // Test when date2 is older
-    EXPECT_EQ(getEarlierDate(date2, date1), date1);
-
-    // Test with very close dates (1 second difference)
-    time_t date3 = 1735686001; // 2025-01-01 00:00:01 UTC
-    EXPECT_EQ(getEarlierDate(date1, date3), date1);
-}
-
-TEST(getEarlierDateTest, HandlesEqualDates) {
-    time_t date = 1735686000; // 2025-01-01 00:00:00 UTC
-    EXPECT_EQ(getEarlierDate(date, date), date);
-}
-
-TEST(getEarlierDateTest, HandlesZeroValues) {
-    time_t date = 1735686000; // 2025-01-01 00:00:00 UTC
-    time_t zero_date = 0;
-
-    // Test with date1 as zero
-    EXPECT_EQ(getEarlierDate(zero_date, date), zero_date);
-
-    // Test with date2 as zero
-    EXPECT_EQ(getEarlierDate(date, zero_date), zero_date);
-
-    // Test with both dates as zero
-    EXPECT_EQ(getEarlierDate(zero_date, zero_date), zero_date);
-}
-
 // Unit tests for isTdxTcbHigherOrEqual
 TEST(IsTdxTcbHigherOrEqualTest, AllComponentsEqual) {
     // given: Quote with all TDX TCB components equal to TcbLevel components

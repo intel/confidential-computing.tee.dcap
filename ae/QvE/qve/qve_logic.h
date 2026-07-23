@@ -231,6 +231,4 @@ const json::TcbLevel& getMatchingTcbLevel(const json::TcbInfo *tcbInfo,
                             const x509::PckCertificate &pckCert,
                             const intel::sgx::dcap::Quote &quote);
 
-time_t getEarlierDate(const time_t& date1, const time_t& date2);
-
 #endif //_QVE_UTILS_H

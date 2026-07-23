@@ -913,7 +913,7 @@ static quote3_error_t qve_set_quote_supplemental_data(const Quote &quote,
 
             //sanity check for TCB dates
             //
-            if (qe_identity_date < 0 || matching_tcb_info_tcb_date < 0) {
+            if (qe_identity_date <= 0 || matching_tcb_info_tcb_date <= 0 || verCollatInfo.launch_tcb_date <= 0) {
                 ret = SGX_QL_ERROR_UNEXPECTED;
                 break;
             }
@@ -923,7 +923,7 @@ static quote3_error_t qve_set_quote_supplemental_data(const Quote &quote,
             //platform TCB level date
             supplemental_data->platform_tcb_level_date_tag = matching_tcb_info_tcb_date;
 
-            supplemental_data->tcb_level_date_tag = getEarlierDate(matching_tcb_info_tcb_date, qe_identity_date);
+            supplemental_data->tcb_level_date_tag = verCollatInfo.launch_tcb_date;
 
         }
 
@@ -2171,7 +2171,7 @@ static quote3_error_t tee_platform_tcb_generator(
         time_to_string(p_supplemental_data->earliest_expiration_date, time_str, sizeof(time_str));
         Add_Mem(time_str, "earliest_expiration_date");
 
-        time_to_string(p_supplemental_data->platform_tcb_level_date_tag, time_str, sizeof(time_str));
+        time_to_string(p_supplemental_data->tcb_level_date_tag, time_str, sizeof(time_str));
         Add_Mem(time_str, "tcb_level_date_tag");
 
         obj_plat_tcb.AddMember("pck_crl_num", p_supplemental_data->pck_crl_num, allocator);
