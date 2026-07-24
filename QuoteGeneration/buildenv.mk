@@ -250,6 +250,10 @@ SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH ?= $(SERVTD_ATTEST_SGX_REPO_ROOT_PATH)/sdk
 servtd_is_sdk = $(if $(and $(wildcard $(1)/common/inc),$(wildcard $(1)/sdk/tlibcxx)),$(1))
 servtd_is_sgx_repo = $(if $(and $(wildcard $(1)/sdk),$(wildcard $(1)/psw)),$(1))
 
+# servtd_sdk_missing_objs asks a third question -- not "is this an SDK tree?" but "was it built with the *servtd_attest* flavor?" -- returning the loose-object dirs the link re-archives that are still absent from build/linux (empty => ready); a plain 'make sdk' archives then deletes these, so their presence uniquely marks a 'make servtd_attest' build.
+servtd_sdk_objdirs := .tlibthread .tsafecrt .tsetjmp .tmm_rsrv .tlibcxx .cpprt
+servtd_sdk_missing_objs = $(strip $(foreach d,$(servtd_sdk_objdirs),$(if $(wildcard $(1)/build/linux/$(d)/*.o),,$(d))))
+
 # Resolve and validate the SDK source location.
 ifdef SERVTD_ATTEST
 ifeq ($(filter clean,$(MAKECMDGOALS)),)
@@ -270,6 +274,12 @@ ifeq ($(call servtd_is_sdk,$(abspath $(SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH))),)
         $(error servtd_attest: SGX SDK submodule not initialized at $(abspath $(SERVTD_ATTEST_SGX_REPO_ROOT_PATH)/sdk). Please run 'make servtd_attest_preparation' in $(abspath $(SERVTD_ATTEST_SGX_REPO_ROOT_PATH)) to fetch the SGX SDK submodule, or set SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH=<SGX_SDK_source_path> if using detached SDK source.)
     endif
 
+endif
+
+# 5) SDK source resolved but not built with the servtd_attest flavor (its loose objects are missing; a plain 'make sdk' is not enough) -- fail early, not later as 'ar: .../.tlibthread/*.o: No such file' / 'cannot find -lsgx_tstdc'.
+SERVTD_ATTEST_MISSING_OBJS := $(call servtd_sdk_missing_objs,$(abspath $(SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH)))
+ifneq ($(SERVTD_ATTEST_MISSING_OBJS),)
+    $(error servtd_attest: SGX SDK at $(abspath $(SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH)) is not built for servtd_attest (missing object directories $(SERVTD_ATTEST_MISSING_OBJS) under build/linux). Please run 'make servtd_attest' in that SDK tree first.)
 endif
 
 endif
