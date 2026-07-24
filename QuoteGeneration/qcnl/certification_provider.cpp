@@ -123,7 +123,9 @@ sgx_qcnl_error_t CacheProvider::get_certification(const string &query_string,
     }
 
     do {
-        if (value.size() < sizeof(CacheItemHeader) ||
+        // Require at least CacheItemHeader + two 4-byte length fields to avoid OOB read
+        // and size_t underflow in the subsequent header_size bound check.
+        if (value.size() < sizeof(CacheItemHeader) + 2 * sizeof(uint32_t) ||
             value.size() > UINT32_MAX) {
             break;
         }
@@ -144,17 +146,24 @@ sgx_qcnl_error_t CacheProvider::get_certification(const string &query_string,
         }
 
         // Parse header
+        // Use memcpy to avoid undefined behavior from unaligned uint32_t access
+        // (CacheItemHeader is packed, so p_data may not be 4-byte aligned).
+        // After the minimum-size guard, use subtraction-form checks to avoid
+        // size_t addition overflow on 32-bit builds.
         uint8_t *p_data = value.data() + sizeof(CacheItemHeader);
-        uint32_t header_size = *reinterpret_cast<uint32_t const *>(p_data);
-        if (header_size > value.size() - sizeof(CacheItemHeader) - 2 * sizeof(uint32_t))
+        const size_t payload_capacity = value.size() - sizeof(CacheItemHeader) - 2 * sizeof(uint32_t);
+        uint32_t header_size = 0;
+        memcpy(&header_size, p_data, sizeof(uint32_t));
+        if (header_size > payload_capacity)
             break;
         p_data += sizeof(uint32_t);
         pccs_resp_obj->set_raw_header((const char *)p_data, header_size);
 
         // Parse body
         p_data += header_size;
-        uint32_t body_size = *reinterpret_cast<uint32_t const *>(p_data);
-        if (body_size != value.size() - sizeof(CacheItemHeader) - 2 * sizeof(uint32_t) - header_size)
+        uint32_t body_size = 0;
+        memcpy(&body_size, p_data, sizeof(uint32_t));
+        if (body_size != payload_capacity - header_size)
             break;
         p_data += sizeof(uint32_t);
         pccs_resp_obj->set_raw_body((const char *)p_data, body_size);

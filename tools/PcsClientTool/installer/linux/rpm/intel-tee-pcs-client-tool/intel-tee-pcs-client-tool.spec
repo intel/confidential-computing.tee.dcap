@@ -194,6 +194,10 @@ if [ $1 == 0 -a -x %{_install_path}/cleanup.sh ]; then %{_install_path}/cleanup.
 
 %changelog
 * @date@ Intel Confidential Computing Team <confidential.computing@intel.com> - @version@-1
+- Release v1.27
+  See https://github.com/intel/confidential-computing.tee.dcap/releases/tag/DCAP_1.27 for full release notes.
+
+* Thu Apr 30 2026 Intel Confidential Computing Team <confidential.computing@intel.com> - 1.26.100.1-1
 - Release v1.26
   See https://github.com/intel/confidential-computing.tee.dcap/releases/tag/DCAP_1.26 for full release notes.
 

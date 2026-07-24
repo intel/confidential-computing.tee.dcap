@@ -6,8 +6,11 @@
 #ifndef _QVE_UTILS_H
 #define _QVE_UTILS_H
 
+#include <algorithm>
 #include <climits>
+#include <cstring>
 #include <map>
+#include <type_traits>
 
 #include "CertVerification/CertificateChain.h"
 #include "PckParser/CrlStore.h"
@@ -18,6 +21,8 @@
 #include <sgx_ql_lib_common.h>
 
 #define NUMBER_OF_DATES_TO_COMPARE 8
+#define VER_COLLAT_ADVISORY_IDS_SIZE 450
+#define VER_COLLAT_TCB_STATUS_SIZE   50
 
 using namespace intel::sgx::dcap::parser;
 using namespace intel::sgx::dcap::parser::x509;
@@ -38,9 +43,15 @@ struct verification_collateral_info_t
     time_t expiration_date_min {0};
 
     uint32_t tcb_eval_data_num {0};
-    time_t tcb_date_min {0};
 
-    char sa_list[MAX_SA_LIST_SIZE] = {0};
+    time_t launch_tcb_date {0};
+    time_t current_tcb_date {0};
+
+    char launch_advisory_ids[VER_COLLAT_ADVISORY_IDS_SIZE] = {0};
+    char current_advisory_ids[VER_COLLAT_ADVISORY_IDS_SIZE] = {0};
+
+    char launch_tcb_status[VER_COLLAT_TCB_STATUS_SIZE] = {0};
+    char current_tcb_status[VER_COLLAT_TCB_STATUS_SIZE] = {0};
 };
 #pragma pack(pop) // Restore default alignment
 
@@ -139,6 +150,47 @@ inline sgx_ql_qv_result_t status_error_to_ql_qve_result(TcbStatus status) {
 }
 
 /**
+ * Map a TCB status string, as emitted by the low-level QVL in the verification
+ * collateral info, to sgx_ql_qv_result_t. The accepted strings mirror QVL's
+ * STATUS_TO_TCB_STRING_MAP (see StatusPrinter.cpp).
+ *
+ * @param tcb_status[IN] - NUL-terminated TCB status string.
+ *
+ * @return sgx_ql_qv_result_t that matches tcb_status, or
+ *         SGX_QL_QV_RESULT_UNSPECIFIED if the string is null or unrecognized.
+ **/
+inline sgx_ql_qv_result_t tcb_status_string_to_ql_qve_result(const char *tcb_status) {
+    if (tcb_status == NULL) {
+        return SGX_QL_QV_RESULT_UNSPECIFIED;
+    }
+
+    // Table-driven lookup. A static const array (rather than std::map) keeps this
+    // allocation-free and enclave-safe while remaining easy to keep in sync with
+    // QVL's STATUS_TO_TCB_STRING_MAP (see StatusPrinter.cpp).
+    static const struct {
+        const char *status;
+        sgx_ql_qv_result_t result;
+    } tcb_status_map[] = {
+        { "UpToDate",                             SGX_QL_QV_RESULT_OK },
+        { "OutOfDate",                            SGX_QL_QV_RESULT_OUT_OF_DATE },
+        { "OutOfDateConfigurationNeeded",         SGX_QL_QV_RESULT_OUT_OF_DATE_CONFIG_NEEDED },
+        { "ConfigurationNeeded",                  SGX_QL_QV_RESULT_CONFIG_NEEDED },
+        { "ConfigurationAndSWHardeningNeeded",    SGX_QL_QV_RESULT_CONFIG_AND_SW_HARDENING_NEEDED },
+        { "SWHardeningNeeded",                    SGX_QL_QV_RESULT_SW_HARDENING_NEEDED },
+        { "Revoked",                              SGX_QL_QV_RESULT_REVOKED },
+        { "TDRelaunchAdvised",                    TEE_QV_RESULT_TD_RELAUNCH_ADVISED },
+        { "TDRelaunchAdvisedConfigurationNeeded", TEE_QV_RESULT_TD_RELAUNCH_ADVISED_CONFIG_NEEDED },
+    };
+
+    for (const auto &entry : tcb_status_map) {
+        if (strcmp(tcb_status, entry.status) == 0) {
+            return entry.result;
+        }
+    }
+    return SGX_QL_QV_RESULT_UNSPECIFIED;
+}
+
+/**
  * Helper function to return earliest & latest issue date and expiration date comparing all collaterals.
  * @param cert_chain_obj[IN] - CertificateChain object containing PCK Cert chain (for quote with cert type 5, this should be extracted from the quote).
  * @param tcb_info_obj[IN] - TcbInfo object.
@@ -178,7 +230,5 @@ bool isTcbComponentSvnHigherOrEqual(const parser::x509::PckCertificate& pckCert,
 const json::TcbLevel& getMatchingTcbLevel(const json::TcbInfo *tcbInfo,
                             const x509::PckCertificate &pckCert,
                             const intel::sgx::dcap::Quote &quote);
-
-time_t getEarlierDate(const time_t& date1, const time_t& date2);
 
 #endif //_QVE_UTILS_H

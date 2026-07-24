@@ -48,7 +48,7 @@ PccsResponseObject::~PccsResponseObject() {
 PccsResponseObject &PccsResponseObject::set_raw_header(const char *header, uint32_t header_size) {
     // Set raw header
     if (header && header_size > 0) {
-        header_raw_ = header;
+        header_raw_.assign(header, header_size);
         // Convert raw header to unordered_map
         http_header_to_map(header, header_size, header_map_);
     }

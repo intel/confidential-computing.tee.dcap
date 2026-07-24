@@ -871,9 +871,28 @@ static quote3_error_t qve_set_quote_supplemental_data(const Quote &quote,
         supplemental_data->platform_tcb_level_date_tag = 0;
         supplemental_data->qe_iden_tcb_level_date_tag = 0;
 
-        if (memcpy_s(supplemental_data->sa_list, MAX_SA_LIST_SIZE, verCollatInfo.sa_list, MAX_SA_LIST_SIZE) != 0) {
-            ret = SGX_QL_ERROR_UNEXPECTED;
-            break;
+        // Copy as much of the advisory list as both buffers allow, always
+        // reserving one byte for the NUL terminator. Using a compile-time min
+        // keeps this safe if either buffer size changes independently.
+        // A plain constexpr ternary is used instead of std::min because MSVC
+        // (C2131) does not reliably treat std::min as a constant expression here.
+        // Use std::memcpy (not the memcpy_s macro): in non-trusted builds
+        // memcpy_s is redefined to memcpy(dst, src, dstSize), which would
+        // ignore sa_list_copy_len and over-read launch_advisory_ids.
+        constexpr size_t sa_list_copy_len =
+            (static_cast<size_t>(MAX_SA_LIST_SIZE) < static_cast<size_t>(VER_COLLAT_ADVISORY_IDS_SIZE)
+                 ? static_cast<size_t>(MAX_SA_LIST_SIZE)
+                 : static_cast<size_t>(VER_COLLAT_ADVISORY_IDS_SIZE)) - 1;
+        std::memcpy(supplemental_data->sa_list, verCollatInfo.launch_advisory_ids, sa_list_copy_len);
+        supplemental_data->sa_list[sa_list_copy_len] = '\0';
+
+        // Supplemental data minor_version 5: "current" TCB endorsement values
+        if (supplemental_data->major_version == 3 &&
+            supplemental_data->minor_version >= 5) {
+            supplemental_data->tcb_date_current = verCollatInfo.current_tcb_date;
+            supplemental_data->tcb_status_current = tcb_status_string_to_ql_qve_result(verCollatInfo.current_tcb_status);
+            std::memcpy(supplemental_data->sa_list_current, verCollatInfo.current_advisory_ids, sa_list_copy_len);
+            supplemental_data->sa_list_current[sa_list_copy_len] = '\0';
         }
 
         //get matching QE identity TCB level
@@ -894,7 +913,7 @@ static quote3_error_t qve_set_quote_supplemental_data(const Quote &quote,
 
             //sanity check for TCB dates
             //
-            if (qe_identity_date < 0 || matching_tcb_info_tcb_date < 0) {
+            if (qe_identity_date <= 0 || matching_tcb_info_tcb_date <= 0 || verCollatInfo.launch_tcb_date <= 0) {
                 ret = SGX_QL_ERROR_UNEXPECTED;
                 break;
             }
@@ -904,7 +923,7 @@ static quote3_error_t qve_set_quote_supplemental_data(const Quote &quote,
             //platform TCB level date
             supplemental_data->platform_tcb_level_date_tag = matching_tcb_info_tcb_date;
 
-            supplemental_data->tcb_level_date_tag = getEarlierDate(matching_tcb_info_tcb_date, qe_identity_date);
+            supplemental_data->tcb_level_date_tag = verCollatInfo.launch_tcb_date;
 
         }
 
@@ -1578,12 +1597,19 @@ quote3_error_t sgx_qve_verify_quote(
             break;
         }
 
+        // Sentinel: tracks whether any of the three standalone sub-verifiers
+        // (PCK cert chain, TCB info, QE identity) observed an expiry error.
+        // Used below to prevent the quote-level expiry check from clearing a
+        // flag that was already latched by an earlier sub-verifier.
+        bool early_expiry_detected = false;
+
         //parse and verify PCK certificate chain
         //
         collateral_verification_res = sgxAttestationVerifyPCKCertificate((const char*)p_pck_cert_chain, crls.data(), root_cert_str.c_str(), &expiration_check_date);
         if (collateral_verification_res != STATUS_OK) {
             if (is_expiration_error(collateral_verification_res)) {
                 *p_collateral_expiration_status = 1;
+                early_expiry_detected = true;
             }
             else {
                 ret = status_error_to_quote3_error(collateral_verification_res);
@@ -1597,6 +1623,7 @@ quote3_error_t sgx_qve_verify_quote(
         if (collateral_verification_res != STATUS_OK) {
             if (is_expiration_error(collateral_verification_res)) {
                 *p_collateral_expiration_status = 1;
+                early_expiry_detected = true;
             }
             else {
                 ret = status_error_to_quote3_error(collateral_verification_res);
@@ -1610,6 +1637,7 @@ quote3_error_t sgx_qve_verify_quote(
         if (collateral_verification_res != STATUS_OK) {
             if (is_expiration_error(collateral_verification_res)) {
                 *p_collateral_expiration_status = 1;
+                early_expiry_detected = true;
             }
             else {
                 ret = status_error_to_quote3_error(collateral_verification_res);
@@ -1651,22 +1679,22 @@ quote3_error_t sgx_qve_verify_quote(
                 break;
             }
 
-//set the expiration_check_data to pass validation, since in migration, we don't care time
-#ifdef SERVTD_ATTEST
-            time_t * _p_expiration_check_date = const_cast<time_t *>(&expiration_check_date);
-            // Assumes all collateral validity windows (CRLs, cert chains, TCB Info, QE Identity) overlap, i.e. latest_issue_date < earliest_expiration_date
-            *_p_expiration_check_date = (supplemental_dates.latest_issue_date + supplemental_dates.earliest_expiration_date) / 2;
-            set_time = *_p_expiration_check_date;
-#endif
-
             //update collateral expiration status
-            //
+            // *p_collateral_expiration_status starts at 1 (safe conservative default).
+            // early_expiry_detected is true if any of the three standalone sub-verifiers
+            // (PCK cert chain, TCB info, QE identity) observed an is_expiration_error().
+            // The quote-level result provides a second independent signal.
+            // OR the two together: promote to 1 if either fires; clear to 0 only if
+            // neither the early sub-checks NOR the quote-level check saw expiry.
             if (verificationCollateralInfo.expiration_date_min <= expiration_check_date) {
                 *p_collateral_expiration_status = 1;
             }
-            else {
+            else if (!early_expiry_detected) {
+                // No early sub-check fired and quote-level verifier sees fresh collateral.
                 *p_collateral_expiration_status = 0;
             }
+            // else: early_expiry_detected == true and quote-level check is fresh;
+            // preserve the 1 already latched — do not overwrite with 0.
 
             // We totaly trust user on this, it should be explicitly and clearly
             // mentioned in doc, is there any max quote len other than numeric_limit<uint32_t>::max() ?
@@ -1780,22 +1808,22 @@ quote3_error_t sgx_qve_verify_quote(
 
 #ifdef SERVTD_ATTEST
 extern "C" EXPORT_API
-uint8_t do_verify_quote_integrity(
-		const uint8_t *p_quote,
-		uint32_t quote_size,
-		const uint8_t * root_pub_key,
-		uint32_t root_pub_key_size,
+quote3_error_t do_verify_quote_integrity(
+                const uint8_t *p_quote,
+                uint32_t quote_size,
+                const uint8_t * root_pub_key,
+                uint32_t root_pub_key_size,
         const tdx_ql_qv_collateral_t *p_quote_collateral,
-		uint8_t *p_td_report_body,
-		uint32_t * p_td_report_body_size) {
+                uint8_t *p_td_report_body,
+                uint32_t * p_td_report_body_size) {
 
-	uint32_t collateral_expiration_status;
-	sgx_ql_qv_result_t quote_verification_result;
+        uint32_t collateral_expiration_status;
+        sgx_ql_qv_result_t quote_verification_result;
 
   // 3 report types supported, minimum size is TD_REPORT10_BYTE_LEN. The input size should be larger than the minimum size
-	if (p_td_report_body == NULL || root_pub_key == NULL || p_td_report_body_size == NULL || (*p_td_report_body_size) < TD_REPORT10_BYTE_LEN || root_pub_key_size <= 0)  {
-		return SGX_TD_VERIFY_ERROR(SGX_QL_ERROR_INVALID_PARAMETER);
-	}
+        if (p_td_report_body == NULL || root_pub_key == NULL || p_td_report_body_size == NULL || (*p_td_report_body_size) < TD_REPORT10_BYTE_LEN || root_pub_key_size <= 0)  {
+                return SGX_QL_ERROR_INVALID_PARAMETER;
+        }
 
     quote3_error_t ret = sgx_qve_verify_quote(
             p_quote,
@@ -1811,9 +1839,8 @@ uint8_t do_verify_quote_integrity(
             root_pub_key_size,
             p_td_report_body,
             p_td_report_body_size);
-	return static_cast<uint8_t>(SGX_TD_VERIFY_ERROR(ret));
+	return ret;
 }
-
 #endif
 
 #ifndef _MSC_VER
@@ -1926,26 +1953,40 @@ static void time_to_string(time_t time_before, char* time_str, size_t len)
     return;
 }
 
+//Binary-safe: base64-encodes exactly len bytes from raw_char.
+//Callers MUST pass the exact number of bytes to encode; this helper
+//does not inspect the buffer for a trailing NUL because doing so would
+//silently truncate legitimate trailing 0x00 bytes in binary inputs
+//(e.g. the 16-byte request ID, DER-encoded CRLs).
 static std::string char_to_base64(unsigned char const* raw_char, size_t len)
 {
     if(raw_char == NULL){
        return {};
     }
 
-    std::string s_ret;
-
-    //remove '\0'
-    if(len == strlen(reinterpret_cast<const char *>(raw_char)) + 1){
-        len--;
-    }
     char* tmp_str = base64_encode(reinterpret_cast<const char *>(raw_char), (int)len);
     if(tmp_str == NULL)
     {
         return {};
     }
-    s_ret = tmp_str;
+    std::string s_ret = tmp_str;
     free(tmp_str);
     return s_ret;
+}
+
+//Convenience wrapper for collateral text fields (PEM cert chains, JSON
+//bodies) whose declared size historically includes a trailing NUL byte.
+//Strips a single trailing '\0' so the base64 output matches the pre-existing
+//behaviour of these fields. Do NOT use for binary buffers.
+static std::string text_field_to_base64(const char* text, size_t size)
+{
+    if(text == NULL){
+        return {};
+    }
+    if(size > 0 && text[size - 1] == '\0'){
+        size--;
+    }
+    return char_to_base64(reinterpret_cast<unsigned char const*>(text), size);
 }
 
 static quote3_error_t token_genrator_internal(std::string json_data, uint8_t **jwt_data, uint32_t *jwt_size)
@@ -2130,7 +2171,7 @@ static quote3_error_t tee_platform_tcb_generator(
         time_to_string(p_supplemental_data->earliest_expiration_date, time_str, sizeof(time_str));
         Add_Mem(time_str, "earliest_expiration_date");
 
-        time_to_string(p_supplemental_data->platform_tcb_level_date_tag, time_str, sizeof(time_str));
+        time_to_string(p_supplemental_data->tcb_level_date_tag, time_str, sizeof(time_str));
         Add_Mem(time_str, "tcb_level_date_tag");
 
         obj_plat_tcb.AddMember("pck_crl_num", p_supplemental_data->pck_crl_num, allocator);
@@ -2174,6 +2215,51 @@ static quote3_error_t tee_platform_tcb_generator(
                     advisory_id_array.PushBack(str_advisory_id, allocator);
                 }
             obj_plat_tcb.AddMember("advisory_ids", advisory_id_array, allocator);
+            }
+        }
+
+        // "current" TCB endorsement values for TDX 1.5 and later platforms.
+        if (strcmp(plat_type, TEE_SGX_PALTFORM_TOKEN_UUID) != 0 &&
+            strcmp(plat_type, TEE_TDX10_PALTFORM_TOKEN_UUID) != 0 &&
+            p_supplemental_data->major_version == 3 &&
+            p_supplemental_data->minor_version >= 5
+            ) {
+            // tcb_status_current (array of strings)
+            Value tcb_status_cur_array(kArrayType);
+            Value str_tcb_status_cur(kStringType);
+            std::vector<std::string> tcb_status_cur;
+            qv_result_tcb_status_map(tcb_status_cur, p_supplemental_data->tcb_status_current);
+            if(!tcb_status_cur.empty()){
+                for(size_t i=0; i<tcb_status_cur.size(); i++){
+                    str_tcb_status_cur.SetString(tcb_status_cur[i].c_str(), (unsigned int)(tcb_status_cur[i].length()), allocator);
+                    tcb_status_cur_array.PushBack(str_tcb_status_cur, allocator);
+                }
+                obj_plat_tcb.AddMember("tcb_status_current", tcb_status_cur_array, allocator);
+            }
+
+            // tcb_date_current (string)
+            char time_str_cur[TIME_STR_LEN] = {0};
+            time_to_string(p_supplemental_data->tcb_date_current, time_str_cur, sizeof(time_str_cur));
+            Value str_tcb_date_cur(kStringType);
+            str_tcb_date_cur.SetString(time_str_cur, (unsigned int)strlen(time_str_cur), allocator);
+            if(str_tcb_date_cur.GetStringLength() != 0){
+                obj_plat_tcb.AddMember("tcb_date_current", str_tcb_date_cur, allocator);
+            }
+
+            // advisory_ids_current (array of strings)
+            if (strlen(p_supplemental_data->sa_list_current) > 0) {
+                Value advisory_id_cur_array(kArrayType);
+                Value str_advisory_id_cur(kStringType);
+                std::string s_ad_id_cur(p_supplemental_data->sa_list_current);
+                std::vector<std::string> vec_ad_id_cur;
+                advisory_id_vec(vec_ad_id_cur, s_ad_id_cur);
+                if(!vec_ad_id_cur.empty()){
+                    for(size_t i=0; i<vec_ad_id_cur.size(); i++){
+                        str_advisory_id_cur.SetString(vec_ad_id_cur[i].c_str(), (unsigned int)(vec_ad_id_cur[i].length()), allocator);
+                        advisory_id_cur_array.PushBack(str_advisory_id_cur, allocator);
+                    }
+                    obj_plat_tcb.AddMember("advisory_ids_current", advisory_id_cur_array, allocator);
+                }
             }
         }
         Value str_keyid(kStringType);
@@ -2227,36 +2313,36 @@ static quote3_error_t tee_platform_tcb_generator(
         auto Add_Mem = [&](std::string str_m, rapidjson::GenericValue<rapidjson::ASCII<> >::StringRefType mem_name){str_collateral.SetString(str_m.c_str(), (unsigned int)(str_m.length()), allocator);
                             if(str_collateral.GetStringLength() != 0){obj_collateral.AddMember(mem_name, str_collateral, allocator);}};
         if(p_quote_collateral->pck_crl_issuer_chain != NULL && p_quote_collateral->pck_crl_issuer_chain_size > 0){
-            std::string s_pck_crl_issue_chain = char_to_base64((reinterpret_cast<unsigned char const*>(p_quote_collateral->pck_crl_issuer_chain)), p_quote_collateral->pck_crl_issuer_chain_size);
+            std::string s_pck_crl_issue_chain = text_field_to_base64(p_quote_collateral->pck_crl_issuer_chain, p_quote_collateral->pck_crl_issuer_chain_size);
             Add_Mem(s_pck_crl_issue_chain, "pck_crl_issuer_chain");
         }
         if(p_quote_collateral->root_ca_crl != NULL && p_quote_collateral->root_ca_crl_size > 0){
-            std::string s_root_ca_crl = char_to_base64((reinterpret_cast<unsigned char const*>(p_quote_collateral->root_ca_crl)), p_quote_collateral->root_ca_crl_size);
+            std::string s_root_ca_crl = text_field_to_base64(p_quote_collateral->root_ca_crl, p_quote_collateral->root_ca_crl_size);
             Add_Mem(s_root_ca_crl, "root_ca_crl");
         }
 
         if(p_quote_collateral->pck_crl != NULL && p_quote_collateral->pck_crl_size > 0){
-            std::string s_pck_crl = char_to_base64((reinterpret_cast<unsigned char const*>(p_quote_collateral->pck_crl)), p_quote_collateral->pck_crl_size);
+            std::string s_pck_crl = text_field_to_base64(p_quote_collateral->pck_crl, p_quote_collateral->pck_crl_size);
             Add_Mem(s_pck_crl, "pck_crl");
         }
 
         if(p_quote_collateral->tcb_info_issuer_chain != NULL && p_quote_collateral->tcb_info_issuer_chain_size > 0){
-            std::string s_tcb_info_issuer_chain = char_to_base64((reinterpret_cast<unsigned char const*>(p_quote_collateral->tcb_info_issuer_chain)), p_quote_collateral->tcb_info_issuer_chain_size);
+            std::string s_tcb_info_issuer_chain = text_field_to_base64(p_quote_collateral->tcb_info_issuer_chain, p_quote_collateral->tcb_info_issuer_chain_size);
             Add_Mem(s_tcb_info_issuer_chain, "tcb_info_issuer_chain");
         }
 
         if(p_quote_collateral->tcb_info != NULL && p_quote_collateral->tcb_info_size > 0){
-            std::string s_tcb_info = char_to_base64((reinterpret_cast<unsigned char const*>(p_quote_collateral->tcb_info)), p_quote_collateral->tcb_info_size);
+            std::string s_tcb_info = text_field_to_base64(p_quote_collateral->tcb_info, p_quote_collateral->tcb_info_size);
             Add_Mem(s_tcb_info, "tcb_info");
         }
 
         if(p_quote_collateral->qe_identity_issuer_chain != NULL && p_quote_collateral->qe_identity_issuer_chain_size > 0){
-            std::string s_qe_identity_issuer_chain = char_to_base64((reinterpret_cast<unsigned char const*>(p_quote_collateral->qe_identity_issuer_chain)), p_quote_collateral->qe_identity_issuer_chain_size);
+            std::string s_qe_identity_issuer_chain = text_field_to_base64(p_quote_collateral->qe_identity_issuer_chain, p_quote_collateral->qe_identity_issuer_chain_size);
             Add_Mem(s_qe_identity_issuer_chain, "qe_identity_issuer_chain");
         }
 
         if(p_quote_collateral->qe_identity != NULL && p_quote_collateral->qe_identity_size > 0){
-            std::string s_qe_identity = char_to_base64((reinterpret_cast<unsigned char const*>(p_quote_collateral->qe_identity)), p_quote_collateral->qe_identity_size);
+            std::string s_qe_identity = text_field_to_base64(p_quote_collateral->qe_identity, p_quote_collateral->qe_identity_size);
             Add_Mem(s_qe_identity, "qe_identity");
         }
         obj_platform.AddMember("certification_data", obj_collateral, allocator);
@@ -2567,6 +2653,9 @@ static void tdx_td_report_generator(
         std::string s_tdx_xfam = byte_to_hexstring((uint8_t *) &(tmp_report.xfam), sizeof(tee_attributes_t), true);
         Add_Mem(s_tdx_xfam, "tdx_xfam");
 
+        std::string s_tdx_mrtd = byte_to_hexstring((uint8_t *) &(tmp_report.mr_td), sizeof(tee_measurement_t), true);
+        Add_Mem(s_tdx_mrtd, "tdx_mrtd");
+
         std::string s_tdx_mrconfigid = byte_to_hexstring((uint8_t *) &(tmp_report.mr_config_id), sizeof(tee_measurement_t), true);
         Add_Mem(s_tdx_mrconfigid, "tdx_mrconfigid");
 
@@ -2575,9 +2664,6 @@ static void tdx_td_report_generator(
 
         std::string s_tdx_mrownerconfig = byte_to_hexstring((uint8_t *) &(tmp_report.mr_owner_config), sizeof(tee_measurement_t), true);
         Add_Mem(s_tdx_mrownerconfig, "tdx_mrownerconfig");
-
-        std::string s_tdx_mrtd = byte_to_hexstring((uint8_t *) &(tmp_report.mr_td), sizeof(tee_measurement_t), true);
-        Add_Mem(s_tdx_mrtd, "tdx_mrtd");
 
         std::string s_tdx_rtmr0 = byte_to_hexstring((uint8_t *) &(tmp_report.rt_mr[0]), sizeof(tee_measurement_t), true);
         Add_Mem(s_tdx_rtmr0, "tdx_rtmr0");
@@ -2594,9 +2680,12 @@ static void tdx_td_report_generator(
         std::string s_tdx_reportdata  = byte_to_hexstring((uint8_t *) &(tmp_report.report_data), sizeof(tee_report_data_t), true);
         Add_Mem(s_tdx_reportdata, "tdx_reportdata");
 
-        //only quote version 5: tdx_mrservicetd
+        //only quote version 5: tdx_tee_tcb_svn2 and tdx_mrservicetd
         if(quote_ver == QUOTE_VERSION_5)
         {
+            std::string s_tee_tcb_svn2  = byte_to_hexstring((uint8_t *) &(tmp_report.tee_tcb_svn2), sizeof(tee_tcb_svn_t), true);
+            Add_Mem(s_tee_tcb_svn2, "tdx_tee_tcb_svn2");
+
             std::string s_mr_servicetd  = byte_to_hexstring((uint8_t *) &(tmp_report.mr_servicetd), sizeof(tee_measurement_t), true);
             Add_Mem(s_mr_servicetd, "tdx_mrservicetd");
 
@@ -2870,6 +2959,40 @@ static quote3_error_t user_report_verify_internal(
             return TEE_ERROR_REPORT;
         }
     }
+    else if(tee_type == TDX_EVIDENCE && p_user_data){
+        tee_report_data_t tdx_report_data;
+        memset(&tdx_report_data, 0, sizeof(tee_report_data_t));
+        if(quote_ver == QUOTE_VERSION_4)
+        {
+            const sgx_quote4_t *p_tmp_quote4 = reinterpret_cast<const sgx_quote4_t *> (p_quote);
+            memcpy(&tdx_report_data, (void *)&(p_tmp_quote4->report_body.report_data), sizeof(tee_report_data_t));
+        }
+        else if(quote_ver == QUOTE_VERSION_5)
+        {
+            const sgx_quote5_t *p_tmp_quote5 = reinterpret_cast<const sgx_quote5_t *> (p_quote);
+            // Validate body type is a known TDX variant before accessing report_data.
+            // report_data is at the same offset in sgx_report2_body_t, sgx_report2_body_v1_5_t,
+            // and sgx_report2_body_v1_5_ex_t, so offsetof(sgx_report2_body_t, report_data) is
+            // correct for all supported TDX body types.
+            if (p_tmp_quote5->type != TDX10_REPORT &&
+                p_tmp_quote5->type != TDX15_REPORT &&
+                p_tmp_quote5->type != TDX15EX_REPORT)
+            {
+                return TEE_ERROR_INVALID_PARAMETER;
+            }
+            memcpy(&tdx_report_data, p_tmp_quote5->body + offsetof(sgx_report2_body_t, report_data), sizeof(tee_report_data_t));
+        }
+        else {
+            return TEE_ERROR_INVALID_PARAMETER;
+        }
+        uint8_t data_hash[SHA384_LEN] = { 0 };
+        if (SHA384((const unsigned char *)p_user_data, user_data_size, data_hash) == NULL) {
+            return TEE_ERROR_UNEXPECTED;
+        }
+        if (memcmp(&tdx_report_data.d, data_hash, SHA384_LEN) != 0) {
+            return TEE_ERROR_REPORT;
+        }
+    }
 
     return TEE_SUCCESS;
 }
@@ -2897,7 +3020,10 @@ quote3_error_t  tee_qve_verify_quote_qvt(
         !is_collateral_deep_copied(p_quote_collateral) ||
         current_time <= 0 ||
         (p_qve_report_info != NULL && !sgx_is_within_enclave(p_qve_report_info, sizeof(*p_qve_report_info))) ||
-        p_verification_result_token_buffer_size == 0 || p_verification_result_token == NULL)
+        p_verification_result_token_buffer_size == NULL ||
+        !sgx_is_within_enclave(p_verification_result_token_buffer_size, sizeof(*p_verification_result_token_buffer_size)) ||
+        p_verification_result_token == NULL ||
+        !sgx_is_within_enclave(p_verification_result_token, sizeof(*p_verification_result_token)))
     {
         return TEE_ERROR_INVALID_PARAMETER;
     }
@@ -3089,6 +3215,9 @@ quote3_error_t  tee_qve_verify_quote_qvt(
         return TEE_ERROR_UNEXPECTED;
     }
 
+    // Snapshot to a local EPC variable to prevent TOCTOU on the host-provided pointer.
+    uint32_t token_buf_size = *p_verification_result_token_buffer_size;
+
 #ifdef SGX_TRUSTED
     if (p_qve_report_info != NULL && dcap_ret == TEE_SUCCESS) {
 
@@ -3099,7 +3228,7 @@ quote3_error_t  tee_qve_verify_quote_qvt(
         //
         generate_report_ret = sgx_qve_token_generate_report(
             (const uint8_t *)tmp_result_token,
-            *p_verification_result_token_buffer_size,
+            token_buf_size,
             p_qve_report_info);
         if (generate_report_ret != TEE_SUCCESS) {
             dcap_ret = generate_report_ret;
@@ -3108,9 +3237,22 @@ quote3_error_t  tee_qve_verify_quote_qvt(
     }
 
     if(dcap_ret == TEE_SUCCESS){
-        ocall_qvt_token_malloc(*p_verification_result_token_buffer_size + 1, p_verification_result_token);
-        if(*p_verification_result_token != NULL){
-            memcpy(*p_verification_result_token, tmp_result_token, *p_verification_result_token_buffer_size);
+        ocall_qvt_token_malloc(token_buf_size + 1, p_verification_result_token);
+        if (*p_verification_result_token != NULL) {
+#ifndef SERVTD_ATTEST
+            // In a real enclave, verify the host did not return an in-enclave
+            // pointer. In SERVTD_ATTEST there is no enclave boundary, so this
+            // check is not applicable.
+            if (!sgx_is_outside_enclave(*p_verification_result_token,
+                                        token_buf_size + 1)) {
+                *p_verification_result_token = NULL;
+                *p_verification_result_token_buffer_size = 0;
+                free(tmp_result_token);
+                free(supp_data.p_data);
+                return TEE_ERROR_UNEXPECTED;
+            }
+#endif
+            memcpy(*p_verification_result_token, tmp_result_token, token_buf_size);
         }
         else{
             free(tmp_result_token);

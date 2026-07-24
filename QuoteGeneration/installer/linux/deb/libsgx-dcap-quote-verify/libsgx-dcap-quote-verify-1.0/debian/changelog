@@ -1,5 +1,12 @@
 libsgx-dcap-quote-verify (9.9.9.9-1) unstable; urgency=low
 
+  * Release v1.27
+    See https://github.com/intel/confidential-computing.tee.dcap/releases/tag/DCAP_1.27 for full release notes.
+
+ -- Intel Confidential Computing Team <confidential.computing@intel.com>  Fri, 01 Jan 2100 00:00:00 +0000
+
+libsgx-dcap-quote-verify (1.26.100.1-all1) unstable; urgency=low
+
   * Release v1.26
     See https://github.com/intel/confidential-computing.tee.dcap/releases/tag/DCAP_1.26 for full release notes.
 
@@ -8,7 +15,7 @@ libsgx-dcap-quote-verify (9.9.9.9-1) unstable; urgency=low
       2. CHANGED `sgx_dcap_qal.h` to define QAL-side APIs only (removed type definitions).
          Common types were extracted to 'sgx_dcap_qal_types.h' (new, provided by 'libsgx-headers>=2.29')
 
- -- Intel Confidential Computing Team <confidential.computing@intel.com>  Fri, 01 Jan 2100 00:00:00 +0000
+ -- Intel Confidential Computing Team <confidential.computing@intel.com>  Thu, 30 Apr 2026 00:00:00 +0000
 
 libsgx-dcap-quote-verify (1.25.100.1-all1) unstable; urgency=low
 

@@ -118,13 +118,26 @@ quote3_error_t qve_get_collateral_dates(const CertificateChain &cert_chain_obj,
 }
 
 quote3_error_t deserializeVerCollatInfo(const std::vector<uint8_t> &bytes, verification_collateral_info_t &info) {
+    // The v2 verification collateral info is a fixed-size record. The producer
+    // emits at least sizeof(verification_collateral_info_t) bytes; any trailing
+    // bytes beyond the record are ignored.
     if (bytes.empty() ||
-        bytes.size() < offsetof(verification_collateral_info_t, sa_list) ||
-        bytes.size() > (offsetof(verification_collateral_info_t, sa_list) + MAX_SA_LIST_SIZE)) {
+        bytes.size() < sizeof(verification_collateral_info_t)) {
         return SGX_QL_ERROR_INVALID_PARAMETER;
     }
 
     using Data = verification_collateral_info_t;
+
+    // Helper to copy a fixed-size char array field from the byte buffer.
+    // Always forces a NUL terminator in the last byte so later use as a
+    // C-string cannot over-read past the field if the serialized data lacks
+    // a terminator.
+    auto copyCharField = [&bytes](char *dst, size_t size, size_t offset) {
+        for (size_t i = 0; i < size; ++i) {
+            dst[i] = static_cast<char>(bytes[offset + i]);
+        }
+        dst[size - 1] = '\0';
+    };
 
     info.id = parseBytesLE<decltype(Data::id)>(bytes.data());
     size_t offset = sizeof(Data::id);
@@ -144,12 +157,23 @@ quote3_error_t deserializeVerCollatInfo(const std::vector<uint8_t> &bytes, verif
     info.tcb_eval_data_num = parseBytesLE<decltype(Data::tcb_eval_data_num)>(bytes.data(), offset);
     offset += sizeof(Data::tcb_eval_data_num);
 
-    info.tcb_date_min = parseBytesLE<decltype(Data::tcb_date_min)>(bytes.data(), offset);
-    offset += sizeof(Data::tcb_date_min);
+    info.launch_tcb_date = parseBytesLE<decltype(Data::launch_tcb_date)>(bytes.data(), offset);
+    offset += sizeof(Data::launch_tcb_date);
 
-    for (size_t i = offset, j = 0; i < bytes.size(); ++i, ++j) {
-        info.sa_list[j] = static_cast<char>(bytes[i]);
-    }
+    info.current_tcb_date = parseBytesLE<decltype(Data::current_tcb_date)>(bytes.data(), offset);
+    offset += sizeof(Data::current_tcb_date);
+
+    copyCharField(info.launch_advisory_ids, sizeof(Data::launch_advisory_ids), offset);
+    offset += sizeof(Data::launch_advisory_ids);
+
+    copyCharField(info.current_advisory_ids, sizeof(Data::current_advisory_ids), offset);
+    offset += sizeof(Data::current_advisory_ids);
+
+    copyCharField(info.launch_tcb_status, sizeof(Data::launch_tcb_status), offset);
+    offset += sizeof(Data::launch_tcb_status);
+
+    copyCharField(info.current_tcb_status, sizeof(Data::current_tcb_status), offset);
+    offset += sizeof(Data::current_tcb_status);
 
     return SGX_QL_SUCCESS;
 }
@@ -222,9 +246,4 @@ const json::TcbLevel& getMatchingTcbLevel(const json::TcbInfo *tcbInfo,
     }
 
     throw SGX_QL_TCBINFO_UNSUPPORTED_FORMAT;  // FIXME(pre-existing): throws raw quote3_error_t, not a descendant of std::exception
-}
-
-time_t getEarlierDate(const time_t& date1, const time_t& date2)
-{
-    return (date1 < date2) ? date1 : date2;
 }

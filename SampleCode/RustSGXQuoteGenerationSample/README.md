@@ -1,18 +1,9 @@
 Intel(R) Software Guard Extensions Data Center Attestation Primitives (Intel(R) SGX DCAP) Rust SGX Quote Generation SampleCode
 ================================================
-# Linux
-## Supported operating systems:
-* Ubuntu* 22.04 LTS Server 64bits
-* Ubuntu* 24.04 LTS Server 64bits
-* Red Hat Enterprise Linux Server release 9.4 64bits
-* Red Hat Enterprise Linux Server release 10.0 64bits
-* CentOS Stream 9 64bits
-* CentOS Stream 10 64bits
-* SUSE Linux Enterprise Server 15.6 64bits
-* Anolis OS 8.10 64bits
-* Azure Linux 3.0 64bits
-* Debian 10 64bits
-* Debian 12 64bits
+
+## Linux
+See [Supported Linux operating systems](../README.md#supported-linux-operating-systems).
+
 ## Requirements:
 * make
 * gcc

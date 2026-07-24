@@ -34,6 +34,7 @@
 #include "qgs_ql_logic.h"
 #include "qgs_msg_lib.h"
 #include "se_trace.h"
+#include <sgx_report2.h>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <boost/cstdint.hpp>
@@ -167,9 +168,19 @@ class QgsConnection : public boost::enable_shared_from_this<QgsConnection> {
         if (ec == asio::error::eof) {
             oss << "Received eof and " << bytes_transferred << " bytes.";
             QGS_LOG_INFO("handle_read:[%s]\n", oss.str().c_str());
+            //Tear down the connection immediately on EOF/error instead of
+            //letting it linger until the 30 s timer fires; otherwise a peer
+            //that rapidly opens and closes connections pins one socket FD and
+            //one QgsConnection per second-of-timeout per peer.
+            m_timer.cancel();
+            stop();
+            return;
         } else if (ec) {
             oss << "Error: " << ec.message();
             QGS_LOG_INFO("handle_read:[%s]\n", oss.str().c_str());
+            m_timer.cancel();
+            stop();
+            return;
         } else {
             oss << "Received " << bytes_transferred << " bytes.";
             QGS_LOG_INFO("handle_read:[%s]\n", oss.str().c_str());
@@ -181,7 +192,7 @@ class QgsConnection : public boost::enable_shared_from_this<QgsConnection> {
                 || ptr->size != msg_len
                 || QGS_MSG_SUCCESS != qgs_msg_get_type(&m_readbuf[HEADER_SIZE],
                         (uint32_t)bytes_transferred - HEADER_SIZE, &msg_type)) {
-                const std::size_t raw_report_size = 1024;
+                const std::size_t raw_report_size = sizeof(sgx_report2_t);
                 if (bytes_transferred == raw_report_size) {
                     QGS_LOG_INFO("process raw request [%zu] bytes!.\n", bytes_transferred);
                     m_readbuf.resize(bytes_transferred);

@@ -47,6 +47,10 @@ void __attribute__((noreturn)) abort(void);
 
 int* get_errno_addr(void);
 
+/* Heap base accessor required by tlibc's malloc bounds check (ok_heap_range()
+ * in tlibc/stdlib/malloc.c). The SDK's own heap_base is private, so this is
+ * backed by a DCAP-owned shadow set in init_heap(). Prototype also declared in
+ * the SGX SDK's trts/trts_util.h, which malloc.c includes. */
 void* get_heap_base(void);
 
 int apply_EPC_pages(void* start_address, size_t page_count);

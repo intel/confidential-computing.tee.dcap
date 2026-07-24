@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <sys/socket.h>
 #include <linux/vm_sockets.h>
+#include <sgx_quote_5.h>
 #include <sys/un.h>
 #include "qgs_msg_lib.h"
 
@@ -41,6 +42,35 @@ static void print_hex_dump(const char *title, const char *prefix_str,
     }
 
     fprintf(stdout, "\n");
+}
+
+static int read_exact_file(const char *path, uint8_t *buf, size_t size)
+{
+    FILE *file = fopen(path, "rb");
+    size_t bytes_read = 0;
+    int ret = 0;
+
+    if (!file) {
+        fprintf(stderr, "\nfailed to open %s\n", path);
+        return 1;
+    }
+
+    bytes_read = fread(buf, 1, size, file);
+    if (bytes_read != size) {
+        fprintf(stderr, "\n%s size mismatch: expected %zu bytes, read %zu bytes\n",
+                path, size, bytes_read);
+        ret = 1;
+        goto ret_point;
+    }
+
+    if (fgetc(file) != EOF) {
+        fprintf(stderr, "\n%s size mismatch: file is larger than %zu bytes\n", path, size);
+        ret = 1;
+    }
+
+ret_point:
+    fclose(file);
+    return ret;
 }
 
 static int connect_qgs_socket(void)
@@ -106,7 +136,7 @@ static int test_raw_request(void)
         s = connect_qgs_vsock();
         if (s < 0) {
             fprintf(stderr, "failed\n");
-                return 1;
+            return 1;
         }
     }
     fprintf(stderr, "success\n");
@@ -138,8 +168,170 @@ static int test_raw_request(void)
     return 0;
 }
 
+int test_get_quote_mig_request(void)
+{
+    int s = -1;
+    int ret = 0;
+    uint8_t buf[16 * 1024] = {0};
+    uint8_t report[sizeof(sgx_report2_t)] = {0};
+    uint32_t msg_size = 0;
+    uint32_t in_msg_size = 0;
+    uint32_t received_bytes = 0;
+    uint8_t *p_req = NULL;
+    qgs_msg_header_t *p_header = NULL;
+    qgs_msg_error_t qgs_msg_ret = QGS_MSG_SUCCESS;
+    const uint8_t *p_selected_id = NULL;
+    uint32_t selected_id_size = 0;
+    const uint8_t *p_quote = NULL;
+    uint32_t quote_size = 0;
+    tdx_servtd_ext_t servtd_ext_data = {0};
+    FILE *fptr = NULL;
+
+    if (read_exact_file("migReport.dat", report, sizeof(report))) {
+        ret = 1;
+        goto ret_point;
+    }
+
+    if (read_exact_file("migStruct.dat", (uint8_t *)&servtd_ext_data, sizeof(servtd_ext_data))) {
+        ret = 1;
+        goto ret_point;
+    }
+
+    qgs_msg_ret = qgs_msg_gen_get_quote_mig_req(report,
+                                                 sizeof(report),
+                                                 (const uint8_t *)&servtd_ext_data,
+                                                 sizeof(servtd_ext_data),
+                                                 NULL,
+                                                 0,
+                                                 &p_req,
+                                                 &msg_size);
+    if (QGS_MSG_SUCCESS != qgs_msg_ret) {
+        fprintf(stderr, "\nqgs_msg_gen_get_quote_mig_req return 0x%x\n", qgs_msg_ret);
+        ret = 1;
+        goto ret_point;
+    }
+
+    if (msg_size + HEADER_SIZE > sizeof(buf)) {
+        fprintf(stderr, "\nrequest size too big: %u\n", msg_size);
+        ret = 1;
+        goto ret_point;
+    }
+
+    buf[0] = (uint8_t)((msg_size >> 24) & 0xFF);
+    buf[1] = (uint8_t)((msg_size >> 16) & 0xFF);
+    buf[2] = (uint8_t)((msg_size >> 8) & 0xFF);
+    buf[3] = (uint8_t)(msg_size & 0xFF);
+
+    memcpy(buf + HEADER_SIZE, p_req, msg_size);
+    qgs_msg_free(p_req);
+    p_req = NULL;
+
+    s = socket(AF_VSOCK, SOCK_STREAM, 0);
+    if (-1 == s) {
+        fprintf(stderr, "\nsocket return 0x%x\n", s);
+        ret = 1;
+        goto ret_point;
+    }
+
+    struct sockaddr_vm vm_addr;
+    memset(&vm_addr, 0, sizeof(vm_addr));
+    vm_addr.svm_family = AF_VSOCK;
+    vm_addr.svm_reserved1 = 0;
+    vm_addr.svm_port = 4050;
+    vm_addr.svm_cid = VMADDR_CID_HOST;
+    if (connect(s, (struct sockaddr *)&vm_addr, sizeof(vm_addr))) {
+        fprintf(stderr, "\nconnect error\n");
+        ret = 1;
+        goto ret_point;
+    }
+
+    if (HEADER_SIZE + msg_size != send(s, buf, HEADER_SIZE + msg_size, 0)) {
+        fprintf(stderr, "\nsend error\n");
+        ret = 1;
+        goto ret_point;
+    }
+
+    if (HEADER_SIZE != recv(s, buf, HEADER_SIZE, 0)) {
+        perror(NULL);
+        fprintf(stderr, "\nrecv error\n");
+        ret = 1;
+        goto ret_point;
+    }
+
+    for (unsigned i = 0; i < HEADER_SIZE; ++i) {
+        in_msg_size = in_msg_size * 256 + (buf[i] & 0xFFu);
+    }
+
+    if (sizeof(buf) - HEADER_SIZE < in_msg_size) {
+        fprintf(stderr, "\nReply message body is too big");
+        ret = 1;
+        goto ret_point;
+    }
+
+    while (received_bytes < in_msg_size) {
+        int recv_ret = (int)recv(s, buf + HEADER_SIZE + received_bytes,
+                                 in_msg_size - received_bytes, 0);
+        if (recv_ret <= 0) {
+            if (recv_ret == 0) {
+                fprintf(stderr, "\npeer closed connection\n");
+            } else {
+                perror(NULL);
+                fprintf(stderr, "\nrecv return value < 0");
+            }
+            ret = 1;
+            goto ret_point;
+        }
+        received_bytes += (uint32_t)recv_ret;
+    }
+
+    qgs_msg_ret = qgs_msg_inflate_get_quote_resp(buf + HEADER_SIZE,
+                                                 in_msg_size,
+                                                 &p_selected_id,
+                                                 &selected_id_size,
+                                                 &p_quote,
+                                                 &quote_size);
+    if (QGS_MSG_SUCCESS != qgs_msg_ret) {
+        fprintf(stderr, "\nqgs_msg_inflate_get_quote_resp return 0x%x\n", qgs_msg_ret);
+        ret = 1;
+        goto ret_point;
+    }
+
+    p_header = (qgs_msg_header_t *)(buf + HEADER_SIZE);
+    if (p_header->type != GET_QUOTE_RESP) {
+        fprintf(stderr, "\ntype in resp msg is 0x%d", p_header->type);
+        ret = 1;
+        goto ret_point;
+    }
+
+    fprintf(stdout, "\nGET_QUOTE_MIG_REQ response error code: 0x%x\n", p_header->error_code);
+    if (selected_id_size != 0) {
+        print_hex_dump("\n\t\tSelected ID\n", " ", p_selected_id, selected_id_size);
+    }
+    if (quote_size != 0) {
+        print_hex_dump("\n\t\tQuote\n", " ", p_quote, quote_size);
+    }
+    fptr = fopen("quote.dat", "wb");
+    if (fptr) {
+        fwrite(p_quote, quote_size, 1, fptr);
+        fclose(fptr);
+    }
+    fprintf(stdout, "\nWrote TD Quote to quote.dat\n");
+
+ret_point:
+    qgs_msg_free(p_req);
+    if (s >= 0) {
+        close(s);
+    }
+    return ret;
+}
+
+
 int main(int argc, char *argv[])
 {
+    if (argc > 1 && strcmp(argv[1], "mig") == 0) {
+        return test_get_quote_mig_request();
+    }
+
     (void)argc;
     (void)argv;
     int s = -1;
@@ -153,7 +345,7 @@ int main(int argc, char *argv[])
     uint8_t buf[4 * 1024] = {0};
     uint32_t msg_size = 0;
     uint32_t in_msg_size = 0;
-    uint32_t recieved_bytes = 0;
+    uint32_t received_bytes = 0;
 
     uint16_t tdqe_isvsvn;
     uint16_t pce_isvsvn;
@@ -215,15 +407,20 @@ int main(int argc, char *argv[])
         ret = 1;
         goto ret_point;
     }
-    while( recieved_bytes < in_msg_size) {
-        int recv_ret = (int)recv(s, buf + HEADER_SIZE + recieved_bytes,
-                                    in_msg_size - recieved_bytes, 0);
+    while( received_bytes < in_msg_size) {
+        int recv_ret = (int)recv(s, buf + HEADER_SIZE + received_bytes,
+                                    in_msg_size - received_bytes, 0);
         if (recv_ret <= 0) {
-            fprintf(stderr, "\nrecv return value <= 0");
+            if (recv_ret == 0) {
+                fprintf(stderr, "\npeer closed connection\n");
+            } else {
+                perror(NULL);
+                fprintf(stderr, "\nrecv return value < 0");
+            }
             ret = 1;
             goto ret_point;
         }
-        recieved_bytes += (uint32_t)recv_ret;
+        received_bytes += (uint32_t)recv_ret;
     }
 
     qgs_msg_ret = qgs_msg_inflate_get_platform_info_resp(buf + HEADER_SIZE, in_msg_size,

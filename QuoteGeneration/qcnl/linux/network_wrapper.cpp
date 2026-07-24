@@ -69,14 +69,18 @@ sgx_qcnl_error_t prepare_curl() {
         }
 
         const char *libcurl_name = LIBCURL_NAME;
-        // With the dlopen (RTLD_DEEPBIND) for libcurl, it forces the libcurl to look up symbols in its dependencies.
-        g_dlopen_handle = dlopen(LIBCURL_NAME, RTLD_LAZY | RTLD_DEEPBIND);
-        if (NULL == g_dlopen_handle) {
-            libcurl_name = LIBCURL4_NAME;
-            g_dlopen_handle = dlopen(LIBCURL4_NAME, RTLD_LAZY | RTLD_DEEPBIND);
+        if (g_dlopen_handle == NULL) {
+            // With the dlopen (RTLD_DEEPBIND) for libcurl, it forces the libcurl to look up symbols in its dependencies.
+            // Guard with g_dlopen_handle == NULL to avoid leaking repeated dlopen references on retries after
+            // a partial failure (e.g. dlsym or curl_global_init failure on a previous call).
+            g_dlopen_handle = dlopen(LIBCURL_NAME, RTLD_LAZY | RTLD_DEEPBIND);
             if (NULL == g_dlopen_handle) {
-                qcnl_log(SGX_QL_LOG_ERROR, "Cannot open shared library %s or %s.", LIBCURL_NAME, LIBCURL4_NAME);
-                break;
+                libcurl_name = LIBCURL4_NAME;
+                g_dlopen_handle = dlopen(LIBCURL4_NAME, RTLD_LAZY | RTLD_DEEPBIND);
+                if (NULL == g_dlopen_handle) {
+                    qcnl_log(SGX_QL_LOG_ERROR, "Cannot open shared library %s or %s.", LIBCURL_NAME, LIBCURL4_NAME);
+                    break;
+                }
             }
         }
         f_global_init = (CURLcode(*)(long))dlsym(g_dlopen_handle, "curl_global_init");
@@ -131,7 +135,11 @@ sgx_qcnl_error_t prepare_curl() {
             break;
         }
 
-        f_global_init(CURL_GLOBAL_DEFAULT);
+        CURLcode curl_init_ret = f_global_init(CURL_GLOBAL_DEFAULT);
+        if (curl_init_ret != CURLE_OK) {
+            qcnl_log(SGX_QL_LOG_ERROR, "curl_global_init failed with error: %d.", curl_init_ret);
+            break;
+        }
         libcurl_ready = true;
         ret = SGX_QCNL_SUCCESS;
     } while(0);
@@ -142,32 +150,51 @@ sgx_qcnl_error_t prepare_curl() {
 
 static size_t write_callback(void *ptr, size_t size, size_t nmemb, void *stream) {
     network_malloc_info_t *s = reinterpret_cast<network_malloc_info_t *>(stream);
-    if (size == 0 || nmemb == 0) return 0;
-    if (size > HTTP_DOWNLOAD_MAX_SIZE / nmemb) return 0;
-    size_t chunk = size * nmemb;
     size_t start = 0;
+    size_t data_size = 0;
+
+    if (s == NULL || size == 0 || nmemb == 0) {
+        return 0;
+    }
+
+    if (__builtin_mul_overflow(size, nmemb, &data_size)) {
+        return 0;
+    }
 
     if (s->base == NULL) {
-        if (chunk > HTTP_DOWNLOAD_MAX_SIZE)
+        if (data_size > HTTP_DOWNLOAD_MAX_SIZE) {
             return 0;
-        s->base = reinterpret_cast<char *>(malloc(chunk));
-        s->size = chunk;
-        if (s->base == NULL)
+        }
+
+        s->base = reinterpret_cast<char*>(malloc(data_size));
+
+        if(s->base == NULL) {
             return 0;
+        }
+
+        s->size = data_size;
     } else {
-        if (chunk > HTTP_DOWNLOAD_MAX_SIZE || s->size > HTTP_DOWNLOAD_MAX_SIZE - chunk)
+        if (data_size > HTTP_DOWNLOAD_MAX_SIZE || s->size > HTTP_DOWNLOAD_MAX_SIZE - data_size) {
             return 0;
-        size_t newsize = s->size + chunk;
-        char *p = reinterpret_cast<char *>(realloc(s->base, newsize));
-        if (p == NULL)
+        }
+
+        size_t new_size = s->size + data_size;
+        char *p = reinterpret_cast<char*>(realloc(s->base, new_size));
+
+        if (p == NULL) {
             return 0;
+        }
+
         start = s->size;
         s->base = p;
-        s->size = newsize;
+        s->size = new_size;
     }
-    if (memcpy_s(s->base + start, s->size - start, ptr, chunk) != 0)
+
+    if (memcpy_s(s->base + start, s->size - start, ptr, data_size) != 0) {
         return 0;
-    return chunk;
+    }
+
+    return data_size;
 }
 
 /**

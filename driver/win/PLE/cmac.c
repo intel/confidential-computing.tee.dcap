@@ -127,7 +127,7 @@ static void aesni_setkey_enc_128( unsigned char *rk, const unsigned char *key )
     AESKEYGENA xmm0_xmm1 ",0x36        \n\tcall 1b \n\t"
     :
     : "r" (rk), "r" (key)
-    : "memory", "cc", "0" );
+    : "memory", "cc", "xmm0", "xmm1", "0" );
 }
 
 

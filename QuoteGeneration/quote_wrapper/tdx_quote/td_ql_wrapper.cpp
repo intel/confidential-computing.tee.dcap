@@ -345,17 +345,18 @@ tee_att_error_t tee_att_get_quote_size(const tee_att_config_t* p_context,
     return(ret_val);
 }
 
-tee_att_error_t tee_att_get_quote(const tee_att_config_t* p_context,
+static tee_att_error_t tee_att_get_quote_internal(const tee_att_config_t* p_context,
     const uint8_t* p_report,
     uint32_t report_size,
     sgx_qe_report_info_t* p_qe_report_info,
     uint8_t* p_quote,
-    uint32_t quote_size)
+    uint32_t quote_size,
+    const tdx_servtd_ext_t* p_servtd_ext)
 {
-
     sgx_status_t sgx_status = SGX_SUCCESS;
     tdqe_error_t tdqe_error = TDQE_SUCCESS;
     tee_att_error_t ret_val = TEE_ATT_SUCCESS;
+    sgx_report2_t report_copy = {};
 
     UNUSED(p_qe_report_info);
 
@@ -367,12 +368,16 @@ tee_att_error_t tee_att_get_quote(const tee_att_config_t* p_context,
         return(TEE_ATT_ERROR_INVALID_PARAMETER);
     }
     if (report_size != sizeof(sgx_report2_t)) {
-        SE_TRACE(SE_TRACE_ERROR, "Invalid report size. %ud\n", report_size);
+        SE_TRACE(SE_TRACE_ERROR, "Invalid report size. %u\n", report_size);
+        return(TEE_ATT_ERROR_INVALID_PARAMETER);
+    }
+
+    if (0 != memcpy_s(&report_copy, sizeof(report_copy), p_report, sizeof(report_copy))) {
         return(TEE_ATT_ERROR_INVALID_PARAMETER);
     }
 
     ret_val = const_cast<tee_att_config_t*>(p_context)->ecdsa_get_quote(
-        (sgx_report2_t*)p_report, p_quote, quote_size);
+        &report_copy, p_quote, quote_size, p_servtd_ext);
     if (TEE_ATT_SUCCESS != ret_val) {
         if ((ret_val < TEE_ATT_ERROR_MIN) ||
             (ret_val > TEE_ATT_ERROR_MAX))
@@ -465,6 +470,33 @@ tee_att_error_t tee_att_get_quote(const tee_att_config_t* p_context,
     }
 
     return(ret_val);
+}
+
+tee_att_error_t tee_att_get_quote(const tee_att_config_t* p_context,
+    const uint8_t* p_report,
+    uint32_t report_size,
+    sgx_qe_report_info_t* p_qe_report_info,
+    uint8_t* p_quote,
+    uint32_t quote_size)
+{
+    return tee_att_get_quote_internal(p_context, p_report, report_size, p_qe_report_info,
+        p_quote, quote_size, NULL);
+}
+
+tee_att_error_t tee_att_get_quote_mig_history(const tee_att_config_t* p_context,
+    const uint8_t* p_report,
+    uint32_t report_size,
+    sgx_qe_report_info_t* p_qe_report_info,
+    uint8_t* p_quote,
+    uint32_t quote_size,
+    const tdx_servtd_ext_t* p_servtd_ext)
+{
+    if (NULL == p_servtd_ext) {
+        return(TEE_ATT_ERROR_INVALID_PARAMETER);
+    }
+
+    return tee_att_get_quote_internal(p_context, p_report, report_size, p_qe_report_info,
+        p_quote, quote_size, p_servtd_ext);
 }
 
 tee_att_error_t tee_att_get_keyid(const tee_att_config_t* p_context,

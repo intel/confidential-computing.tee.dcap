@@ -39,29 +39,36 @@
 #include <codecvt>
 #include <iostream>
 #include <locale>
+#include <vector>
+
+static constexpr DWORD MAX_CERT_DER_SIZE = 64 * 1024; // 64 KB ceiling for a single DER-encoded certificate
 
 std::string get_cdp_url_from_pem_cert(const char *p_cert) {
-    BYTE derPubKey[2048];
-    DWORD derPubKeyLen = 2048;
     PCERT_INFO publicKeyInfo;
     DWORD keyLength;
 
     /*
      * Convert from PEM format to DER format - removes header and footer and decodes from base64
+     * First call gets the required buffer size.
      */
-    if (!CryptStringToBinaryA(p_cert, 0, CRYPT_STRING_ANY, NULL, &derPubKeyLen, NULL, NULL)) {
+    DWORD derPubKeyLen = 0;
+    if (!CryptStringToBinaryA(p_cert, 0, CRYPT_STRING_BASE64HEADER, NULL, &derPubKeyLen, NULL, NULL)) {
         return "";
-    } else {
-        if (!CryptStringToBinaryA(p_cert, 0, CRYPT_STRING_ANY, derPubKey, &derPubKeyLen, NULL, NULL)) {
-            return "";
-        }
+    }
+    if (derPubKeyLen == 0 || derPubKeyLen > MAX_CERT_DER_SIZE) {
+        return "";
+    }
+    std::vector<BYTE> derPubKey(derPubKeyLen);
+    DWORD cb = derPubKeyLen;
+    if (!CryptStringToBinaryA(p_cert, 0, CRYPT_STRING_BASE64HEADER, derPubKey.data(), &cb, NULL, NULL)) {
+        return "";
     }
 
     /*
      * Decode from DER format to CERT_PUBLIC_KEY_INFO
      */
-    if (!CryptDecodeObjectEx(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, X509_CERT_TO_BE_SIGNED, derPubKey, derPubKeyLen,
-                             CRYPT_ENCODE_ALLOC_FLAG, NULL, &publicKeyInfo, &keyLength)) {
+    if (!CryptDecodeObjectEx(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, X509_CERT_TO_BE_SIGNED, derPubKey.data(), cb,
+                             CRYPT_DECODE_ALLOC_FLAG, NULL, &publicKeyInfo, &keyLength)) {
         return "";
     }
 
@@ -80,12 +87,28 @@ std::string get_cdp_url_from_pem_cert(const char *p_cert) {
         return "";
     }
 
-    std::wstring pwszURL = pCrlDistPoints->rgDistPoint[0].DistPointName.FullName.rgAltEntry->pwszURL;
     std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
-    std::string pszURL = converter.to_bytes(pwszURL);
+    std::string pszURL;
+
+    bool found = false;
+    for (DWORD i = 0; i < pCrlDistPoints->cDistPoint && !found; i++) {
+        CRL_DIST_POINT &dp = pCrlDistPoints->rgDistPoint[i];
+        if (dp.DistPointName.dwDistPointNameChoice != CRL_DIST_POINT_FULL_NAME)
+            continue;
+        CERT_ALT_NAME_INFO &fullName = dp.DistPointName.FullName;
+        if (fullName.cAltEntry == 0 || fullName.rgAltEntry == NULL)
+            continue;
+        for (DWORD k = 0; k < fullName.cAltEntry; k++) {
+            CERT_ALT_NAME_ENTRY &entry = fullName.rgAltEntry[k];
+            if (entry.dwAltNameChoice != CERT_ALT_NAME_URL || entry.pwszURL == NULL)
+                continue;
+            pszURL = converter.to_bytes(entry.pwszURL);
+            found = true;
+            break;
+        }
+    }
 
     LocalFree(pCrlDistPoints);
     LocalFree(publicKeyInfo);
-
     return pszURL;
 }

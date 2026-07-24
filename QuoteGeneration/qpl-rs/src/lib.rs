@@ -122,9 +122,18 @@ pub fn tee_qpl_get_quote_config(
     let mut isv_svn = pck_cert_id.pce_isv_svn;
     let mut temp_size = 0;
     let mut encrypted_ppid: *mut u8 = std::ptr::null_mut();
+    // Clone into a named binding so the Vec (and its backing buffer) stays alive
+    // for the entire duration of the FFI call below. Without this, the temporary
+    // returned by ppid.clone() would be dropped immediately, leaving a dangling pointer.
+    // Only set the pointer when the buffer is non-empty; the C QCNL layer requires
+    // p_encrypted_ppid to be null when encrypted_ppid_size is 0.
+    let mut ppid_buf: Vec<u8> = Vec::new();
     if let Some(ppid) = pck_cert_id.encrypted_ppid.as_ref() {
-        temp_size = ppid.len();
-        encrypted_ppid = ppid.clone().as_mut_ptr();
+        if !ppid.is_empty() {
+            ppid_buf = ppid.clone();
+            temp_size = ppid_buf.len();
+            encrypted_ppid = ppid_buf.as_mut_ptr();
+        }
     }
     let cert_id = sgx_ql_pck_cert_id_t {
         p_qe3_id: qe3_id.as_mut_ptr(),

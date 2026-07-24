@@ -409,7 +409,7 @@ int main(int argc, const char* argv[])
     uint8_t* p_data_buffer = NULL;
     FILE* pFile = NULL;
     uint8_t *p_platform_manifest_buffer = NULL;
-    uint32_t platform_manifest_out_buffer_size = UINT32_MAX;
+    uint32_t platform_manifest_out_buffer_size {0};
     bool is_server_url_provided = false;
     cache_server_delivery_status_t delivery_status = DELIVERY_ERROR_MAX;
     uefi_status_t ret_mpa = UEFI_OPERATION_UNEXPECTED_ERROR;

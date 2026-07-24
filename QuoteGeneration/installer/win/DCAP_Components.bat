@@ -11,7 +11,7 @@ set QGFOLDER="..\..\"
 set QVFOLDER="%TOPFOLDER%\QuoteVerification"
 set DEBUGFILEFOLDER="..\..\..\x64\Debug\"
 set RELEASEFILEFOLDER="..\..\..\x64\Release\"
-set PACKAGETNAME=DCAP_Components.1.26.100.1
+set PACKAGETNAME=DCAP_Components.1.27.100.1
 set pwd=%~dp0DCAP_Components
 
 pushd "%~dp0"

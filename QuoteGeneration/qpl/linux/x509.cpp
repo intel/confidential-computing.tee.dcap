@@ -53,25 +53,44 @@ using std::stringstream;
 using std::vector;
 
 //----------------------------------------------------------------------
-static vector<string> crl_urls(X509 *x509) {
+// Extracts CRL Distribution Point URLs from an X.509 certificate.
+// When include_relative is false (default), only fullName/URI entries are
+// returned — the form used by Intel PCK certificates. Set include_relative=true
+// to also collect nameRelativeToCRLIssuer entries (raw ASN.1 string bytes, not
+// a valid URL; callers must reconstruct the full URL from the issuer name).
+static vector<string> crl_urls(X509 *x509, bool include_relative = false) {
     vector<string> list;
+    if (x509 == NULL)
+        return list;
     int nid = NID_crl_distribution_points;
     STACK_OF(DIST_POINT) *dist_points = (STACK_OF(DIST_POINT) *)X509_get_ext_d2i(x509, nid, NULL, NULL);
+    if (dist_points == NULL)
+        return list;
     for (int j = 0; j < sk_DIST_POINT_num(dist_points); j++) {
         DIST_POINT *dp = sk_DIST_POINT_value(dist_points, j);
+        if (dp == NULL || dp->distpoint == NULL)
+            continue;
         DIST_POINT_NAME *distpoint = dp->distpoint;
-        if (distpoint->type == 0) {
+        if (distpoint->type == 0 && distpoint->name.fullname != NULL) {
             for (int k = 0; k < sk_GENERAL_NAME_num(distpoint->name.fullname); k++) {
                 GENERAL_NAME *gen = sk_GENERAL_NAME_value(distpoint->name.fullname, k);
+                if (gen == NULL || gen->type != GEN_URI)
+                    continue;
                 ASN1_IA5STRING *asn1_str = gen->d.uniformResourceIdentifier;
-                list.push_back(string((char *)ASN1_STRING_get0_data(asn1_str), ASN1_STRING_length(asn1_str)));
+                if (asn1_str == NULL)
+                    continue;
+                list.push_back(string(reinterpret_cast<const char *>(ASN1_STRING_get0_data(asn1_str)), ASN1_STRING_length(asn1_str)));
             }
-        } else if (distpoint->type == 1) {
+        } else if (include_relative && distpoint->type == 1 && distpoint->name.relativename != NULL) {
             STACK_OF(X509_NAME_ENTRY) *sk_relname = distpoint->name.relativename;
             for (int k = 0; k < sk_X509_NAME_ENTRY_num(sk_relname); k++) {
                 X509_NAME_ENTRY *e = sk_X509_NAME_ENTRY_value(sk_relname, k);
+                if (e == NULL)
+                    continue;
                 ASN1_STRING *d = X509_NAME_ENTRY_get_data(e);
-                list.push_back(string((char *)ASN1_STRING_get0_data(d), ASN1_STRING_length(d)));
+                if (d == NULL)
+                    continue;
+                list.push_back(string(reinterpret_cast<const char *>(ASN1_STRING_get0_data(d)), ASN1_STRING_length(d)));
             }
         }
     }

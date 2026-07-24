@@ -275,6 +275,13 @@ void unload_enclave(sgx_enclave_id_t* p_eid)
 uefi_status_t get_platform_manifest(uint8_t ** buffer, uint32_t &out_buffer_size)
 {
     uefi_status_t ret = UEFI_OPERATION_UNEXPECTED_ERROR;
+
+    // We need the buffer pointer to be valid, but at the same time,
+    // since we allocate the actual platform manifest here, we don't want it (*buffer) to point it to any memory
+    if ((buffer == NULL) || (*buffer != NULL)) {
+        return ret;
+    }
+
 #ifdef _MSC_VER
     HINSTANCE uefi_lib_handle = LoadLibrary(SGX_MULTI_PACKAGE_AGENT_UEFI_LIBRARY);
     if (uefi_lib_handle != NULL) {
@@ -282,7 +289,7 @@ uefi_status_t get_platform_manifest(uint8_t ** buffer, uint32_t &out_buffer_size
     }
     else {
         out_buffer_size = 0;
-        buffer = NULL;
+        *buffer = NULL;
         printf("Warning: If this is a multi-package platform, please install registration agent package.\n");
         printf("         otherwise, the platform manifest information will NOT be retrieved.\n");
         return UEFI_OPERATION_LIB_NOT_AVAILABLE;
@@ -294,7 +301,7 @@ uefi_status_t get_platform_manifest(uint8_t ** buffer, uint32_t &out_buffer_size
     }
     else {
         out_buffer_size = 0;
-        buffer = NULL;
+        *buffer = NULL;
         printf("Warning: If this is a multi-package platform, please install registration agent package.\n");
         printf("         otherwise, the platform manifest information will NOT be retrieved.\n");
         return UEFI_OPERATION_LIB_NOT_AVAILABLE;
@@ -327,10 +334,27 @@ uefi_status_t get_platform_manifest(uint8_t ** buffer, uint32_t &out_buffer_size
         mpResult = p_mp_uefi_get_request_type(&type);
         if (mpResult == MP_SUCCESS) {
             if (type == MP_REQ_REGISTRATION) {
-                *buffer = new (std::nothrow) unsigned char[PLATFORM_MANIFEST_LENGTH];
+                if ((buffer == nullptr) || (*buffer != nullptr)) {
+                    ret = UEFI_OPERATION_UNEXPECTED_ERROR;
+                    break;
+                }
+
+                *buffer = (uint8_t*) malloc(PLATFORM_MANIFEST_LENGTH * sizeof(uint8_t));
+
+                if (*buffer == nullptr) {
+                    ret = UEFI_OPERATION_UNEXPECTED_ERROR;
+                    break;
+                }
+
+                out_buffer_size = PLATFORM_MANIFEST_LENGTH;
+
                 mpResult = p_mp_uefi_get_request(*buffer, &out_buffer_size);
                 if (mpResult != MP_SUCCESS) {
                     printf("Error: Couldn't get the platform manifest information.\n");
+                    free(*buffer);
+                    *buffer = nullptr;
+                    out_buffer_size = 0;
+                    ret = UEFI_OPERATION_UNEXPECTED_ERROR;
                     break;
                 }
             }

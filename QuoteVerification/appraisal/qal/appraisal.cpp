@@ -16,6 +16,7 @@
 #include "sgx_dcap_pcs_com.h"
 #include "qal_auth.h"
 #include "wrapped_sgx_dcap_qal.h"
+#include "qal_common.h"
 
 
 #define INVALID_AUTH_STATUS -2
@@ -199,13 +200,13 @@ quote3_error_t tee_authenticate_policy_owner(const uint8_t *p_quote,
     {
         return TEE_ERROR_INVALID_PARAMETER;
     }
-    if (policy_key_list == NULL || list_size == 0)
+    if (policy_key_list == NULL || list_size == 0 || list_size > MAX_POLICY_KEY_LIST_SIZE)
     {
         return TEE_ERROR_INVALID_PARAMETER;
     }
     for (uint32_t i = 0; i < list_size; i++)
     {
-        if (policy_key_list[i] == NULL)
+        if (policy_key_list[i] == NULL || strnlen(reinterpret_cast<const char *>(policy_key_list[i]), MAX_KEY_SIZE) >= MAX_KEY_SIZE)
         {
             return TEE_ERROR_INVALID_PARAMETER;
         }

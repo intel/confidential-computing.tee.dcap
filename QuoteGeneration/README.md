@@ -9,7 +9,7 @@ For Windows* OS
    * Windows* Server 2022 (Long-Term Servicing Channel)
    * Windows* Server 2025 (Long-Term Servicing Channel)
 - Ensure that you have the following required hardware:
-  * 3rd or 4th Generation Intel(R) Xeon(R) Scalable Processor
+  * 3rd+ Generation Intel(R) Xeon(R) Scalable Processor
   * Intel(R) Xeon(R) D Processors from the 17xx and 27xx series
   * 8th Generation Intel(R) Core(TM) Processor or newer with **Flexible Launch Control** support*
   * Intel(R) Atom(TM) Processor with **Flexible Launch Control** support*
@@ -47,28 +47,25 @@ For Linux* OS
 -----------------
 ## Prerequisites
 - Ensure that you have the following required operating systems:
-  * Ubuntu* 22.04 LTS Server 64bits
-  * Ubuntu* 24.04 LTS Server 64bits
-  * Red Hat Enterprise Linux Server release 9.4 64bits
-  * Red Hat Enterprise Linux Server release 10.0 64bits
-  * CentOS Stream 9 64bits
-  * CentOS Stream 10 64bits
-  * Anolis 8.10
-  * Azure Linux 3.0
-  * Debian 10 and 12
-  * SUSE Linux Enterprise Server (SLES) 15 SP 6.
+  * Ubuntu\* Server (64-bit): 22.04, 24.04, 26.04 LTS
+  * Red Hat Enterprise Linux\* Server (64-bit): 9.6, 9.8, 10.0, 10.2
+  * CentOS\* Stream (64-bit): 9, 10
+  * SUSE Linux Enterprise Server\* (64-bit): 15 SP7, 16
+  * Anolis\* OS (64-bit): 8.10
+  * Azure\* Linux (64-bit): 3.0
+  * Debian\* (64-bit): 10, 12, 13
 - Ensure that you have the following required hardware:
-  * 3rd or 4th Generation Intel(R) Xeon(R) Scalable Processor
+  * 3rd+ Generation Intel(R) Xeon(R) Scalable Processor
   * Intel(R) Xeon(R) D Processors from the 17xx and 27xx series
   * 8th Generation Intel(R) Core(TM) Processor or newer with **Flexible Launch Control** support*
   * Intel(R) Atom(TM) Processor with **Flexible Launch Control** support*
 - Configure the system with the **SGX hardware enabled** option.
 - Use the following command(s) to install the required tools to build the Intel(R) SGX software:
-  * On Ubuntu 22.04 and 24.04
+  * On Ubuntu 22.04, 24.04, and 26.04
   ```
     $ sudo apt-get install build-essential wget python-is-python3 debhelper zip libcurl4-openssl-dev pkgconf libboost-dev libboost-system-dev libboost-thread-dev protobuf-c-compiler libprotobuf-c-dev protobuf-compiler
   ```
-  * On Red Hat Enterprise Linux 9.4 and 10.0
+  * On Red Hat Enterprise Linux 9 and 10
   ```
     $ sudo yum groupinstall 'Development Tools'
     $ sudo yum install wget python3 python3-pip rpm-build zip pkgconf boost-devel protobuf-lite-devel protobuf-c-compiler protobuf-c-devel
@@ -111,17 +108,17 @@ For Linux* OS
   $ make DEBUG=1
 ```
 - To build the Intel(R) SGX DCAP Quote Generation Library and the Intel(R) SGX Default Quote Provider Library installers, enter the following command:
-  * On Ubuntu 22.04 and Ubuntu 24.04:
+  * On Ubuntu 22.04, Ubuntu 24.04, and Ubuntu 26.04:
   ```
     $ make deb_pkg
   ```
   You can find the generated installers located under `installer/linux/deb/`.
-  **Note**: On Ubuntu 22.04 and Ubuntu 24.04, the above command also generates another debug symbol package with extension name of `.ddeb` for debug purpose.
+  **Note**: On Ubuntu 22.04, Ubuntu 24.04, and Ubuntu 26.04, the above command also generates another debug symbol package with extension name of `.ddeb` for debug purpose.
   **Note**: The above command builds the installers with default configuration firstly and then generates the target installers. To build the installers without optimization and with full debug information kept in the libraries, enter the following command:
   ```
   $ make deb_pkg DEBUG=1
   ```
-  * On Red Hat Enterprise Linux 9.4 and 10.0, CentOS Stream 9 and 10:
+  * On Red Hat Enterprise Linux 9 and 10, CentOS Stream 9 and 10:
   ```
     $ make rpm_pkg
   ```
@@ -133,35 +130,35 @@ For Linux* OS
 
 ## Install the Intel(R) SGX DCAP Quote Generation Library Package
 - Install prebuilt Intel(R) SGX common loader and other prerequisites from [01.org](https://01.org/intel-software-guard-extensions/downloads)
-  * On Ubuntu 22.04 and Ubuntu 24.04:
+  * On Ubuntu 22.04, Ubuntu 24.04, and Ubuntu 26.04:
   ```
     $ sudo dpkg -i --force-overwrite libsgx-ae-pce_*.deb libsgx-ae-qe3_*.deb libsgx-ae-id-enclave_*.deb libsgx-ae-qve_*.deb libsgx-enclave-common_*.deb libsgx-urts_*.deb
   ```
   **NOTE**: Sometimes we will split old package into smaller ones or move files between different packages. In such cases, you need to add `--force-overwrite` to overwrite existing files. If you're doing a fresh install, you can omit this option.
 
-  * On Red Hat Enterprise Linux 9.4 and 10.0, CentOS Stream 9 and 10:
+  * On Red Hat Enterprise Linux 9 and 10, CentOS Stream 9 and 10:
   ```
     $ sudo rpm -ivh libsgx-ae-pce*.rpm libsgx-ae-qe3*.rpm libsgx-ae-id-enclave*.rpm libsgx-ae-qve*.rpm libsgx-enclave-common*.rpm libsgx-urts*.rpm
   ```
   **NOTE**: If you're not doing a fresh install, please replace option `-i` to `-U` to avoid some conflict errors.
 
 - For production systems, package should be installed by the following command:
-  * On Ubuntu 22.04 and Ubuntu 24.04:
+  * On Ubuntu 22.04, Ubuntu 24.04, and Ubuntu 26.04:
   ```
     $ sudo dpkg -i libsgx-dcap-ql_*.deb
   ```
-  * On Red Hat Enterprise Linux 9.4 and 10.0, CentOS Stream 9 and 10:
+  * On Red Hat Enterprise Linux 9 and 10, CentOS Stream 9 and 10:
   ```
     $ sudo rpm -ivh libsgx-dcap-ql*.rpm
   ```
 
 - For development systems, another two packages should be installed by the following commands:
-  * On Ubuntu 22.04 and Ubuntu 24.04:
+  * On Ubuntu 22.04, Ubuntu 24.04, and Ubuntu 26.04:
   ```
     $ sudo dpkg -i libsgx-dcap-ql-dev_*.deb
     $ sudo dpkg -i libsgx-dcap-ql-dbgsym_*.deb
   ```
-  * On Red Hat Enterprise Linux 9.4 and 10.0, CentOS Stream 9 and 10:
+  * On Red Hat Enterprise Linux 9 and 10, CentOS Stream 9 and 10:
   ```
     $ sudo rpm -ivh libsgx-dcap-ql-devel*.rpm
     $ sudo rpm -ivh libsgx-dcap-ql-debuginfo*.rpm
@@ -169,24 +166,24 @@ For Linux* OS
 
 ## Install the Intel(R) SGX Default Quote Provider Library Package
 - For production systems, package should be installed by the following commands:
-  * On Ubuntu 22.04 and Ubuntu 24.04:
+  * On Ubuntu 22.04, Ubuntu 24.04, and Ubuntu 26.04:
   ```
     $ sudo dpkg -i libsgx-dcap-default-qpl_*.deb
     $ sudo dpkg -i sgx-dcap-pccs_*.deb
   ```
-  * On Red Hat Enterprise Linux 9.4 and 10.0, CentOS Stream 9 and 10:
+  * On Red Hat Enterprise Linux 9 and 10, CentOS Stream 9 and 10:
   ```
     $ sudo rpm -ivh libsgx-dcap-default-qpl*.rpm
     $ sudo rpm -ivh sgx-dcap-pccs*.rpm
   ```
   Please refer to /opt/intel/sgx-dcap-pccs/README.md for more details about the installation of sgx-dcap-pccs.
 - For development systems, another two packages should be installed by the following commands:
-  * On Ubuntu 22.04 and Ubuntu 24.04:
+  * On Ubuntu 22.04, Ubuntu 24.04, and Ubuntu 26.04:
   ```
     $ sudo dpkg -i libsgx-dcap-default-qpl-dev*.deb libsgx-headers*.deb
     $ sudo dpkg -i libsgx-dcap-default-qpl-dbgsym*.deb
   ```
-  * On Red Hat Enterprise Linux 9.4 and 10.0, CentOS Stream 9 and 10:
+  * On Red Hat Enterprise Linux 9 and 10, CentOS Stream 9 and 10:
   ```
     $ sudo rpm -ivh libsgx-dcap-default-qpl-devel*.rpm libsgx-headers*.rpm
     $ sudo rpm -ivh libsgx-dcap-default-qpl-debuginfo*.rpm

@@ -11,6 +11,7 @@ global:
     tee_att_get_platform_info;
     sgx_trace_logger_callback;
     sgx_trace_loglevel;
+    tee_att_get_quote_mig_history;
 local:
     *;
 };

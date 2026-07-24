@@ -9,11 +9,11 @@ Homepage: https://github.com/intel/SGXDataCenterAttestationPrimitives
 Package: libsgx-dcap-ql
 Architecture: amd64
 Depends: libsgx-qe3-logic(>= @dep_version@), libsgx-pce-logic(>= @dep_version@), ${shlibs:Depends}, ${misc:Depends}
-Recommends: libsgx-dcap-quote-verify(>= @dep_version@), libsgx-quote-ex(>= 2.29)
+Recommends: libsgx-dcap-quote-verify(>= @dep_version@), libsgx-quote-ex(>= 2.30)
 Description: Intel(R) Software Guard Extensions Data Center Attestation Primitives
 
 Package: libsgx-dcap-ql-dev
 Section: devel
 Architecture: amd64
-Depends: libsgx-dcap-ql(= @dep_version@), libsgx-headers(>= 2.29)
+Depends: libsgx-dcap-ql(= @dep_version@), libsgx-headers(>= 2.30)
 Description: Intel(R) Software Guard Extensions Data Center Attestation Primitives For Developers

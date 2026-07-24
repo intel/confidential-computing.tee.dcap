@@ -8,3 +8,4 @@ EXPORTS
     tee_att_get_quote          @5
     tee_att_get_keyid          @6
     tee_att_get_platform_info  @7
+    tee_att_get_quote_mig_history @8

@@ -1,17 +1,17 @@
-## Linux
-Supported operating systems:
-* Ubuntu* 18.04 LTS Desktop 64bits
-* Ubuntu* 18.04 LTS Server 64bits
-* Ubuntu* 20.04 LTS Server 64bits
+Intel(R) Software Guard Extensions Data Center Attestation Primitives (Intel(R) SGX DCAP) Java Quote Verification SampleCode
+================================================
 
-Requirements:
+## Linux
+See [Supported Linux operating systems](../README.md#supported-linux-operating-systems).
+
+## Requirements:
 * make
 * gcc
 * g++
 * maven
 * JDK `1.8+`
 
-Prerequisite:
+## Prerequisite:
 * Linux kernel v5.11 and above
 * Intel(R) SGX SDK
 * Intel(R) SGX DCAP Packages

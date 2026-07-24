@@ -1,4 +1,4 @@
 # Each line is a file pattern followed by one or more owners.
 # last matching pattern takes the most precedence.
 
-*       @intel-innersource/confidential-computing-intel-reviewers-dcap @intel/SGXDataCenterAttestationPrimitives-maintain
+*       @intel-innersource/confidential-computing-intel-reviewers-dcap @intel/confidential-computing-tee-dcap-maintain

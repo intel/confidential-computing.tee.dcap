@@ -4,17 +4,13 @@ Intel(R) Software Guard Extensions Data Center Attestation Primitives (Intel(R) 
 ## Build QvE and dcap_quoteverify libraries, non-production only (for debug purposes). For production you must use Intel(R) signed QvE.
 ## Linux
 Supported operating systems:
-* Ubuntu* 22.04 LTS Server 64bits
-* Ubuntu* 24.04 LTS Server 64bits
-* Red Hat Enterprise Linux Server release 9.4 64bits
-* Red Hat Enterprise Linux Server release 10.0 64bits
-* CentOS Stream 9 64bits
-* CentOS Stream 10 64bits
-* SUSE Linux Enterprise Server 15.6 64bits
-* Anolis OS 8.10 64bits
-* Azure Linux 3.0 64bits
-* Debian 10 64bits
-* Debian 12 64bits
+* Ubuntu\* Server (64-bit): 22.04, 24.04, 26.04 LTS
+* Red Hat Enterprise Linux\* Server (64-bit): 9.6, 9.8, 10.0, 10.2
+* CentOS\* Stream (64-bit): 9, 10
+* SUSE Linux Enterprise Server\* (64-bit): 15 SP7, 16
+* Anolis\* OS (64-bit): 8.10
+* Azure\* Linux (64-bit): 3.0
+* Debian\* (64-bit): 10, 12, 13
 
 Requirements:
 * make
@@ -48,8 +44,9 @@ $ make -C QvE
 
 ## Windows
 Supported operating systems:
-   * Windows* Server 2016 (Long-Term Servicing Channel)
    * Windows* Server 2019 (Long-Term Servicing Channel)
+   * Windows* Server 2022 (Long-Term Servicing Channel)
+   * Windows* Server 2025 (Long-Term Servicing Channel)
 
 Requirements:
 * Microsoft Visual Studio 2019 or newer.

@@ -133,7 +133,14 @@ bool convert_jwk_to_pem_str(std::string &jwk_json, std::string &pem_str)
     }
     rapidjson::Document jwk_doc;
     jwk_doc.Parse<rapidjson::kParseCommentsFlag>(jwk_json.c_str());
-    if (jwk_doc.HasParseError() || jwk_doc.HasMember("x") == false || jwk_doc.HasMember("y") == false)
+    // The root of a JWK must be a JSON object. rapidjson's HasMember() and
+    // operator[] require IsObject() and only enforce it via RAPIDJSON_ASSERT,
+    // which is compiled out in release builds. Without this check, a JWK whose
+    // top level is a scalar, array, or null (still a successful parse) would
+    // cause HasMember()/operator[] to reinterpret the value union as object
+    // members and read out of bounds.
+    if (jwk_doc.HasParseError() || jwk_doc.IsObject() == false ||
+        jwk_doc.HasMember("x") == false || jwk_doc.HasMember("y") == false)
     {
         return false;
     }

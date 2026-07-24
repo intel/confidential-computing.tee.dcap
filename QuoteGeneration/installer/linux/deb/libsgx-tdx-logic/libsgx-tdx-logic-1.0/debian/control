@@ -8,11 +8,11 @@ Homepage: https://github.com/intel/SGXDataCenterAttestationPrimitives
 
 Package: libsgx-tdx-logic
 Architecture: amd64
-Depends: libsgx-urts (>= 2.29), libsgx-pce-logic(>= @dep_version@), libsgx-ae-tdqe(>= @dep_version@), libsgx-ae-id-enclave(>= @dep_version@),  libsgx-dcap-default-qpl(>= @dep_version@), ${shlibs:Depends}, ${misc:Depends}
+Depends: libsgx-urts (>= 2.30), libsgx-pce-logic(>= @dep_version@), libsgx-ae-tdqe(>= @dep_version@), libsgx-ae-id-enclave(>= @dep_version@),  libsgx-dcap-default-qpl(>= @dep_version@), ${shlibs:Depends}, ${misc:Depends}
 Description: Intel(R) Trust Domain Extensions QE logic library
 
 Package: libsgx-tdx-logic-dev
 Section: devel
 Architecture: amd64
-Depends: libsgx-tdx-logic (= @dep_version@), libsgx-headers (>= 2.29)
+Depends: libsgx-tdx-logic (= @dep_version@), libsgx-headers (>= 2.30)
 Description: Intel(R) Trust Domain Extensions QE logic library For Developers

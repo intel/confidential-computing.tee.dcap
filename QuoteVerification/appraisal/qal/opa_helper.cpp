@@ -39,7 +39,7 @@ int opa_builtins(wasm_module_inst_t module_inst,  wasm_exec_env_t exec_env)
 {
     wasm_function_inst_t func = NULL;
 
-    if(!(func = wasm_runtime_lookup_function(module_inst, "builtins", NULL))){
+    if(!(func = wasm_runtime_lookup_function(module_inst, "builtins"))){
         SE_TRACE(SE_TRACE_DEBUG, "Failed in wasm_runtime_lookup_function for builtins\n");
 	    return 0;
     }
@@ -61,7 +61,7 @@ int opa_eval_ctx_new(wasm_module_inst_t module_inst, wasm_exec_env_t exec_env)
 {
     wasm_function_inst_t func = NULL;
 
-    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_eval_ctx_new", NULL))){
+    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_eval_ctx_new"))){
         SE_TRACE(SE_TRACE_DEBUG, "Failed in wasm_runtime_lookup_function for opa_eval_ctx_new\n");
 	    return 0;
     }
@@ -82,7 +82,7 @@ void opa_eval_ctx_set_input(wasm_module_inst_t module_inst, wasm_exec_env_t exec
 
     wasm_function_inst_t func = NULL;
 
-    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_eval_ctx_set_input", NULL))){
+    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_eval_ctx_set_input"))){
         SE_TRACE(SE_TRACE_DEBUG, "Failed in wasm_runtime_lookup_function for opa_eval_ctx_set_input\n");
 	    return;
     }
@@ -120,7 +120,7 @@ int eval(wasm_module_inst_t module_inst, wasm_exec_env_t exec_env, int ctx)
 
     wasm_function_inst_t func = NULL;
 
-    if(!(func = wasm_runtime_lookup_function(module_inst, "eval", NULL))){
+    if(!(func = wasm_runtime_lookup_function(module_inst, "eval"))){
         SE_TRACE(SE_TRACE_DEBUG, "Failed in wasm_runtime_lookup_function for eval\n");
 	    return -1;
     }
@@ -143,7 +143,7 @@ int opa_eval_ctx_get_result(wasm_module_inst_t module_inst, wasm_exec_env_t exec
 {
     wasm_function_inst_t func = NULL;
 
-    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_eval_ctx_get_result", NULL))){
+    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_eval_ctx_get_result"))){
         SE_TRACE(SE_TRACE_DEBUG, "Failed in wasm_runtime_lookup_function for opa_eval_ctx_get_result\n");
 	    return 0;
     }
@@ -167,7 +167,7 @@ int opa_malloc(wasm_module_inst_t module_inst, wasm_exec_env_t exec_env, uint32_
 
     wasm_function_inst_t func = NULL;
 
-    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_malloc", NULL))){
+    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_malloc"))){
         SE_TRACE(SE_TRACE_DEBUG, "Failed in wasm_runtime_lookup_function for opa_malloc\n");
 	    return 0;
     }
@@ -190,7 +190,7 @@ void opa_free(wasm_module_inst_t module_inst, wasm_exec_env_t exec_env, int addr
 {
    wasm_function_inst_t func = NULL;
 
-    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_free", NULL))){
+    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_free"))){
         SE_TRACE(SE_TRACE_DEBUG, "Failed in wasm_runtime_lookup_function for opa_free\n");
 	    return;
     }
@@ -212,7 +212,7 @@ int opa_json_parse(wasm_module_inst_t module_inst, wasm_exec_env_t exec_env, int
 
     wasm_function_inst_t func = NULL;
 
-    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_json_parse", NULL))){
+    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_json_parse"))){
         SE_TRACE(SE_TRACE_DEBUG, "Failed in wasm_runtime_lookup_function for opa_json_parse\n");
 	    return 0;
     }
@@ -240,7 +240,7 @@ int opa_json_dump(wasm_module_inst_t module_inst, wasm_exec_env_t exec_env, int 
 
     wasm_function_inst_t func = NULL;
 
-    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_json_dump", NULL))){
+    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_json_dump"))){
         SE_TRACE(SE_TRACE_DEBUG, "Failed in wasm_runtime_lookup_function for opa_json_dump\n");
 	    return 0;
     }
@@ -264,7 +264,7 @@ int opa_heap_ptr_get(wasm_module_inst_t module_inst, wasm_exec_env_t exec_env)
 {
     wasm_function_inst_t func = NULL;
 
-    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_heap_ptr_get", NULL))){
+    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_heap_ptr_get"))){
         SE_TRACE(SE_TRACE_DEBUG, "Failed in wasm_runtime_lookup_function for opa_heap_ptr_get\n");
 	    return 0;
     }
@@ -285,7 +285,7 @@ void opa_heap_ptr_set(wasm_module_inst_t module_inst, wasm_exec_env_t exec_env, 
 {
        wasm_function_inst_t func = NULL;
 
-    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_heap_ptr_set", NULL))){
+    if(!(func = wasm_runtime_lookup_function(module_inst, "opa_heap_ptr_set"))){
         SE_TRACE(SE_TRACE_DEBUG, "Failed in wasm_runtime_lookup_function for opa_heap_ptr_set\n");
 	    return;
     }

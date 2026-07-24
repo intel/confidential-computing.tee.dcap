@@ -215,6 +215,7 @@ void encl_body(struct sgx_launch_request *req)
 	uint64_t attributes;
 	uint64_t xfrm;
 	int i;
+	int result;
 
 	if (!req)
 		return;
@@ -239,8 +240,10 @@ void encl_body(struct sgx_launch_request *req)
 		}
 	}
 
-	req->output.result = create_einittoken(mrenclave, mrsigner, attributes, xfrm, &token);
+	result = create_einittoken(mrenclave, mrsigner, attributes, xfrm, &token);
 
-	if (req->output.result == SGX_SUCCESS)
+	if (result == SGX_SUCCESS)
 		memcpy(&req->output.token, &token, sizeof(token));
+
+	req->output.result = result;
 }

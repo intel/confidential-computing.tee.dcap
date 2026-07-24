@@ -242,6 +242,7 @@ network_post_error_t network_https_post(const uint8_t* raw_data, const uint64_t 
     WCHAR wurl[MAX_PATH];
     WCHAR wproxyurl[MAX_PATH];
     WCHAR whostname[MAX_PATH];
+    WCHAR wproxyhostname[MAX_PATH];
     size_t count = 0;
     if (mbstowcs_s(&count, wurl, url.c_str(), url.size()) != 0) {
         return POST_UNEXPECTED_ERROR;
@@ -252,7 +253,7 @@ network_post_error_t network_https_post(const uint8_t* raw_data, const uint64_t 
         URL_COMPONENTS urlCompccs;
         ZeroMemory(&urlCompccs, sizeof(urlCompccs));
         URL_COMPONENTS proxyurlCompccs;
-        ZeroMemory(&urlCompccs, sizeof(proxyurlCompccs));
+        ZeroMemory(&proxyurlCompccs, sizeof(proxyurlCompccs));
         urlCompccs.dwStructSize = sizeof(urlCompccs);
         urlCompccs.lpszHostName = whostname;//we will only crack hostname, urlpath 
         urlCompccs.dwHostNameLength = MAX_PATH;//copy hostname to a buffer to get 0-terminated string
@@ -265,6 +266,7 @@ network_post_error_t network_https_post(const uint8_t* raw_data, const uint64_t 
         }
 
         DWORD dwProxyType = WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY;
+		LPCWSTR lpszProxyName = WINHTTP_NO_PROXY_NAME;
 		proxyurlCompccs.lpszUrlPath = NULL;
 		switch (proxy_type) {
 		case PROXY_TYPE_DIRECT_ACCESS:
@@ -276,7 +278,7 @@ network_post_error_t network_https_post(const uint8_t* raw_data, const uint64_t 
 		case PROXY_TYPE_MANUAL_PROXY:
 			dwProxyType = WINHTTP_ACCESS_TYPE_NAMED_PROXY;
 			proxyurlCompccs.dwStructSize = sizeof(proxyurlCompccs);
-			proxyurlCompccs.lpszHostName = whostname;//we will only crack hostname, urlpath 
+			proxyurlCompccs.lpszHostName = wproxyhostname;//we will only crack hostname, urlpath 
 			proxyurlCompccs.dwHostNameLength = MAX_PATH;//copy hostname to a buffer to get 0-terminated string
 			proxyurlCompccs.dwUrlPathLength = (DWORD)-1;
 
@@ -287,6 +289,9 @@ network_post_error_t network_https_post(const uint8_t* raw_data, const uint64_t 
 			if (!WinHttpCrackUrl(wproxyurl, (DWORD)wcsnlen_s(wproxyurl, MAX_URL_LENGTH), 0, &proxyurlCompccs)) {
 				return  POST_INVALID_PARAMETER_ERROR;
 			}
+			// WINHTTP_ACCESS_TYPE_NAMED_PROXY expects a proxy server string, not the
+			// cracked URL path; pass the proxy URL itself (matching MPSynchronicSenderWin.cpp).
+			lpszProxyName = wproxyurl;
 			break;
 		default:
 			dwProxyType = WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY;
@@ -295,7 +300,7 @@ network_post_error_t network_https_post(const uint8_t* raw_data, const uint64_t 
         // Use WinHttpOpen to obtain a session handle.
         hSession = WinHttpOpen(L"SGX connect pccs",
             dwProxyType,
-            proxyurlCompccs.lpszUrlPath,
+            lpszProxyName,
             WINHTTP_NO_PROXY_BYPASS, 0);
         if (!hSession) {
             ret = windows_last_error_to_network_post_error();

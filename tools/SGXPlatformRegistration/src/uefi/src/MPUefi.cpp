@@ -5,6 +5,7 @@
  */
 
 #include <climits>
+#include <cstddef>
 #include <cstring>
 #include <cassert>
 #include <memory>
@@ -19,6 +20,7 @@
 #endif
 #include "MPUefi.h"
 #include "UefiVar.h"
+#include "ByteSerialization.h"
 #include "uefi_logger.h"
 
 #define REGISTRATION_COMPLETE_BIT_MASK 0x0001
@@ -37,36 +39,15 @@ namespace {
   using S3mUefiVersion = decltype(std::declval<S3mUefiVar>().version);
   using S3mUefiSize = decltype(std::declval<S3mUefiVar>().size);
 
+  using mp::parseBytesLE;
+  using mp::writeBytesLE;
+
   struct RequestInfo
   {
     UefiVersion version;
     S3mUefiSize uefiVarSize;
     size_t requiredSize, headerOffset;
   };
-
-  // TODO: This should probably go to common and get its own tests
-  template
-  <
-    typename T,
-    typename std::enable_if<std::is_integral<T>::value, int>::type = 0
-  >
-  T parseBytesLE(const uint8_t *raw, size_t offset = 0)
-  {
-    assert(raw != nullptr && "Requires raw pointer to be non nullptr");
-
-    static_assert(CHAR_BIT == 8, "Requires 8 bit byte");
-
-    constexpr size_t SIZE = sizeof(T);
-
-    T ret{0};
-    for(size_t i = offset, pos = SIZE - 1; i < offset + SIZE; ++i, --pos)
-    {
-      const size_t op = (SIZE - 1 - pos) * 8;
-      ret |= static_cast<T>(raw[i]) << op;
-    }
-
-    return ret;
-  }
 
   RequestInfo getRequestInfo(const uint8_t *request)
   {
@@ -146,6 +127,16 @@ MpResult MPUefi::getRequestType(MpRequestType& type)
     return MP_SUCCESS;
   }
 
+  // Ensure the buffer is large enough for getRequestInfo() to safely parse
+  // both the version field (uint16_t) and the widest size field (uint32_t for
+  // V3).  All three fields are at fixed offsets 0-5 in the raw UEFI variable.
+  if (varDataSize < sizeof(UefiVersion) + sizeof(S3mUefiSize))
+  {
+    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRequestType: SgxRegistrationServerRequest UEFI variable is too small to parse header.\n");
+    type = MP_REQ_NONE;
+    return MP_UEFI_INTERNAL_ERROR;
+  }
+
   const auto [version, uefiVarSize, requiredSize, headerOffset] = getRequestInfo(requestUefi.get());
 
 #ifdef MP_VERIFY_UEFI_VERSION_READ
@@ -169,6 +160,16 @@ MpResult MPUefi::getRequestType(MpRequestType& type)
     return MP_UEFI_INTERNAL_ERROR;
   }
 #endif
+  // Ensure the buffer is large enough to contain a full GUID at headerOffset.
+  // varSize is BIOS-controlled and may be smaller than GUID_SIZE even when
+  // varDataSize == requiredSize, which would cause an over-read below.
+  if (varDataSize < headerOffset + GUID_SIZE)
+  {
+    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRequestType: SgxRegistrationServerRequest UEFI variable too small to contain GUID.\n");
+    type = MP_REQ_NONE;
+    return MP_UEFI_INTERNAL_ERROR;
+  }
+
   const uint8_t *guidPtr = requestUefi.get() + headerOffset;
 
   // TODO:
@@ -222,6 +223,15 @@ MpResult MPUefi::getRequest(uint8_t *request, uint32_t &requestSize)
   if(!requestUefi)
     return MP_NO_PENDING_DATA;
 
+  // Ensure the buffer is large enough for getRequestInfo() to safely parse
+  // both the version field (uint16_t) and the widest size field (uint32_t for
+  // V3).  All three fields are at fixed offsets 0-5 in the raw UEFI variable.
+  if (varDataSize < sizeof(UefiVersion) + sizeof(S3mUefiSize))
+  {
+    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRequest: SgxRegistrationServerRequest UEFI variable is too small to parse header.\n");
+    return MP_UEFI_INTERNAL_ERROR;
+  }
+
   const auto [version, uefiVarSize, requiredSize, headerOffset] = getRequestInfo(requestUefi.get());
 
 #ifdef MP_VERIFY_UEFI_VERSION_READ
@@ -257,6 +267,17 @@ MpResult MPUefi::getRequest(uint8_t *request, uint32_t &requestSize)
       return MP_USER_INSUFFICIENT_MEM;
     }
 
+    // Unconditional bound check: headerOffset + uefiVarSize must not exceed
+    // the allocation.  Use an overflow-safe form to guard against a crafted
+    // uefiVarSize that would wrap on 32-bit builds.
+    // The MP_VERIFY_UEFI_STRUCT_READ guard above already enforces this when
+    // enabled, but add a hard stop for defense-in-depth.
+    if (headerOffset > varDataSize || static_cast<size_t>(uefiVarSize) > varDataSize - headerOffset)
+    {
+      uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRequest: UEFI variable payload overruns allocated buffer.\n");
+      return MP_UEFI_INTERNAL_ERROR;
+    }
+
     requestSize = uefiVarSize;
     std::memcpy(request, requestUefi.get() + headerOffset, uefiVarSize);
   }
@@ -267,74 +288,113 @@ MpResult MPUefi::getRequest(uint8_t *request, uint32_t &requestSize)
 MpResult MPUefi::setServerResponse(const uint8_t *response, const uint16_t &size) {
     MpResult res = MP_SUCCESS;
 
-    // FIXME: below is UB in C++ due to strict aliasing rule
-    // buffer should be define with alignas(SgxUefiVar)
-    // then responseUefi should be placement new with such buffer
-    // OR
-    // we parse bytes into structure like we do in getRequest or getRequestType
-    alignas(alignof(SgxUefiVar)) uint8_t responseBuff[MAX_RESPONSE_SIZE + sizeof(SgxUefiVar) - sizeof(StructureHeader)];
-    SgxUefiVar *responseUefi = reinterpret_cast<SgxUefiVar*>(responseBuff);
+    // On-wire layout of the SgxRegistrationServerResponse UEFI variable:
+    //   [version : uint16_t LE][size : uint16_t LE][payload : `size` bytes]
+    // The payload is `size` bytes of back-to-back PlatformMembershipCertificates.
+    // We serialize directly into a byte buffer (mirroring how getRequest /
+    // getRequestType parse bytes) instead of overlaying an SgxUefiVar on raw
+    // storage. This avoids both the strict-aliasing UB of the previous
+    // reinterpret_cast<SgxUefiVar*> and the flexible-array write past the struct.
+    constexpr size_t HEADER_SIZE = sizeof(UefiVersion) + sizeof(UefiSize);
+    uint8_t responseBuff[HEADER_SIZE + MAX_RESPONSE_SIZE];
 
     do {
         if (NULL == response || 0 == size) {
             res = MP_INVALID_PARAMETER;
             break;
         }
-        // zero response uefi structure
-        memset(responseUefi, 0, sizeof(SgxUefiVar));
-
-        responseUefi->version = MP_BIOS_UEFI_VARIABLE_VERSION_1;
-        responseUefi->size = size;
-
-        // copy certs to uefi structure
-        memcpy(&(responseUefi->header), response, size);
-
-#if MP_VERIFY_INTERNAL_DATA_STRUCT_WRITE == 1
-        // verify PlatformMembershipCertificate response size
-        if (0 != size % sizeof(PlatformMembershipCertificate)) {
-            uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: response size check failed. response should contain PlatformMembershipCertificates, reponse size: %d, PlatformMembershipCertificate size: %d\n", size, sizeof(PlatformMembershipCertificate));
+        // Bound the caller-supplied length against the fixed-size buffer below
+        // before any byte is copied into it. Without this, a uint16_t size
+        // greater than MAX_RESPONSE_SIZE would let the memcpy() below overrun
+        // responseBuff.
+        if (size > MAX_RESPONSE_SIZE) {
+            uefi_log_message(MP_REG_LOG_LEVEL_ERROR,
+                "setServerResponse: response size %u exceeds MAX_RESPONSE_SIZE %u.\n",
+                static_cast<unsigned>(size), static_cast<unsigned>(MAX_RESPONSE_SIZE));
             res = MP_INVALID_PARAMETER;
             break;
         }
 
-        // verify platform membership structure
-        for (size_t i = 0; i < size / sizeof(PlatformMembershipCertificate); i++) {
-            const PlatformMembershipCertificate *certs = (const PlatformMembershipCertificate *)response;
-            // structure version check
-            if (MP_STRUCTURE_VERSION != certs[i].header.version) {
-                uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: version check failed on cert %d, version number: %d\n", i, certs[i].header.version);
-                res = MP_INVALID_PARAMETER;
-                break;
-            }
+        // verify response contains at least one StructureHeader and is fully consumed by
+        // walking variable-length PlatformMembership cert entries
+        if (size < sizeof(StructureHeader)) {
+            uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: response too small to contain a StructureHeader, size: %d\n", size);
+            res = MP_INVALID_PARAMETER;
+            break;
+        }
 
-            if ((0 != memcmp(certs[i].header.guid, PlatformMemberShip_GUID, GUID_SIZE)) ||
-                (certs[i].header.size != (sizeof(certs[i]) - sizeof(certs[i].header)))) {
+        {
+            size_t offset = 0;
+            size_t certIndex = 0;
+            while (offset < size) {
+                if (size - offset < sizeof(StructureHeader)) {
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: truncated StructureHeader at offset %zu (cert %zu)\n", offset, certIndex);
+                    res = MP_INVALID_PARAMETER;
+                    break;
+                }
+                StructureHeader hdr;
+                memcpy(&hdr, response + offset, sizeof(StructureHeader));
 
-                uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: PlatformMemberShip structure is invalid.\n");
-                uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: i: %d, certs[i].header.size: %d, sizeof(certs[i]): %d, sizeof(certs[i].header): %d\n",
-                    i, certs[i].header.size, sizeof(certs[i]), sizeof(certs[i].header));
+                if (hdr.version != MP_STRUCTURE_VERSION) {
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: version check failed on cert %zu, version: %d\n", certIndex, hdr.version);
+                    res = MP_INVALID_PARAMETER;
+                    break;
+                }
 
-                const uint8_t* actual = certs[i].header.guid;
-                const uint8_t* expected = PlatformMemberShip_GUID;
-                uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: actual PlatformMemberShip_GUID:\n");
-                uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX\n",
-                    actual[0], actual[1], actual[2], actual[3], actual[4], actual[5],
-                    actual[6], actual[7], actual[8], actual[9], actual[10], actual[11],
-                    actual[12], actual[13], actual[14], actual[15]);
-                uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: expected PlatformMemberShip_GUID:\n");
-                uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX\n",
-                    expected[0], expected[1], expected[2], expected[3], expected[4], expected[5],
-                    expected[6], expected[7], expected[8], expected[9], expected[10], expected[11],
-                    expected[12], expected[13], expected[14], expected[15]);
+                // UefiVar.h: reserved bytes "Must be Zero"
+                static const uint8_t zeroes[sizeof(hdr.reserved)] = {};
+                if (0 != memcmp(hdr.reserved, zeroes, sizeof(hdr.reserved))) {
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: non-zero reserved bytes in cert %zu\n", certIndex);
+                    res = MP_INVALID_PARAMETER;
+                    break;
+                }
 
-                res = MP_INVALID_PARAMETER;
-                break;
+                if (0 != memcmp(hdr.guid, PlatformMemberShip_GUID, GUID_SIZE)) {
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: GUID mismatch on cert %zu\n", certIndex);
+                    const uint8_t* actual = hdr.guid;
+                    const uint8_t* expected = PlatformMemberShip_GUID;
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: actual GUID:\n");
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX\n",
+                        actual[0], actual[1], actual[2], actual[3], actual[4], actual[5],
+                        actual[6], actual[7], actual[8], actual[9], actual[10], actual[11],
+                        actual[12], actual[13], actual[14], actual[15]);
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: expected GUID:\n");
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX\n",
+                        expected[0], expected[1], expected[2], expected[3], expected[4], expected[5],
+                        expected[6], expected[7], expected[8], expected[9], expected[10], expected[11],
+                        expected[12], expected[13], expected[14], expected[15]);
+                    res = MP_INVALID_PARAMETER;
+                    break;
+                }
+
+                // advance past this cert entry (header + payload declared in header.size)
+                // hdr.size is uint16_t so sizeof(StructureHeader)+hdr.size cannot overflow size_t
+                const size_t certSize = sizeof(StructureHeader) + hdr.size;
+                if (size - offset < certSize) {
+                    uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: cert %zu declares header.size %d which exceeds remaining buffer\n", certIndex, hdr.size);
+                    res = MP_INVALID_PARAMETER;
+                    break;
+                }
+
+                offset += certSize;
+                certIndex++;
             }
         }
-#endif
-        // write certs to uefi: for the UEFI variable, it has one 4 bytes header: 2 bytes for version, 2 bytes for size
-        int numOfBytes = m_uefi->writeUEFIVar(UEFI_VAR_SERVER_RESPONSE, (const uint8_t*)(responseUefi), responseUefi->size + 4, true);
-        if (numOfBytes != responseUefi->size + 4) {
+        if (MP_SUCCESS != res) {
+            break;
+        }
+
+        // structural validation passed: serialize header + payload into the flat
+        // byte buffer: [version LE][size LE][certs...]. Using writeBytesLE instead
+        // of overlaying an SgxUefiVar avoids the strict-aliasing UB and the
+        // flexible-array write past the struct.
+        writeBytesLE<UefiVersion>(responseBuff, MP_BIOS_UEFI_VARIABLE_VERSION_1, 0);
+        writeBytesLE<UefiSize>(responseBuff, static_cast<UefiSize>(size), sizeof(UefiVersion));
+        memcpy(responseBuff + HEADER_SIZE, response, size);
+
+        const size_t totalSize = HEADER_SIZE + size;
+        int numOfBytes = m_uefi->writeUEFIVar(UEFI_VAR_SERVER_RESPONSE, responseBuff, totalSize, true);
+        if (numOfBytes != static_cast<int>(totalSize)) {
             uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "setServerResponse: failed to write uefi variable.\n");
             res = MP_UEFI_INTERNAL_ERROR;
             break;
@@ -354,6 +414,13 @@ MpResult MPUefi::getKeyBlobs(uint8_t *blobs, uint16_t &blobsSize) {
         if (packageInfoUefi == 0) {
             uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getKeyBlobs: SgxRegistrationPackageInfo UEFI variable was not found. error: %d\n", errno);
             res = MP_NO_PENDING_DATA;
+            break;
+        }
+
+        if (varDataSize < offsetof(SgxUefiVar, header)) {
+            uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getKeyBlobs: UEFI variable too small: %zu bytes, expected at least %zu\n",
+                varDataSize, offsetof(SgxUefiVar, header));
+            res = MP_UEFI_INTERNAL_ERROR;
             break;
         }
 
@@ -500,9 +567,30 @@ MpResult MPUefi::getRegistrationServerInfo(uint16_t &flags, std::string &serverA
             break;
         }
 
+        if (varDataSize < offsetof(ConfigurationUEFI, url)) {
+            uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRegistrationServerInfo: UEFI variable too small: %zu bytes, expected at least %zu\n",
+                varDataSize, offsetof(ConfigurationUEFI, url));
+            res = MP_UEFI_INTERNAL_ERROR;
+            break;
+        }
+
         if (configurationUefi->urlSize > MAX_URL_SIZE) {
             uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRegistrationServerInfo: URL size in UEFI variable is invalid, urlSize: %d, MAX_URL_SIZE: %d\n",
                 configurationUefi->urlSize, MAX_URL_SIZE);
+            res = MP_UEFI_INTERNAL_ERROR;
+            break;
+        }
+
+        if (varDataSize < offsetof(ConfigurationUEFI, url) + configurationUefi->urlSize) {
+            uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRegistrationServerInfo: UEFI variable too small for URL: %zu bytes, need %zu\n",
+                varDataSize, offsetof(ConfigurationUEFI, url) + configurationUefi->urlSize);
+            res = MP_UEFI_INTERNAL_ERROR;
+            break;
+        }
+
+        if (varDataSize < offsetof(ConfigurationUEFI, headerId) + sizeof(StructureHeader)) {
+            uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRegistrationServerInfo: UEFI variable too small for headerId: %zu bytes, need %zu\n",
+                varDataSize, offsetof(ConfigurationUEFI, headerId) + sizeof(StructureHeader));
             res = MP_UEFI_INTERNAL_ERROR;
             break;
         }
@@ -537,7 +625,36 @@ MpResult MPUefi::getRegistrationServerInfo(uint16_t &flags, std::string &serverA
         flags = configurationUefi->flags;
         serverAddress = std::string((const char*)configurationUefi->url, (size_t)configurationUefi->urlSize);
 
-        requiredSize = (uint16_t)(configurationUefi->headerId.size + (uint16_t)sizeof(configurationUefi->headerId));
+        // The headerId structure is followed by a variable-length trailer whose
+        // length is taken from configurationUefi->headerId.size, which is read
+        // straight from the UEFI variable backing store. Make sure the fixed
+        // headerId struct itself is fully contained in the buffer returned by
+        // readUEFIVar() before dereferencing any of its fields, then bound
+        // the trailer against the remaining buffer so a malformed UEFI
+        // variable cannot make the memcpy() below read past the heap
+        // allocation, and refuse sizes that cannot be reported back through
+        // the uint16_t serverIdSize out-parameter.
+        {
+            const size_t headerIdOffset = offsetof(ConfigurationUEFI, headerId);
+            if (varDataSize < headerIdOffset + sizeof(configurationUefi->headerId)) {
+                uefi_log_message(MP_REG_LOG_LEVEL_ERROR,
+                    "getRegistrationServerInfo: UEFI variable data size %zu is too small to contain headerId.\n",
+                    varDataSize);
+                res = MP_UEFI_INTERNAL_ERROR;
+                break;
+            }
+            const size_t fullIdSize =
+                (size_t)configurationUefi->headerId.size + sizeof(configurationUefi->headerId);
+            if (fullIdSize > varDataSize - headerIdOffset ||
+                fullIdSize > UINT16_MAX) {
+                uefi_log_message(MP_REG_LOG_LEVEL_ERROR,
+                    "getRegistrationServerInfo: headerId trailer length %u is inconsistent with UEFI variable data size %zu.\n",
+                    configurationUefi->headerId.size, varDataSize);
+                res = MP_UEFI_INTERNAL_ERROR;
+                break;
+            }
+            requiredSize = (uint16_t)fullIdSize;
+        }
         if (serverId) {
             if (serverIdSize < requiredSize) {
                 uefi_log_message(MP_REG_LOG_LEVEL_ERROR, "getRegistrationServerInfo: Request buffer too small for pending request, given size: %d, actual size: %d.\n",

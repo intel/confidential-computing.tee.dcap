@@ -67,6 +67,7 @@ typedef enum _qgs_msg_type_t {
     GET_COLLATERAL_RESP = 3,
     GET_PLATFORM_INFO_REQ = 4,
     GET_PLATFORM_INFO_RESP = 5,
+    GET_QUOTE_MIG_REQ = 6,
     QGS_MSG_TYPE_MAX
 } qgs_msg_type_t;
 
@@ -84,6 +85,14 @@ typedef struct _qgs_msg_get_quote_req_t {
     uint32_t id_list_size;      // length of id_list, in byte, can be 0
     uint8_t report_id_list[];   // report followed by id list
 } qgs_msg_get_quote_req_t;
+
+typedef struct _qgs_msg_get_quote_mig_req_t {
+    qgs_msg_header_t header;    // header.type = GET_QUOTE_MIG_REQ
+    uint32_t report_size;       // cannot be 0
+    uint32_t servtd_ext_size;   // must be sizeof(tdx_servtd_ext_t)
+    uint32_t id_list_size;      // length of id_list, in byte, can be 0
+    uint8_t report_servtd_ext_id_list[]; // report followed by servtd_ext followed by id list
+} qgs_msg_get_quote_mig_req_t;
 
 typedef struct _qgs_msg_get_quote_resp_s {
     qgs_msg_header_t header;    // header.type = GET_QUOTE_RESP
@@ -137,6 +146,11 @@ qgs_msg_error_t qgs_msg_gen_get_quote_req(
     const uint8_t *p_report, uint32_t report_size,
     const uint8_t *p_id_list, uint32_t id_list_size,
     uint8_t **pp_req, uint32_t *p_req_size);
+qgs_msg_error_t qgs_msg_gen_get_quote_mig_req(
+    const uint8_t *p_report, uint32_t report_size,
+    const uint8_t *p_servtd_ext, uint32_t servtd_ext_size,
+    const uint8_t *p_id_list, uint32_t id_list_size,
+    uint8_t **pp_req, uint32_t *p_req_size);
 qgs_msg_error_t qgs_msg_gen_get_collateral_req(
     const uint8_t *p_fsmpc, uint32_t fsmpc_size,
     const uint8_t *p_pckca, uint32_t pckca_size,
@@ -145,6 +159,11 @@ qgs_msg_error_t qgs_msg_gen_get_collateral_req(
 qgs_msg_error_t qgs_msg_inflate_get_quote_req(
     const uint8_t *p_serialized_req, uint32_t size,
     const uint8_t **pp_report, uint32_t *p_report_size,
+    const uint8_t **pp_id_list, uint32_t *p_id_list_size);
+qgs_msg_error_t qgs_msg_inflate_get_quote_mig_req(
+    const uint8_t *p_serialized_req, uint32_t size,
+    const uint8_t **pp_report, uint32_t *p_report_size,
+    const uint8_t **pp_servtd_ext, uint32_t *p_servtd_ext_size,
     const uint8_t **pp_id_list, uint32_t *p_id_list_size);
 qgs_msg_error_t qgs_msg_inflate_get_collateral_req(
     const uint8_t *p_serialized_req, uint32_t size,

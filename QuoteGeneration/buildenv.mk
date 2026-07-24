@@ -227,16 +227,51 @@ ENCLAVE_LDFLAGS  = $(COMMON_LDFLAGS) -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefi
                    -Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
                    -Wl,--defsym,__ImageBase=0
 
+#
 # --- ServTD Attestation: SDK source resolution ---
-# Default: nested at <SDK_ROOT>/external/dcap_source.
-# Override: SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH=<path> for a separate SDK checkout.
-SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH ?= $(ROOT_DIR)/../../..
-# Validate that the resolved SDK root actually looks like an SDK checkout
+#
+# SERVTD_ATTEST_SGX_REPO_ROOT_PATH points at the SGX repo root. This DCAP repo is
+# normally nested there at <SGX_repo>/external/dcap_source, hence ../../.. .
+# Historically the SGX SDK lived inside that repo as a plain sdk/ directory; it is
+# now a git submodule, so it may be absent until initialized.
+#
+# SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH is the resolved SGX SDK source tree we build
+# against. It defaults to <SGX_repo>/sdk but can be overridden to point at a
+# standalone SDK checkout (in which case SERVTD_ATTEST_SGX_REPO_ROOT_PATH is unused).
+SERVTD_ATTEST_SGX_REPO_ROOT_PATH ?= $(ROOT_DIR)/../../..
+SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH ?= $(SERVTD_ATTEST_SGX_REPO_ROOT_PATH)/sdk
+
+# Layout heuristics (return the path on match, empty otherwise). They probe at
+# DIFFERENT depths on purpose:
+#  - servtd_is_sdk asks "is this a *usable* SDK source tree?", so it probes deep
+#    into content that only exists once the tree is populated.
+#  - servtd_is_sgx_repo asks "is this the SGX super-repo container?", so it probes
+#    shallow: the bare presence of the sdk/ and psw/ entries.
+servtd_is_sdk = $(if $(and $(wildcard $(1)/common/inc),$(wildcard $(1)/sdk/tlibcxx)),$(1))
+servtd_is_sgx_repo = $(if $(and $(wildcard $(1)/sdk),$(wildcard $(1)/psw)),$(1))
+
+# Resolve and validate the SDK source location.
 ifdef SERVTD_ATTEST
 ifeq ($(filter clean,$(MAKECMDGOALS)),)
-ifeq ($(and $(wildcard $(abspath $(SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH))/sdk),$(wildcard $(abspath $(SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH))/common/inc)),)
-    $(error servtd_attest: SGX SDK source not found at $(SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH) (=$(abspath $(SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH))). To build in SERVTD_ATTEST mode, please ensure this (DCAP) repo is nested within the SGX one at <SGX_source_path>/external/dcap_source (cloned as a submodule within the SGX SDK) or set SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH=<SGX_source_path>)
+
+# 1) If the configured SDK path already looks like a real SDK, use it as-is.
+ifeq ($(call servtd_is_sdk,$(abspath $(SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH))),)
+
+    # 2) Otherwise the SGX repo root must at least look like a real SGX repo.
+    ifeq ($(call servtd_is_sgx_repo,$(abspath $(SERVTD_ATTEST_SGX_REPO_ROOT_PATH))),)
+        $(error servtd_attest: SGX SDK source not found at $(SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH) (=$(abspath $(SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH))). To build in SERVTD_ATTEST mode, ensure this (DCAP) repo is nested within the SGX repo at <SGX_repo>/external/dcap_source and that the SGX SDK sources are available at <SGX_repo>/sdk (submodule initialized), or set SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH=<SGX_SDK_source_path>)
+
+    # 3) The SGX repo's sdk/ submodule, if initialized, is the SDK we want.
+    else ifneq ($(call servtd_is_sdk,$(abspath $(SERVTD_ATTEST_SGX_REPO_ROOT_PATH)/sdk)),)
+        override SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH := $(SERVTD_ATTEST_SGX_REPO_ROOT_PATH)/sdk
+
+    # 4) SGX repo is present but its SDK submodule has not been initialized yet.
+    else
+        $(error servtd_attest: SGX SDK submodule not initialized at $(abspath $(SERVTD_ATTEST_SGX_REPO_ROOT_PATH)/sdk). Please run 'make servtd_attest_preparation' in $(abspath $(SERVTD_ATTEST_SGX_REPO_ROOT_PATH)) to fetch the SGX SDK submodule, or set SERVTD_ATTEST_LINUX_TRUNK_ROOT_PATH=<SGX_SDK_source_path> if using detached SDK source.)
+    endif
+
 endif
+
 endif
 endif
 # Now resolve to absolute for all downstream use

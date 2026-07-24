@@ -22,11 +22,22 @@ extern "C"
 #define UNUSED_PARAM(x) (void)(x)
 #endif
 
+	// In SERVTD_ATTEST context there are no real enclaves. The servtd runtime
+	// reuses enclave-targeted libraries that rely on these boundary checks.
+	// sgx_is_within_enclave() returns 1 to satisfy existing callers, and
+	// sgx_is_outside_enclave() must return 0 to remain logically consistent
+	// (memory cannot be both within and outside the enclave simultaneously).
 	int sgx_is_within_enclave(const void *addr, size_t sz)   //qve.cpp
 	{
 		UNUSED_PARAM(addr);
 		UNUSED_PARAM(sz);
 		return 1;
+	}
+	int sgx_is_outside_enclave(const void *addr, size_t sz)   //libservtd_attest.a(memcpy.o)
+	{
+		UNUSED_PARAM(addr);
+		UNUSED_PARAM(sz);
+		return 0;
 	}
 	uint64_t g_cpu_feature_indicator = 0;
 

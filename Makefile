@@ -7,20 +7,19 @@
 CUR_MKFILE:= $(lastword $(MAKEFILE_LIST))
 TOPDIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 
+include $(TOPDIR)/QuoteGeneration/version.mk
+
 ifeq ($(BUILD_SAMPLECODE), 1)
 # Avoid parallel build for SGXPlatformRegistration to avoid build conflicts when ThirdParty target (from other Makefile(s))
 .NOTPARALLEL: SGXPlatformRegistration PckClientTool SampleCode
-.PHONY: all clean rebuild QuoteGeneration QuoteVerification PCKCertSelection PCKRetrievalTool SGXPlatformRegistration PckClientTool WinPle WinPleIntel SampleCode
-all: QuoteGeneration QuoteVerification PCKCertSelection PCKRetrievalTool SGXPlatformRegistration PckClientTool WinPle WinPleIntel ThirdParty SampleCode
+.PHONY: all clean rebuild QuoteGeneration QuoteVerification PCKCertSelection PCKRetrievalTool SGXPlatformRegistration PckClientTool WinPle WinPleIntel SampleCode PoeTools
+all: QuoteGeneration QuoteVerification PCKCertSelection PCKRetrievalTool SGXPlatformRegistration PckClientTool WinPle WinPleIntel ThirdParty SampleCode PoeTools
 else
 # Avoid parallel build for SGXPlatformRegistration to avoid build conflicts when ThirdParty target (from other Makefile(s))
 .NOTPARALLEL: SGXPlatformRegistration PckClientTool
-.PHONY: all clean rebuild QuoteGeneration QuoteVerification PCKCertSelection PCKRetrievalTool SGXPlatformRegistration PckClientTool WinPle WinPleIntel
-all: QuoteGeneration QuoteVerification PCKCertSelection PCKRetrievalTool SGXPlatformRegistration PckClientTool WinPle WinPleIntel ThirdParty
+.PHONY: all clean rebuild QuoteGeneration QuoteVerification PCKCertSelection PCKRetrievalTool SGXPlatformRegistration PckClientTool WinPle WinPleIntel PoeTools
+all: QuoteGeneration QuoteVerification PCKCertSelection PCKRetrievalTool SGXPlatformRegistration PckClientTool WinPle WinPleIntel ThirdParty PoeTools
 endif
-
-.PHONY: all clean rebuild QuoteGeneration QuoteVerification PCKCertSelection PCKRetrievalTool SGXPlatformRegistration PckClientTool WinPle WinPleIntel
-all: QuoteGeneration QuoteVerification PCKCertSelection PCKRetrievalTool SGXPlatformRegistration PckClientTool WinPle WinPleIntel ThirdParty
 
 ThirdParty:
 	+$(MAKE) -C external
@@ -43,6 +42,16 @@ SGXPlatformRegistration: ThirdParty
 PckClientTool:
 	+$(MAKE) -C tools/PcsClientTool
 
+PoeTools:
+	+$(MAKE) -C tools/PoeTools POE_VERSION=$(DCAP_VER)
+
+.PHONY: PoeTools_deb PoeTools_rpm
+PoeTools_deb:
+	+$(MAKE) -C tools/PoeTools deb POE_VERSION=$(DCAP_VER)
+
+PoeTools_rpm:
+	+$(MAKE) -C tools/PoeTools rpm POE_VERSION=$(DCAP_VER)
+
 WinPle:
 	+$(MAKE) -C driver/win/PLE
 
@@ -61,6 +70,7 @@ clean:
 	+$(MAKE) -C tools/PCKRetrievalTool clean
 	+$(MAKE) -C tools/SGXPlatformRegistration clean
 	+$(MAKE) -C tools/PcsClientTool clean
+	+$(MAKE) -C tools/PoeTools clean
 	+$(MAKE) -C driver/win/PLE clean
 	+$(MAKE) -C driver/win/PLE INTEL_SIGNED=1 clean
 

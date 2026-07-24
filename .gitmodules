@@ -5,7 +5,7 @@
 [submodule "external/wasm-micro-runtime"]
 	path = external/wasm-micro-runtime
 	url = https://github.com/bytecodealliance/wasm-micro-runtime.git
-	branch = main
+	branch = release/2.4.x
 [submodule "external/jwt-cpp"]
 	path = external/jwt-cpp
 	url = https://github.com/Thalhammer/jwt-cpp.git
@@ -20,4 +20,8 @@
 [submodule "QuoteGeneration/pccs"]
 	path = QuoteGeneration/pccs
 	url = ../confidential-computing.tee.dcap.pccs.git
+	branch = .
+[submodule "tools/PoeTools"]
+	path = tools/PoeTools
+	url = ../confidential-computing.tee.dcap.poe.git
 	branch = .

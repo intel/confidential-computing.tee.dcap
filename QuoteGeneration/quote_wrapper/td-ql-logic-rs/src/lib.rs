@@ -110,8 +110,14 @@ pub fn tee_att_create_context(
     }
 }
 
-pub fn tee_att_free_context(context: *mut tee_att_config_t) -> tee_att_error_t {
-    unsafe { td_ql_logic_sys::tee_att_free_context(context) }
+/// # Safety
+///
+/// `context` must be either null or a pointer previously returned by
+/// [`tee_att_create_context`] that has not yet been freed. Passing any
+/// other value (dangling pointer, double-free, foreign allocation) is
+/// undefined behavior.
+pub unsafe fn tee_att_free_context(context: *mut tee_att_config_t) -> tee_att_error_t {
+    td_ql_logic_sys::tee_att_free_context(context)
 }
 
 /// # Parameters
@@ -121,15 +127,20 @@ pub fn tee_att_free_context(context: *mut tee_att_config_t) -> tee_att_error_t {
 ///
 /// # Panics
 ///
-/// This function could panic if `buf_len` is less than or equal to 0.
+/// This function could panic if the FFI reports a zero-length
+/// `buf_len` for the public-key buffer.
 ///
-pub fn tee_att_init_quote(
+/// # Safety
+///
+/// `context` must be a valid, live pointer previously returned by
+/// [`tee_att_create_context`].
+pub unsafe fn tee_att_init_quote(
     context: *mut tee_att_config_t,
     refresh_att_key: bool,
 ) -> Result<(Vec<u8>, sgx_target_info_t), tee_att_error_t> {
-    let mut qe_target: sgx_target_info_t = unsafe { MaybeUninit::zeroed().assume_init() };
+    let mut qe_target: sgx_target_info_t = MaybeUninit::zeroed().assume_init();
     let mut buf_len = 0;
-    unsafe {
+    {
         let result = td_ql_logic_sys::tee_att_init_quote(
             context,
             &mut qe_target,
@@ -161,13 +172,20 @@ pub fn tee_att_init_quote(
 /// # Parameters
 ///
 /// * `context`: A mutable pointer to a `tee_att_config_t` object.
-/// * `refresh_att_key`: A boolean value indicating whether to refresh the attestation key.
+/// * `report`: The 1024-byte TDX report to be quoted. The slice length
+///   must be exactly 1024; any other length returns
+///   `TEE_ATT_ERROR_INVALID_PARAMETER`.
 ///
 /// # Panics
 ///
-/// This function could panic if `buf_len` is less than or equal to 0.
+/// This function could panic if the FFI reports a zero-length
+/// `buf_len` for the quote buffer.
 ///
-pub fn tee_att_get_quote(
+/// # Safety
+///
+/// `context` must be a valid, live pointer previously returned by
+/// [`tee_att_create_context`].
+pub unsafe fn tee_att_get_quote(
     context: *mut tee_att_config_t,
     report: &[u8],
 ) -> Result<Vec<u8>, tee_att_error_t> {
@@ -175,7 +193,7 @@ pub fn tee_att_get_quote(
     if report.len() != 1024 {
         return Err(tee_att_error_t::TEE_ATT_ERROR_INVALID_PARAMETER);
     }
-    unsafe {
+    {
         let result = td_ql_logic_sys::tee_att_get_quote_size(context, &mut buf_len);
         match result {
             tee_att_error_t::TEE_ATT_SUCCESS => {
@@ -207,11 +225,15 @@ pub fn tee_att_get_quote(
 ///
 /// This function does not have any scenarios in which it could panic.
 ///
-pub fn tee_att_get_keyid(
+/// # Safety
+///
+/// `context` must be a valid, live pointer previously returned by
+/// [`tee_att_create_context`].
+pub unsafe fn tee_att_get_keyid(
     context: *mut tee_att_config_t,
 ) -> Result<tee_att_att_key_id_t, tee_att_error_t> {
-    let mut buf: tee_att_att_key_id_t = unsafe { MaybeUninit::zeroed().assume_init() };
-    unsafe {
+    let mut buf: tee_att_att_key_id_t = MaybeUninit::zeroed().assume_init();
+    {
         let result = td_ql_logic_sys::tee_att_get_keyid(context, &mut buf);
         match result {
             tee_att_error_t::TEE_ATT_SUCCESS => Ok(buf),
@@ -228,11 +250,15 @@ pub fn tee_att_get_keyid(
 ///
 /// This function does not have any scenarios in which it could panic.
 ///
-pub fn tee_att_get_platform_info(
+/// # Safety
+///
+/// `context` must be a valid, live pointer previously returned by
+/// [`tee_att_create_context`].
+pub unsafe fn tee_att_get_platform_info(
     context: *mut tee_att_config_t,
 ) -> Result<tee_platform_info_t, tee_att_error_t> {
-    let mut buf: tee_platform_info_t = unsafe { MaybeUninit::zeroed().assume_init() };
-    unsafe {
+    let mut buf: tee_platform_info_t = MaybeUninit::zeroed().assume_init();
+    {
         let result = td_ql_logic_sys::tee_att_get_platform_info(context, &mut buf);
         match result {
             tee_att_error_t::TEE_ATT_SUCCESS => Ok(buf),
@@ -251,15 +277,19 @@ pub fn tee_att_get_platform_info(
 ///
 /// This function does not have any scenarios in which it could panic.
 ///
-pub fn tee_att_set_path(
+/// # Safety
+///
+/// `context` must be a valid, live pointer previously returned by
+/// [`tee_att_create_context`].
+pub unsafe fn tee_att_set_path(
     context: *mut tee_att_config_t,
     ae_type: tee_att_ae_type_t,
     path: &str,
 ) -> tee_att_error_t {
     match std::ffi::CString::new(path) {
-        Ok(path) => unsafe {
+        Ok(path) => {
             td_ql_logic_sys::tee_att_set_path(context, ae_type, path.as_ptr() as *const i8)
-        },
+        }
         _ => tee_att_error_t::TEE_ATT_ERROR_INVALID_PARAMETER,
     }
 }
@@ -274,13 +304,17 @@ pub fn tee_att_set_path(
 ///
 /// This function does not have any scenarios in which it could panic.
 ///
-pub fn tee_att_set_logging_callback(
+/// # Safety
+///
+/// `context` must be a valid, live pointer previously returned by
+/// [`tee_att_create_context`].
+pub unsafe fn tee_att_set_logging_callback(
     context: *mut tee_att_config_t,
     cb: qpl_rs::tee_qpl_logging_callback,
     loglevel: qpl_rs::tee_qpl_log_level,
 ) -> tee_att_error_t {
     let mut qpl_handle: *mut std::ffi::c_void = std::ptr::null_mut();
-    unsafe {
+    {
         let result = td_ql_logic_sys::tee_att_get_qpl_handle(context, &mut qpl_handle);
         match result {
             tee_att_error_t::TEE_ATT_SUCCESS => {
@@ -324,7 +358,7 @@ mod tests {
             }
             Err(_e) => panic!("tee_att_create_context failed"),
         };
-        let result = tee_att_get_keyid(context);
+        let result = unsafe { tee_att_get_keyid(context) };
         let _key_id = match result {
             Ok(k) => {
                 println!("tee_att_get_keyid Success");
@@ -332,18 +366,18 @@ mod tests {
             }
             Err(_e) => panic!("tee_att_get_keyid failed"),
         };
-        let result = tee_att_set_path(context, 0, "/lib64/libsgx_tdqe.signed.so.1");
+        let result = unsafe { tee_att_set_path(context, 0, "/lib64/libsgx_tdqe.signed.so.1") };
         match result {
             tee_att_error_t::TEE_ATT_SUCCESS => println!("tee_att_set_path Success"),
             _ => println!("tee_att_set_path failed"),
         }
         let cb: tee_qpl_logging_callback = Some(my_logging_callback);
-        let result = tee_att_set_logging_callback(context, cb, 1);
+        let result = unsafe { tee_att_set_logging_callback(context, cb, 1) };
         match result {
             tee_att_error_t::TEE_ATT_SUCCESS => println!("tee_att_set_logging_callback Success"),
             _ => println!("tee_att_set_logging_callback failed"),
         };
-        let result = tee_att_init_quote(context, false);
+        let result = unsafe { tee_att_init_quote(context, false) };
         let (_pub_key, _qe_target_info) = match result {
             Ok((p, t)) => {
                 println!("tee_att_init_quote Success");
@@ -351,7 +385,7 @@ mod tests {
             }
             Err(_e) => panic!("tee_att_init_quote failed"),
         };
-        let result = tee_att_get_platform_info(context);
+        let result = unsafe { tee_att_get_platform_info(context) };
         let _platform_info = match result {
             Ok(p) => {
                 println!("tee_att_get_platform_info Success");
@@ -366,7 +400,7 @@ mod tests {
         let mut file = File::open("tdreport_for_test.dat").unwrap();
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer).unwrap();
-        let result = tee_att_get_quote(context, &buffer);
+        let result = unsafe { tee_att_get_quote(context, &buffer) };
         match result {
             Ok(_q) => {
                 println!("tee_att_get_quote Success");
@@ -376,6 +410,6 @@ mod tests {
             }
         };
 
-        let _result = tee_att_free_context(context);
+        let _result = unsafe { tee_att_free_context(context) };
     }
 }

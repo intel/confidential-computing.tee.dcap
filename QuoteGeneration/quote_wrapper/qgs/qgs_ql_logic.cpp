@@ -239,6 +239,85 @@ namespace intel { namespace sgx { namespace dcap { namespace qgs {
             }
             break;
         }
+        case GET_QUOTE_MIG_REQ: {
+            uint32_t size = 0;
+
+            const uint8_t *p_report;
+            uint32_t report_size;
+            tdx_servtd_ext_t servtd_ext = {};
+            const uint8_t *p_servtd_ext = NULL;
+            uint32_t servtd_ext_size = 0;
+            const uint8_t *p_id_list;
+            uint32_t id_list_size;
+
+            data_buffer quote_buf;
+
+            qgs_msg_error_ret = qgs_msg_inflate_get_quote_mig_req(p_req,
+                                                                  req_size,
+                                                                  &p_report, &report_size,
+                                                                  &p_servtd_ext, &servtd_ext_size,
+                                                                  &p_id_list, &id_list_size);
+            if (QGS_MSG_SUCCESS != qgs_msg_error_ret) {
+                resp_error_code = QGS_MSG_ERROR_UNEXPECTED;
+                QGS_LOG_ERROR("qgs_msg_inflate_get_quote_mig_req return error\n");
+            } else if (servtd_ext_size != sizeof(servtd_ext)) {
+                resp_error_code = QGS_MSG_ERROR_INVALID_SIZE;
+                QGS_LOG_ERROR("GET_QUOTE_MIG_REQ servtd_ext size mismatch\n");
+            } else {
+                memcpy(&servtd_ext, p_servtd_ext, sizeof(servtd_ext));
+                int retry = 1;
+
+                do {
+                    if (retry == 0) {
+                        sgx_target_info_t qe_target_info;
+                        uint8_t hash[32] = {0};
+                        size_t hash_size = sizeof(hash);
+                        QGS_LOG_INFO("call tee_att_init_quote\n");
+                        tee_att_ret = tee_att_init_quote(ptr.get(), &qe_target_info, true,
+                                                         &hash_size,
+                                                         hash);
+                        if (TEE_ATT_SUCCESS != tee_att_ret) {
+                            resp_error_code = QGS_MSG_ERROR_UNEXPECTED;
+                            QGS_LOG_ERROR("tee_att_init_quote return 0x%x\n", tee_att_ret);
+                        } else {
+                            QGS_LOG_INFO("tee_att_init_quote return Success\n");
+                        }
+                    }
+                    if (TEE_ATT_SUCCESS != (tee_att_ret = tee_att_get_quote_size(ptr.get(), &size))) {
+                        resp_error_code = QGS_MSG_ERROR_UNEXPECTED;
+                        QGS_LOG_ERROR("tee_att_get_quote_size return 0x%x\n", tee_att_ret);
+                    } else {
+                        QGS_LOG_INFO("tee_att_get_quote_size return Success\n");
+                        quote_buf.resize(size);
+                        tee_att_ret = tee_att_get_quote_mig_history(ptr.get(),
+                                                                    p_report,
+                                                                    report_size,
+                                                                    NULL,
+                                                                    quote_buf.data(),
+                                                                    size,
+                                                                    &servtd_ext);
+                        if (TEE_ATT_SUCCESS != tee_att_ret) {
+                            resp_error_code = QGS_MSG_ERROR_UNEXPECTED;
+                            QGS_LOG_ERROR("tee_att_get_quote_mig_history return 0x%x\n", tee_att_ret);
+                        } else {
+                            resp_error_code = QGS_MSG_SUCCESS;
+                            QGS_LOG_INFO("tee_att_get_quote_mig_history return Success\n");
+                        }
+                    }
+                } while (TEE_ATT_ATT_KEY_NOT_INITIALIZED == tee_att_ret && retry--);
+            }
+            if (resp_error_code == QGS_MSG_SUCCESS) {
+                qgs_msg_error_ret = qgs_msg_gen_get_quote_resp(NULL, 0, quote_buf.data(), size, &p_resp, &resp_size);
+            } else {
+                qgs_msg_error_ret = qgs_msg_gen_error_resp(resp_error_code, GET_QUOTE_RESP, &p_resp, &resp_size);
+            }
+            if (QGS_MSG_SUCCESS != qgs_msg_error_ret) {
+                QGS_LOG_ERROR("call qgs_msg_gen function failed\n");
+                qgs_msg_free(p_resp);
+                return {};
+            }
+            break;
+        }
         case GET_COLLATERAL_REQ: {
             const uint8_t *p_fsmpc;
             uint32_t fsmpc_size;
@@ -254,6 +333,12 @@ namespace intel { namespace sgx { namespace dcap { namespace qgs {
             if (QGS_MSG_SUCCESS != qgs_msg_error_ret || fsmpc_size >= UINT16_MAX) {
                 resp_error_code = QGS_MSG_ERROR_UNEXPECTED;
                 QGS_LOG_ERROR("qgs_msg_inflate_get_collateral_req return error\n");
+            } else if (pckca_size == 0 || ((const char *)p_pckca)[pckca_size - 1] != '\0') {
+                // pck_ca is forwarded to strnlen(pck_ca, USHRT_MAX) in the QPL; reject
+                // any guest-supplied buffer that is not null-terminated within its declared
+                // size to prevent an out-of-bounds heap read on the host.
+                resp_error_code = QGS_MSG_ERROR_UNEXPECTED;
+                QGS_LOG_ERROR("pck_ca is not null-terminated\n");
             } else {
                 do {
                     char *error1 = NULL;
@@ -409,21 +494,24 @@ namespace intel { namespace sgx { namespace dcap { namespace qgs {
         }
 
         if (req_size == sizeof(sgx_report2_t)) {
-            sgx_report2_t * p_report = (sgx_report2_t *)req;
-            if (p_report->report_mac_struct.report_type.type != TEE_REPORT2_TYPE
-                || (p_report->report_mac_struct.report_type.subtype != TEE_REPORT2_SUBTYPE_0
-                    && p_report->report_mac_struct.report_type.subtype != TEE_REPORT2_SUBTYPE_1)
-                || (p_report->report_mac_struct.report_type.version != TEE_REPORT2_VERSION_0
-                    && p_report->report_mac_struct.report_type.version != TEE_REPORT2_VERSION_1
-                    && p_report->report_mac_struct.report_type.version != TEE_REPORT2_VERSION_3)
-                || p_report->report_mac_struct.report_type.reserved != 0
-                || is_any_byte_none_zero(p_report->report_mac_struct.reserved1, SGX_REPORT2_MAC_STRUCT_RESERVED1_BYTES)
-                || is_any_byte_none_zero(p_report->report_mac_struct.reserved2, SGX_REPORT2_MAC_STRUCT_RESERVED2_BYTES)
-                || is_any_byte_none_zero(p_report->reserved, SGX_REPORT2_RESERVED_BYTES)
+            sgx_report2_t report = {};
+            memcpy(&report, req, sizeof(report));
+            const uint8_t *p_report_buf = reinterpret_cast<const uint8_t *>(&report);
+            if (report.report_mac_struct.report_type.type != TEE_REPORT2_TYPE
+                || (report.report_mac_struct.report_type.subtype != TEE_REPORT2_SUBTYPE_0
+                    && report.report_mac_struct.report_type.subtype != TEE_REPORT2_SUBTYPE_1)
+                || (report.report_mac_struct.report_type.version != TEE_REPORT2_VERSION_0
+                    && report.report_mac_struct.report_type.version != TEE_REPORT2_VERSION_1
+                    && report.report_mac_struct.report_type.version != TEE_REPORT2_VERSION_3)
+                || report.report_mac_struct.report_type.reserved != 0
+                || is_any_byte_none_zero(report.report_mac_struct.reserved1, SGX_REPORT2_MAC_STRUCT_RESERVED1_BYTES)
+                || is_any_byte_none_zero(report.report_mac_struct.reserved2, SGX_REPORT2_MAC_STRUCT_RESERVED2_BYTES)
+                || is_any_byte_none_zero(report.reserved, SGX_REPORT2_RESERVED_BYTES)
                 ) {
                 QGS_LOG_ERROR("Not a legimit TD report, stop\n");
                 return {};
             }
+
 
             int retry = 1;
             do {
@@ -448,16 +536,16 @@ namespace intel { namespace sgx { namespace dcap { namespace qgs {
                     QGS_LOG_INFO("tee_att_get_quote_size return Success\n");
                     resp.resize(size);
                     tee_att_ret = tee_att_get_quote(ptr.get(),
-                                                    req,
-                                                    req_size,
+                                                    p_report_buf,
+                                                    sizeof(sgx_report2_t),
                                                     NULL,
                                                     resp.data(),
                                                     size);
                     if (TEE_ATT_SUCCESS != tee_att_ret) {
                         resp.resize(0);
-                        QGS_LOG_ERROR("tee_att_get_quote return 0x%x\n", tee_att_ret);
+                        QGS_LOG_ERROR("tee_att_get_quote raw path return 0x%x\n", tee_att_ret);
                     } else {
-                        QGS_LOG_INFO("tee_att_get_quote return Success\n");
+                        QGS_LOG_INFO("tee_att_get_quote raw path return Success\n");
                     }
                 }
                 // Only retry once when the return code is TEE_ATT_ATT_KEY_NOT_INITIALIZED

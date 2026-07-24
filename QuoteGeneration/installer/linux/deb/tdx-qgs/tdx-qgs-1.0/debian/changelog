@@ -1,5 +1,12 @@
 tdx-qgs (9.9.9.9-1) unstable; urgency=low
 
+  * Release v1.27
+    See https://github.com/intel/confidential-computing.tee.dcap/releases/tag/DCAP_1.27 for full release notes.
+
+ -- Intel Confidential Computing Team <confidential.computing@intel.com>  Fri, 01 Jan 2100 00:00:00 +0000
+
+tdx-qgs (1.26.100.1-all1) unstable; urgency=low
+
   * Release v1.26
     See https://github.com/intel/confidential-computing.tee.dcap/releases/tag/DCAP_1.26 for full release notes.
 
@@ -21,7 +28,7 @@ tdx-qgs (9.9.9.9-1) unstable; urgency=low
     5. Stale socket files from a prior unclean shutdown are automatically cleaned up
        on startup.
 
- -- Intel Confidential Computing Team <confidential.computing@intel.com>  Fri, 01 Jan 2100 00:00:00 +0000
+ -- Intel Confidential Computing Team <confidential.computing@intel.com>  Thu, 30 Apr 2026 00:00:00 +0000
 
 tdx-qgs (1.25.100.1-all1) unstable; urgency=low
 

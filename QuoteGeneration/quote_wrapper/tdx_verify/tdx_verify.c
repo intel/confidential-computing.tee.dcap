@@ -116,12 +116,8 @@ tdx_verify_error_t tdx_att_get_collateral(
         goto ret_point;
     }
 
-    // in_msg_size is the size of serialized response, remove 4bytes header
-    for (unsigned i = 0; i < SERVTD_HEADER_SIZE; ++i) {
-        in_msg_size = in_msg_size * 256 + ((p_blob_payload[i]) & 0xFF);
-    }
-    in_msg_size = (uint32_t)p_get_quote_blob->out_len - SERVTD_HEADER_SIZE;
-
+    /* VMM-authored: upper-bound out_len against the trusted allocation before any
+     * derived arithmetic.  Check status and lower bound first, then upper bound. */
     if (p_get_quote_blob->status
         || p_get_quote_blob->out_len <= SERVTD_HEADER_SIZE) {
         if (GET_QUOTE_IN_FLIGHT == p_get_quote_blob->status) {
@@ -133,6 +129,16 @@ tdx_verify_error_t tdx_att_get_collateral(
         }
         goto ret_point;
     }
+
+    if (p_get_quote_blob->out_len >
+            SERVTD_REQ_BUF_SIZE - sizeof(struct servtd_tdx_quote_hdr)) {
+        ret = TDX_VERIFY_ERROR_UNEXPECTED;
+        goto ret_point;
+    }
+
+    /* Derive in_msg_size from the trusted out_len (not from the VMM-written
+     * 4-byte header which was previously computed and then immediately discarded). */
+    in_msg_size = (uint32_t)p_get_quote_blob->out_len - SERVTD_HEADER_SIZE;
 
     qgs_msg_ret = qgs_msg_inflate_get_collateral_resp(
         p_blob_payload + SERVTD_HEADER_SIZE, in_msg_size,

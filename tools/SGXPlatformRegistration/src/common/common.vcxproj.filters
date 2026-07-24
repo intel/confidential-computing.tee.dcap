@@ -15,6 +15,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="inc\ByteSerialization.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="inc\logger.h">
       <Filter>Header Files</Filter>
     </ClInclude>

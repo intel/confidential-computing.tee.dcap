@@ -11,12 +11,14 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <curl/curl.h>
 #include <fstream>
 #include <algorithm>
 #include <sgx_ql_lib_common.h>
 #include "network_wrapper.h"
+#include "se_memcpy.h"
 #include "utility.h"
 
 using namespace std;
@@ -28,6 +30,7 @@ typedef struct _network_malloc_info_t{
 
 #define MAX_URL_LENGTH  2083
 #define LOCAL_NETWORK_SETTING "network_setting.conf"
+#define HTTP_DOWNLOAD_MAX_SIZE (100 * 1024 * 1024) // HTTP response must not exceed 100 MB
 
 #ifndef MAX_PATH
 #define MAX_PATH 260
@@ -49,28 +52,54 @@ typedef enum _network_proxy_type {
 // Use secure HTTPS certificate or not
 extern bool g_use_secure_cert;
 
-
-
 static size_t write_callback(void *ptr, size_t size, size_t nmemb, void *stream)
 {
-    network_malloc_info_t* s=reinterpret_cast<network_malloc_info_t *>(stream);
-    size_t start=0;
-    if(s->base==NULL){
-        s->base = reinterpret_cast<char *>(malloc(size*nmemb));
-        s->size = static_cast<uint32_t>(size*nmemb);
-        if(s->base==NULL)return 0;
-    }else{
-        size_t newsize = s->size + size*nmemb;
-        char *p=reinterpret_cast<char *>(realloc(s->base, newsize));
-        if(p == NULL){
+    network_malloc_info_t *s = reinterpret_cast<network_malloc_info_t *>(stream);
+    size_t start = 0;
+    size_t data_size = 0;
+
+    if (s == NULL || size == 0 || nmemb == 0) {
+        return 0;
+    }
+
+    if (__builtin_mul_overflow(size, nmemb, &data_size)) {
+        return 0;
+    }
+
+    if (s->base == NULL) {
+        if (data_size > HTTP_DOWNLOAD_MAX_SIZE) {
             return 0;
         }
+
+        s->base = reinterpret_cast<char*>(malloc(data_size));
+
+        if(s->base == NULL) {
+            return 0;
+        }
+
+        s->size = data_size;
+    } else {
+        if (data_size > HTTP_DOWNLOAD_MAX_SIZE || s->size > HTTP_DOWNLOAD_MAX_SIZE - data_size) {
+            return 0;
+        }
+
+        size_t new_size = s->size + data_size;
+        char *p = reinterpret_cast<char*>(realloc(s->base, new_size));
+
+        if (p == NULL) {
+            return 0;
+        }
+
         start = s->size;
         s->base = p;
-        s->size = newsize;
+        s->size = new_size;
     }
-    memcpy(s->base +start, ptr, size*nmemb);
-    return size*nmemb;
+
+    if (memcpy_s(s->base + start, s->size - start, ptr, data_size) != 0) {
+        return 0;
+    }
+
+    return data_size;
 }
 
 /**

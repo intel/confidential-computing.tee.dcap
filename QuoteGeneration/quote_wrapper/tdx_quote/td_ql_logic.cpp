@@ -1778,7 +1778,8 @@ tee_att_error_t tee_att_config_t::ecdsa_get_quote_size(sgx_ql_cert_key_type_t ce
 */
 tee_att_error_t tee_att_config_t::ecdsa_get_quote(const sgx_report2_t *p_app_report,
                                                   uint8_t *p_quote,
-                                                  uint32_t quote_size) {
+                                                  uint32_t quote_size,
+                                                  const tdx_servtd_ext_t *p_servtd_ext) {
     tee_att_error_t refqt_ret = TEE_ATT_SUCCESS;
     sgx_status_t sgx_status = SGX_SUCCESS;
     tdqe_error_t tdqe_error = TDQE_ERROR_UNEXPECTED;
@@ -1963,18 +1964,34 @@ tee_att_error_t tee_att_config_t::ecdsa_get_quote(const sgx_report2_t *p_app_rep
     }
 
     SE_TRACE(SE_TRACE_NOTICE, "Call TDQE gen_quote\n");
-    sgx_status = gen_quote(m_eid,
-                           (uint32_t*)&tdqe_error,
-                           (uint8_t*)m_ecdsa_blob,
-                           (uint32_t)sizeof(m_ecdsa_blob),
-                           p_app_report,
-                           NULL,
-                           NULL,
-                           NULL,
-                           p_quote,
-                           quote_size,
-                           (uint8_t*)p_certification_data,
-                           p_certification_data ? (uint32_t)(sizeof(*p_certification_data) + cert_data_size) : 0);
+    if (NULL == p_servtd_ext) {
+        sgx_status = gen_quote(m_eid,
+                               (uint32_t*)&tdqe_error,
+                               (uint8_t*)m_ecdsa_blob,
+                               (uint32_t)sizeof(m_ecdsa_blob),
+                               p_app_report,
+                               NULL,
+                               NULL,
+                               NULL,
+                               p_quote,
+                               quote_size,
+                               (uint8_t*)p_certification_data,
+                               p_certification_data ? (uint32_t)(sizeof(*p_certification_data) + cert_data_size) : 0);
+    } else {
+        sgx_status = gen_quote_mig_history(m_eid,
+                                           (uint32_t*)&tdqe_error,
+                                           (uint8_t*)m_ecdsa_blob,
+                                           (uint32_t)sizeof(m_ecdsa_blob),
+                                           p_app_report,
+                                           NULL,
+                                           NULL,
+                                           NULL,
+                                           p_quote,
+                                           quote_size,
+                                           (uint8_t*)p_certification_data,
+                                           p_certification_data ? (uint32_t)(sizeof(*p_certification_data) + cert_data_size) : 0,
+                                           p_servtd_ext);
+    }
     if (SGX_SUCCESS != sgx_status) {
         SE_TRACE(SE_TRACE_ERROR, "Failed call into the TDQE. 0x%04x\n", sgx_status);
         ///todo:  May want to retry on SGX_ERROR_ENCLAVE_LOST caused by power transition

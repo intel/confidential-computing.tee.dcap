@@ -2,11 +2,13 @@
 <EnclaveConfiguration>
   <IntelSigned>1</IntelSigned>
   <ProdID>3</ProdID>
-  <ISVSVN>0xD</ISVSVN>
+  <ISVSVN>0xE</ISVSVN>
   <StackMaxSize>0xA000</StackMaxSize>
   <StackMinSize>0xA000</StackMinSize>
   <HeapMaxSize>0x300000</HeapMaxSize>
   <HeapMinSize>0x300000</HeapMinSize>
+  <ReservedMemMaxSize>0x100000</ReservedMemMaxSize>
+  <ReservedMemMinSize>0x100000</ReservedMemMinSize>
   <TCSNum>1</TCSNum>
   <TCSPolicy>1</TCSPolicy>
   <DisableDebug>1</DisableDebug>

@@ -35,6 +35,7 @@
 
 #define CHECK_NULL_BREAK(p) if(!p){ break;}
 #define CHECK_SGX_ERROR_BREAK(sgx_ret) if(sgx_ret != SGX_SUCCESS){ break;}
+#define MAX_KEY_SIZE 4096
 
 #ifndef  BUILD_QAE
 #include "se_trace.h"

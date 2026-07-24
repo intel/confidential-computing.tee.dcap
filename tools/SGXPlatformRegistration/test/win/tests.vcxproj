@@ -151,10 +151,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\ByteSerializationUT.cpp" />
     <ClCompile Include="..\MPUefi_getKeyBlobsUT.cpp" />
     <ClCompile Include="..\MPUefi_getRequestTypeUT.cpp" />
     <ClCompile Include="..\MPUefi_getRequestUT.cpp" />
     <ClCompile Include="..\MPUefi_setRegiStatusUT.cpp" />
+    <ClCompile Include="..\MPUefi_setServerResponseUT.cpp" />
     <ClCompile Include="gtest_main.cpp" />
   </ItemGroup>
   <ItemGroup>

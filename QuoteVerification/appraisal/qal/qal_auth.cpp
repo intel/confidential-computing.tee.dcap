@@ -378,14 +378,14 @@ quote3_error_t authenticate_appraisal_result_internal(const uint8_t *p_quote,
             *result = TEE_AUTH_INCOMPLET;
         }
     }
-
+    ret = SGX_QL_SUCCESS;
     // Validate quote if the optional quote is input
     if (p_quote)
     {
         // validate quote hash
         ret = verify_appraisal_result_quote_hash(result_doc, p_quote, quote_size);
     }
-    return SGX_QL_SUCCESS;
+    return ret;
 }
 
 static inline std::string extract_pub_key(std::string pub_key)
@@ -441,7 +441,6 @@ quote3_error_t authenticate_policy_owner_internal(const uint8_t *p_quote,
         return TEE_ERROR_INVALID_PARAMETER;
     }
 
-    quote3_error_t ret = TEE_ERROR_UNEXPECTED;
     internal_result_t auth_res = NO_SIGN_KEY_IN_RESULT;
     for (uint32_t i = 0; i < report_array.Size(); i++)
     {
@@ -449,11 +448,21 @@ quote3_error_t authenticate_policy_owner_internal(const uint8_t *p_quote,
         {
             return TEE_ERROR_INVALID_PARAMETER;
         }
-        std::string class_id_r = report_array[i]["policy"]["environment"]["class_id"].GetString();
-        std::string jwk_r = "";
-        if (report_array[i]["policy"].HasMember("signing_key") == true)
+        const rapidjson::Value &policy = report_array[i]["policy"];
+        if (policy.IsObject() == false ||
+            policy.HasMember("environment") == false ||
+            policy["environment"].IsObject() == false ||
+            policy["environment"].HasMember("class_id") == false ||
+            policy["environment"]["class_id"].IsString() == false)
         {
-            rapidjson::Value &tmp_key = report_array[i]["policy"]["signing_key"];
+            return TEE_ERROR_INVALID_PARAMETER;
+        }
+        const rapidjson::Value &environment = policy["environment"];
+        std::string class_id_r = environment["class_id"].GetString();
+        std::string jwk_r = "";
+        if (policy.HasMember("signing_key") == true)
+        {
+            const rapidjson::Value &tmp_key = policy["signing_key"];
             rapidjson::StringBuffer buffer;
             rapidjson::Writer<rapidjson::StringBuffer, rapidjson::Document::EncodingType, rapidjson::ASCII<>> writer(buffer);
             tmp_key.Accept(writer);
@@ -516,13 +525,12 @@ quote3_error_t authenticate_policy_owner_internal(const uint8_t *p_quote,
         *result = TEE_AUTH_SUCCESS;
     }
 
-    ret = TEE_SUCCESS;
 
     // Validate quote if the optional quote is input
     if (p_quote)
     {
         // validate quote hash
-        ret = verify_appraisal_result_quote_hash(result_doc, p_quote, quote_size);
+        return verify_appraisal_result_quote_hash(result_doc, p_quote, quote_size);
     }
-    return ret;
+    return TEE_SUCCESS;
 }

@@ -145,7 +145,8 @@ public:
         uint32_t* p_quote_size);
     tee_att_error_t ecdsa_get_quote(const sgx_report2_t* p_app_report,
         uint8_t* p_quote,
-        uint32_t quote_size);
+        uint32_t quote_size,
+        const tdx_servtd_ext_t* p_servtd_ext = NULL);
 
     tee_att_error_t get_platform_info(sgx_key_128bit_t* p_platform_id,
         sgx_cpu_svn_t* p_cpu_svn,

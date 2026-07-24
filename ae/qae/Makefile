@@ -107,9 +107,6 @@ prepare:
 ifeq ($(shell grep -c SGX_JWT $(JWT_CPP_Path)/include/jwt-cpp/jwt.h), 0)
 	cd $(JWT_CPP_Path) && patch -p1 <../0001-Add-a-macro-to-disable-time-support-in-jwt-for-SGX.patch && cd -
 endif
-ifeq ($(shell grep -c 'cmake_minimum_required (VERSION 3.5)' $(WARM_Top_Path)/CMakeLists.txt), 0)
-	cd $(WARM_Top_Path) && patch -p1 <../0001-wasm-micro-runtime.patch && cd -
-endif
 
 
 # build SGXSSL
