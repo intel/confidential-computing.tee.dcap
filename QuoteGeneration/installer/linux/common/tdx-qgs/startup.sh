@@ -37,6 +37,9 @@ SYSTEMD_DROPIN_DIR=/etc/systemd/system/qgsd.service.d
 SYSTEMD_SOCKET_CONF="${SYSTEMD_DROPIN_DIR}/socket.conf"
 UPSTART_CONF=/etc/init/qgsd.conf
 
+# The QCNL collateral cache is created beneath the qgsd user's home directory by the quote provider library.
+QGS_CACHE_DIR=/var/opt/qgsd/.dcap-qcnl
+
 if test $(id -u) -ne 0; then
     echo "Root privilege is required."
     exit 1
@@ -50,10 +53,38 @@ create_qgsd_user_and_group() {
         -d /var/opt/qgsd -s /sbin/nologin "${QGS_USER}"
 }
 
-# Writes a systemd drop-in that gives qgsd a private, auto-cleaned
-# runtime directory and tightens socket permissions.
-# As a result, only the owning user can write to it, reducing the
-# attack surface on the quote-generation socket.
+# Bring an existing collateral cache directory in line with the umask policy configured below.
+# This is not merely cosmetic: earlier packages ran the daemon under an umask that cleared the owner search bit, leaving the directory as drw-rw----.
+# The quote provider only checks that the cache path exists and is a directory, never that it is usable, so it reuses such a directory forever and every cache write keeps failing.
+# Correcting the umask alone therefore does not recover an already-affected host; the mode has to be repaired explicitly.
+repair_qcnl_cache_dir() {
+    # Refuse to touch a symlink: this function runs as root and blindly
+    # chmod-ing a symlink target would be a privilege-escalation vector.
+    # -d follows symlinks, so check explicitly with -L first.
+    if [ -L "${QGS_CACHE_DIR}" ]; then
+        echo "Warning: ${QGS_CACHE_DIR} is a symlink; skipping permission repair." >&2
+        return 0
+    fi
+
+    if [ -d "${QGS_CACHE_DIR}" ]; then
+        # Only intervene when the owner search (execute) bit is missing — the
+        # exact breakage produced by UMask=0117: mkdir(0777) strips the bit and
+        # leaves drw-rw---- which the daemon cannot traverse.
+        # If an administrator has deliberately set a different mode (e.g. 0750
+        # for monitoring access) we leave it untouched.
+        # stat failure (race, stale mount, etc.) is non-fatal: skip the repair
+        # rather than aborting the whole installer under set -e.
+        current_mode=$(stat -c '%a' "${QGS_CACHE_DIR}" 2>/dev/null) || return 0
+        if [ $(( 0${current_mode} & 0100 )) -eq 0 ]; then
+            # Add the missing owner search bit and clear group write;
+            # leave everything else as the administrator configured it.
+            chmod u+x,g-w "${QGS_CACHE_DIR}"
+        fi
+    fi
+}
+
+# Writes a systemd drop-in that gives qgsd a private, auto-cleaned runtime directory and a restrictive default file mode.
+# As a result, files the daemon creates stay private to the service user, reducing the attack surface on cached attestation collateral.
 configure_systemd_service() {
     # Locate the installed unit file (path varies by distro).
     local unit_file
@@ -72,12 +103,15 @@ configure_systemd_service() {
 RuntimeDirectory=tdx-qgs
 # 0755: world-traversable so any local user can reach the socket file
 RuntimeDirectoryMode=0755
-# The socket is created with 0660 (owner/group read-write, no world access).
-# The daemon sets its own umask to ~0660 before bind() and restores it after,
-# so 0660 is in effect from the instant the socket node appears in the filesystem.
-# UMask=0117 here (complement of 0660) aligns this process's default umask with
-# that policy and governs any other files the process creates.
-UMask=0117
+# The socket mode (0660) is NOT governed by this setting.
+# The daemon applies a scoped umask around bind() and an explicit chmod() afterwards, so the socket is 0660 from the instant it appears in the filesystem, whatever UMask= says.
+#
+# UMask= therefore only affects the daemon's other files, chiefly the QCNL collateral cache under $HOME/.dcap-qcnl.
+# It must not be set to the socket's complement (0117): directories are created from a 0777 base, so 0117 strips the owner search bit and produces an unusable drw-rw---- cache directory that the daemon cannot write to or read back.
+#
+# 0077 yields 0700 directories and 0600 files.
+# The service user keeps full access, while the qgsd group - which clients such as QEMU must join in order to connect to the socket - gets no access to cached collateral.
+UMask=0077
 EOF
 }
 
@@ -102,6 +136,9 @@ configure_upstart_service() {
 
 # User creation is init-system-agnostic, so do it before branching.
 create_qgsd_user_and_group
+
+# Likewise init-system-agnostic, and it must run before the service is (re)started so the daemon comes up with a usable cache directory.
+repair_qcnl_cache_dir
 
 # Prefer systemd when available; fall back to Upstart for older distros.
 if [ -d /run/systemd/system ]; then

@@ -448,6 +448,8 @@ int main(int argc, const char* argv[])
                 // looser-than-intended permissions.
                 // The umask is restored immediately after construction so
                 // other file operations in this process are unaffected.
+                // Because the socket mode is pinned here and by the chmod() below, it does not depend on the umask the service manager supplies.
+                // That umask is free to be far more restrictive to protect the daemon's other files.
                 mode_t prev_umask = umask(~socket_mode & 0777);
                 server = new QgsServer(io_context, ep, (uint8_t)num_threads);
                 umask(prev_umask);
