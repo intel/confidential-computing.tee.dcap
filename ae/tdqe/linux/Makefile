@@ -5,7 +5,10 @@
 #
 
 TOP_DIR := ../../../QuoteGeneration
-MITIGATION-CVE-2020-0551 := LOAD
+# LVI (CVE-2020-0551) load-hardening is intentionally NOT enabled for TDQE.
+# TDQE only runs on TDX-enabled systems, which provide hardware mitigations
+# against LVI, making the software load-hardening mitigation unnecessary here.
+MITIGATION-CVE-2020-0551 := NONE
 include $(TOP_DIR)/../ae/dep/buildenv.mk
 
 CXXFLAGS := $(filter-out -std=c++14,$(CXXFLAGS)) -std=c++17
