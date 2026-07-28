@@ -36,6 +36,7 @@
 #include "sgx_lc_msr_public.h"
 
 extern sgx_get_launch_support_output_t launch_support_info;
+extern KSPIN_LOCK gLaunchSupportInfoLock;
 
 NTSTATUS
 FLCMSRQueueInitialize(
@@ -84,6 +85,7 @@ FLCMSREvtIoDeviceControl(
 {
     NTSTATUS status = STATUS_INVALID_PARAMETER;
     size_t buffer_size = 0;
+    KIRQL oldIrql;
 
     TraceEvents(TRACE_LEVEL_INFORMATION,
                 TRACE_QUEUE,
@@ -121,13 +123,13 @@ FLCMSREvtIoDeviceControl(
             break;
         }
 
-        errno_t err = memcpy_s(buffer_out, buffer_size, &launch_support_info, sizeof(sgx_get_launch_support_output_t));
-
-        if (err)
-            break;
+        KeAcquireSpinLock(&gLaunchSupportInfoLock, &oldIrql);
+        RtlCopyMemory(buffer_out, &launch_support_info, sizeof(sgx_get_launch_support_output_t));
+        KeReleaseSpinLock(&gLaunchSupportInfoLock, oldIrql);
 
         buffer_size = sizeof(sgx_get_launch_support_output_t);
         status = STATUS_SUCCESS;
+        break;
     }
     default:
         break;

@@ -38,16 +38,23 @@
 //static BOOLEAN OwnFLC = FALSE;
 sgx_get_launch_support_output_t launch_support_info = { 0 };
 SGX_PUBKEYHASH  legacypubKeyHash = { 0 };
+// Protects launch_support_info between the registry-change thread (writer)
+// and the IOCTL handler (reader), which can run at DISPATCH_LEVEL.
+KSPIN_LOCK gLaunchSupportInfoLock;
 
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, FLCMSREvtDeviceD0Exit)
 #endif // ALLOC_PRAGMA
 
-ULONG *PROCESSOR_MSR_FLAG = NULL;
+volatile ULONG *PROCESSOR_MSR_FLAG = NULL;
 PKDPC pkdpc = NULL;
-ULONG allocatedProcessorCount = 0;
 PKTHREAD gFLCNotifyRegistryChangeThreadObject = NULL;
-BOOLEAN gFLCNotifyRegistryChangeThreadStatus = FALSE;
+
+#define RET_NOT_EXECUTED 0
+#define RET_WROTE_MSR    1
+#define RET_NO_FEATURE   2
+#define RET_EXCEPTION    3
+volatile BOOLEAN gFLCNotifyRegistryChangeThreadStatus = FALSE;
 WDFKEY gRegKey = NULL;
 HANDLE gRegKeyHandle = NULL;
 
@@ -94,22 +101,23 @@ void WriteMsrRoutine(
                 __writemsr(MSR_IA32_SGX_LE_PUBKEYHASH_2, legacypubKeyHash.pubKeyHash_Value_2);
                 __writemsr(MSR_IA32_SGX_LE_PUBKEYHASH_3, legacypubKeyHash.pubKeyHash_Value_3);
             }
-            ret = 1;
+            ret = RET_WROTE_MSR;
         }
         else
         {
-            ret = 2;
+            ret = RET_NO_FEATURE;
         }
     }
     except(EXCEPTION_EXECUTE_HANDLER)
     {
-        ret = 3;
+        ret = RET_EXCEPTION;
     }
 
-    ULONG current_processor = KeGetCurrentProcessorNumber();
+    PROCESSOR_NUMBER group_and_processor = { 0,0,0 };
+    KeGetCurrentProcessorNumberEx(&group_and_processor);
     if (PROCESSOR_MSR_FLAG != NULL)
     {
-        PROCESSOR_MSR_FLAG[current_processor] = ret;
+        PROCESSOR_MSR_FLAG[group_and_processor.Group * MAXIMUM_PROC_PER_GROUP + group_and_processor.Number] = ret;
     }
     return;
 }
@@ -175,93 +183,141 @@ static BOOLEAN is_PLE_OPT_IN()
 
 static BOOLEAN FLCWriteMSRs(BOOLEAN UsePLEOptIn)
 {
-    ULONG maximumProcessor = 0;
-    ULONG i = 0;
-    ULONG count = 0;
-    BOOLEAN ret = FALSE;
+    BYTE maximumProcessor = 0;
+    BYTE i = 0;
+    BYTE count = 0;
     PKDPC tmp_pkdc = NULL;
+    USHORT current_group_count;
+    USHORT current_group;
+    PROCESSOR_NUMBER group_and_processor = { 0,0,0 };
+    BOOLEAN result = TRUE;
 
-    maximumProcessor = KeQueryActiveProcessorCount(NULL);
-    if (PROCESSOR_MSR_FLAG == NULL)
+    // Processors may be dynamically added to a group. The number of groups can increase.
+    current_group_count = KeQueryActiveGroupCount();
+
+    for (current_group = 0; current_group < current_group_count; current_group++)
     {
-        PROCESSOR_MSR_FLAG = (ULONG*)ExAllocatePoolWithTag(NonPagedPoolNx, maximumProcessor * sizeof(ULONG), 'flag');
+        group_and_processor.Group = current_group;
+        // Documentation says it can't be greater than MAXIMUM_PROC_PER_GROUP, which is defined to 64.
+        // Type-casting should be OK.
+        maximumProcessor = (BYTE)KeQueryActiveProcessorCountEx(current_group);
+
         if (PROCESSOR_MSR_FLAG == NULL)
         {
-            TraceEvents(TRACE_LEVEL_ERROR, TRACE_POWER, " Insufficient memory");
-            return FALSE;
+            // Allocate for max group count to safely handle CPU hot-add without reallocation.
+            USHORT max_group_count = KeQueryMaximumGroupCount();
+            PROCESSOR_MSR_FLAG = (ULONG*)ExAllocatePoolZero(NonPagedPoolNx, max_group_count*(MAXIMUM_PROC_PER_GROUP * sizeof(ULONG)), 'flag');
+            if (PROCESSOR_MSR_FLAG == NULL)
+            {
+                TraceEvents(TRACE_LEVEL_ERROR, TRACE_POWER, " Insufficient memory");
+                return FALSE;
+            }
         }
-        allocatedProcessorCount = maximumProcessor;
-    }
 
-    if (pkdpc == NULL)
-    {
-        pkdpc = (PKDPC)ExAllocatePoolWithTag(NonPagedPoolNx, maximumProcessor * sizeof(KDPC), 'kdpc');
         if (pkdpc == NULL)
         {
-            TraceEvents(TRACE_LEVEL_ERROR, TRACE_POWER, " Insufficient memory");
-            ExFreePoolWithTag(PROCESSOR_MSR_FLAG, 'flag');
-            PROCESSOR_MSR_FLAG = NULL;
-            allocatedProcessorCount = 0;
-            return FALSE;
+            USHORT max_group_count = KeQueryMaximumGroupCount();
+            pkdpc = (PKDPC)ExAllocatePoolZero(NonPagedPoolNx, max_group_count*(MAXIMUM_PROC_PER_GROUP * sizeof(KDPC)), 'kdpc');
+            if (pkdpc == NULL)
+            {
+                TraceEvents(TRACE_LEVEL_ERROR, TRACE_POWER, " Insufficient memory");
+                ExFreePoolWithTag((PVOID)(ULONG_PTR)PROCESSOR_MSR_FLAG, 'flag');
+                PROCESSOR_MSR_FLAG = NULL;
+                return FALSE;
+            }
+            tmp_pkdc = pkdpc;
+            // Allocation size (max_group_count * MAXIMUM_PROC_PER_GROUP * sizeof(KDPC))
+            // matches loop bound, so PREfast's buffer-overrun warning is a false positive.
+#pragma warning(push)
+#pragma warning(disable: 6386)
+            for (UINT32 j = 0; j < (UINT32)(max_group_count * MAXIMUM_PROC_PER_GROUP); j++, tmp_pkdc++)
+            {
+                KeInitializeThreadedDpc(tmp_pkdc, WriteMsrRoutine, NULL);
+            }
+#pragma warning(pop)
         }
-        tmp_pkdc = pkdpc;
+
+        tmp_pkdc = pkdpc + (MAXIMUM_PROC_PER_GROUP * (UINT64)current_group);
         for (i = 0; i < maximumProcessor; i++, tmp_pkdc++)
         {
-            KeInitializeThreadedDpc(tmp_pkdc, WriteMsrRoutine, NULL);
-        }
-    }
-
-    // Cap to the number of processors for which the arrays were allocated.
-    // KeQueryActiveProcessorCount may return a larger value after CPU hot-add;
-    // iterating beyond allocatedProcessorCount would write past the pool allocation.
-    if (maximumProcessor > allocatedProcessorCount)
-        maximumProcessor = allocatedProcessorCount;
-
-    tmp_pkdc = pkdpc;
-    for (i = 0; i < maximumProcessor; i++, tmp_pkdc++)
-    {
-        PROCESSOR_MSR_FLAG[i] = 0;
-        KeSetTargetProcessorDpc(tmp_pkdc, (CCHAR)i);
-        KeInsertQueueDpc(tmp_pkdc, (PVOID)UsePLEOptIn, NULL);
-    }
-
-    while (1)
-    {
-        count = 0;
-        for (i = 0; i < maximumProcessor; i++)
-        {
-            if (PROCESSOR_MSR_FLAG[i] != 0)
+            PROCESSOR_MSR_FLAG[i + MAXIMUM_PROC_PER_GROUP * current_group] = RET_NOT_EXECUTED;
+            group_and_processor.Number = i;
+            KeSetTargetProcessorDpcEx(tmp_pkdc, &group_and_processor);
+            // KeInsertQueueDpc returns FALSE when the DPC is already queued;
+            // it will still fire on its own. Leave the flag as RET_NOT_EXECUTED
+            // so the wait loop below waits for WriteMsrRoutine to set it.
+            if (!KeInsertQueueDpc(tmp_pkdc, (PVOID)(ULONG_PTR)UsePLEOptIn, NULL))
             {
-                count++;
+                TraceEvents(TRACE_LEVEL_WARNING, TRACE_POWER,
+                    "KeInsertQueueDpc already queued for group %u proc %u; DPC will fire on its own",
+                    current_group, i);
             }
-            else
+        }
+        // Wait for all processors in the group to finish executing the DPC
+        while (1)
+        {
+            count = 0;
+            for (i = 0; i < maximumProcessor; i++)
+            {
+                if (PROCESSOR_MSR_FLAG[i + MAXIMUM_PROC_PER_GROUP * current_group] != RET_NOT_EXECUTED)
+                {
+                    count++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            if (count == maximumProcessor)
             {
                 break;
             }
+            // Yield the logical processor briefly to avoid burning CPU while
+            // waiting for the DPCs to complete on other processors.
+            YieldProcessor();
         }
-        if (count == maximumProcessor)
+
+        // Check if any of the DPCs failed to write the MSR
+        for (i = 0; i < maximumProcessor; i++)
         {
-            break;
+            ULONG flag = PROCESSOR_MSR_FLAG[i + MAXIMUM_PROC_PER_GROUP * current_group];
+            if (flag == RET_EXCEPTION)
+            {
+                TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_POWER, "Write MSRs on processor group %u processor %u threw an exception", current_group, i);
+                result = FALSE;
+                goto flush_and_return;
+            }
+            if (flag == RET_NO_FEATURE)
+            {
+                TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_POWER, "Write MSRs on processor group %u processor %u: FLC not enabled in IA32_FEATURE_CONTROL", current_group, i);
+                result = FALSE;
+                goto flush_and_return;
+            }
         }
-    }
-    ret = TRUE;
-    for (i = 0; i < maximumProcessor; i++)
-    {
-        if (PROCESSOR_MSR_FLAG[i] == 3)
-        {
-            ret = FALSE;
-            break;
-        }
+
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_POWER, "Write MSRs finished on processor group %u", current_group);
     }
 
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_POWER, "Write MSRs finished %u", ret);
-    return ret;
+flush_and_return:
+    // Wait for every WriteMsrRoutine callback to fully return before this
+    // function returns. The spin loop above guarantees each DPC has written
+    // its completion flag, but the callback may still be executing briefly
+    // after that store. Without this flush, a subsequent FLCWriteMSRs call
+    // (e.g. triggered by a registry-change notification) could attempt to
+    // reuse the same KDPC objects while they are still executing:
+    // KeInsertQueueDpc would return FALSE and the MSR write would silently
+    // run with the previous UsePLEOptIn value. Flushing here also makes it
+    // safe for D0Exit to free the DPC and flag arrays immediately after this
+    // call returns.
+    KeFlushQueuedDpcs();
+    return result;
 }
 
 void watch_registry(HANDLE regh) {
     NTSTATUS status;
     IO_STATUS_BLOCK iosb;
-    ULONG ret = 0;
+    BOOLEAN ret = FALSE;
+    KIRQL oldIrql;
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_POWER, "%!FUNC! Entry");
 
     status = ZwNotifyChangeKey(regh, NULL, NULL, (PVOID)DelayedWorkQueue, &iosb, REG_NOTIFY_CHANGE_LAST_SET, TRUE, NULL, 0, FALSE);
@@ -271,10 +327,22 @@ void watch_registry(HANDLE regh) {
         return;
     }
 
-    if (is_PLE_OPT_IN())
+    // Call FLCWriteMSRs *before* acquiring gLaunchSupportInfoLock:
+    // KeFlushQueuedDpcs (called inside) requires IRQL == PASSIVE_LEVEL,
+    // which would be violated while holding the spinlock.
+    BOOLEAN optIn = is_PLE_OPT_IN();
+    ret = FLCWriteMSRs(optIn ? TRUE : FALSE);
+
+    // Update launch_support_info atomically under the spinlock so the
+    // IOCTL reader never observes a torn struct.
+    // Always clear SGX_LCP_PLATFORM_SUPPORT and the pubkey hash first so
+    // a failed FLCWriteMSRs never leaves stale values from a prior call.
+    KeAcquireSpinLock(&gLaunchSupportInfoLock, &oldIrql);
+    if (optIn)
     {
         launch_support_info.configurationFlags |= SGX_PLE_REGISTRY_OPT_IN;
-        ret = FLCWriteMSRs(TRUE);
+        launch_support_info.configurationFlags &= ~SGX_LCP_PLATFORM_SUPPORT;
+        RtlZeroMemory(&launch_support_info.pubKeyHash, sizeof(launch_support_info.pubKeyHash));
         if (ret == TRUE)
         {
             launch_support_info.configurationFlags |= SGX_LCP_PLATFORM_SUPPORT;
@@ -287,16 +355,17 @@ void watch_registry(HANDLE regh) {
     else
     {
         launch_support_info.configurationFlags &= ~SGX_PLE_REGISTRY_OPT_IN;
-        ret = FLCWriteMSRs(FALSE);
+        launch_support_info.configurationFlags &= ~SGX_LCP_PLATFORM_SUPPORT;
+        RtlZeroMemory(&launch_support_info.pubKeyHash, sizeof(launch_support_info.pubKeyHash));
         if (ret == TRUE)
         {
-            launch_support_info.configurationFlags &= ~SGX_LCP_PLATFORM_SUPPORT;
             launch_support_info.pubKeyHash.pubKeyHash_Value_0 = legacypubKeyHash.pubKeyHash_Value_0;
             launch_support_info.pubKeyHash.pubKeyHash_Value_1 = legacypubKeyHash.pubKeyHash_Value_1;
             launch_support_info.pubKeyHash.pubKeyHash_Value_2 = legacypubKeyHash.pubKeyHash_Value_2;
             launch_support_info.pubKeyHash.pubKeyHash_Value_3 = legacypubKeyHash.pubKeyHash_Value_3;
         }
     }
+    KeReleaseSpinLock(&gLaunchSupportInfoLock, oldIrql);
 
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_POWER, "%!FUNC! exit");
     return;
@@ -391,6 +460,9 @@ FLCMSREvtDeviceD0Entry(
 
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_POWER, "%!FUNC! Entry");
 
+    // Initialize before the registry thread starts or any IOCTL can arrive.
+    KeInitializeSpinLock(&gLaunchSupportInfoLock);
+
     if (is_OS_support_FLC())
         launch_support_info.configurationFlags = SGX_LCP_OS_PERMISSION;
     else
@@ -477,9 +549,8 @@ FLCMSREvtDeviceD0Exit(
 
     if (PROCESSOR_MSR_FLAG)
     {
-        ExFreePoolWithTag(PROCESSOR_MSR_FLAG, 'flag');
+        ExFreePoolWithTag((PVOID)(ULONG_PTR)PROCESSOR_MSR_FLAG, 'flag');
         PROCESSOR_MSR_FLAG = NULL;
-        allocatedProcessorCount = 0;
     }
     if (pkdpc)
     {

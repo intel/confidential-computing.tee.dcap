@@ -38,7 +38,8 @@ Class=Sample
 ClassGuid={78A1C341-4539-11d3-B88D-00C04FAD5171}
 Provider=%ManufacturerName%
 CatalogFile=FLCMSR.cat
-DriverVer=1.0.0.0
+DriverVer=01/01/2000,1.0.0.0
+PnpLockdown=1
 
 [DestinationDirs]
 DefaultDestDir = 12

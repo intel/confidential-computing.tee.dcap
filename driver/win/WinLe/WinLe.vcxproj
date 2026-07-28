@@ -18,6 +18,11 @@
       <Project>{4467ad92-f4bb-42da-9814-a4ccc00dd76b}</Project>
     </ProjectReference>
   </ItemGroup>
+  <!-- Fallback version when SGX_BUILD_VERSION is not set by the build system (e.g. local builds) -->
+  <!-- Must be defined before the Inf items below that reference $(SGX_BUILD_VERSION) in TimeStamp -->
+  <PropertyGroup>
+    <SGX_BUILD_VERSION Condition="'$(SGX_BUILD_VERSION)'==''">1.0.0.0</SGX_BUILD_VERSION>
+  </PropertyGroup>
   <ItemGroup>
     <Inf Include="sgx_base_dev.inx">
       <CopyOutput>.\$(IntDir)\sgx_base_dev.inf</CopyOutput>
@@ -94,8 +99,10 @@
       <TimeStamp>$(SGX_BUILD_VERSION)</TimeStamp>
     </Inf>
     <PreBuildEvent>
-      <Command>xcopy /Y $(SolutionDir)License.txt "$(TargetPath)\"
-xcopy /Y $(SolutionDir)ThirdPartyLicenses.txt "$(TargetPath)\"</Command>
+      <Command>if exist "$(SolutionDir)License.txt" xcopy /Y /I "$(SolutionDir)License.txt" "$(TargetDir)"
+if not exist "$(SolutionDir)License.txt" if exist "$(ProjectDir)..\License.txt" xcopy /Y /I "$(ProjectDir)..\License.txt" "$(TargetDir)"
+if exist "$(SolutionDir)ThirdPartyLicenses.txt" xcopy /Y /I "$(SolutionDir)ThirdPartyLicenses.txt" "$(TargetDir)"
+if not exist "$(SolutionDir)ThirdPartyLicenses.txt" if exist "$(ProjectDir)..\ThirdPartyLicenses.txt" xcopy /Y /I "$(ProjectDir)..\ThirdPartyLicenses.txt" "$(TargetDir)"</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -103,11 +110,27 @@ xcopy /Y $(SolutionDir)ThirdPartyLicenses.txt "$(TargetPath)\"</Command>
       <UmdfVersionNumber>2.15.0</UmdfVersionNumber>
     </Inf>
     <PreBuildEvent>
-      <Command>xcopy /Y $(SolutionDir)License.txt "$(TargetPath)\"
-xcopy /Y $(SolutionDir)ThirdPartyLicenses.txt "$(TargetPath)\"</Command>
+      <Command>if exist "$(SolutionDir)License.txt" xcopy /Y /I "$(SolutionDir)License.txt" "$(TargetDir)"
+if not exist "$(SolutionDir)License.txt" if exist "$(ProjectDir)..\License.txt" xcopy /Y /I "$(ProjectDir)..\License.txt" "$(TargetDir)"
+if exist "$(SolutionDir)ThirdPartyLicenses.txt" xcopy /Y /I "$(SolutionDir)ThirdPartyLicenses.txt" "$(TargetDir)"
+if not exist "$(SolutionDir)ThirdPartyLicenses.txt" if exist "$(ProjectDir)..\ThirdPartyLicenses.txt" xcopy /Y /I "$(ProjectDir)..\ThirdPartyLicenses.txt" "$(TargetDir)"</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
+  <!-- Copy license files into the WDK package staging dir before inf2cat inspects it.
+       The PreBuildEvent copies them to $(TargetDir); the WDK PackagingOutput target
+       creates $(OutDir)$(TargetName)\ but does not include them, so inf2cat error 22.9.1
+       fires. Running this target BeforeTargets="Inf2Cat" ensures they are present.
+       Source paths use $(TargetDir) to match the PreBuildEvent copy destination. -->
+  <Target Name="CopyLicensesToPackageDir" BeforeTargets="Inf2Cat">
+    <MakeDir Directories="$(OutDir)$(TargetName)" />
+    <Copy SourceFiles="$(TargetDir)License.txt"
+          DestinationFolder="$(OutDir)$(TargetName)"
+          Condition="Exists('$(TargetDir)License.txt')" />
+    <Copy SourceFiles="$(TargetDir)ThirdPartyLicenses.txt"
+          DestinationFolder="$(OutDir)$(TargetName)"
+          Condition="Exists('$(TargetDir)ThirdPartyLicenses.txt')" />
+  </Target>
 </Project>

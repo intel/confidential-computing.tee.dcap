@@ -1,5 +1,5 @@
 ;/*
-;Copyright (C) 2011-2019 Intel Corporation. All rights reserved.
+;Copyright (C) 2011-2026 Intel Corporation. All rights reserved.
 ;
 ;Redistribution and use in source and binary forms, with or without
 ;modification, are permitted provided that the following conditions
@@ -29,12 +29,13 @@
 ;*/
 
 [Version]
-Signature = "$WINDOWS NT$"
+Signature   = "$WINDOWS NT$"
 Class       = System
 ClassGuid   = {4D36E97D-E325-11CE-BFC1-08002BE10318}
 Provider    = %INTC%
 CatalogFile = sgx_base.cat
 DriverVer   = 04/17/2018,1.0.0.2
+PnpLockdown = 1
 
 [SourceDisksNames]
 1 = %Disk%,,,""
@@ -50,16 +51,18 @@ DefaultDestDir     = 12
 FLCDrv_CopyFiles   = 13      ; copy to Driver store
 UMDriver_CopyFiles = 13      ; copy to Driver store
 License_CopyFiles  = 13      ; copy to Driver store
+UMDF_CopyFiles =     12,UMDF ; copy to SYSTEM32\Drivers\UMDF
 
 [Manufacturer]
-%StdMfg%=SGXPSW,NTamd64.10.0.1..16299      ;;; 1 for Client
-%StdMfg%=SGXPSW_LC,NTamd64.10.0.3..16299   ;;; 3 for Server
+%StdMfg%=SGXPSW, NTamd64.10.0.1..17763                         ;;;1 for client
+%StdMfg%=SGXPSW, NTamd64.10.0.3..17763, NTamd64.10.0.3..22000  ;;;3 for server
 
-[SGXPSW.NTamd64.10.0.1..16299]
+; Use old and new way to specify UMDF reflector in a single INF as shown in
+; https://learn.microsoft.com/en-us/windows-hardware/drivers/wdf/adding-the-reflector
+; https://github.com/microsoft/Windows-driver-samples/blob/develop/general/echo/umdf2/driver/AutoSync/echoum.inx
+;-------------- Client OS
+[SGXPSW.NTamd64.10.0.1..17763]
 %SGXPSW.DeviceDesc% = SGXPSW_Device, acpi\int0e0c
-
-[SGXPSW_LC.NTamd64.10.0.3..16299]
-%SGXPSW_LC.DeviceDesc% = SGXPSW_LC_Device, acpi\int0e0c
 
 [SGXPSW_Device.NT]
 Include=umpass.inf
@@ -69,35 +72,44 @@ Needs=Umpass
 Include=umpass.inf
 Needs=Umpass.Services
 
-[SGXPSW_Device.NT.Components]
-AddComponent = psw_installer,, PswInstaller_component
+;-------------- Server OSes
+;Windows Server 2019 has build 17763
+[SGXPSW.NTamd64.10.0.3..17763]
+%SGXPSW_LC.DeviceDesc% = SGXPSW_Device_LC_ServerBuild_17763, acpi\int0e0c
 
-[SGXPSW_LC_Device]
-CopyFiles = UMDriver_CopyFiles
-CopyFiles = FLCDrv_CopyFiles
-CopyFiles = License_CopyFiles
+;Windows Server 2022 has build 20348
+;Windows11 Client has build 22000
+;Windows Server 2025 has build 26###
+;The new way to add UMDF reflector was added in build 22000
+[SGXPSW.NTamd64.10.0.3..22000]
+%SGXPSW_LC.DeviceDesc% = SGXPSW_Device_LC_ServerBuild_22000, acpi\int0e0c
 
-[SGXPSW_LC_Device.HW]
+[SGXPSW_Device_LC_ServerBuild_17763.NT]
+CopyFiles=UMDriver_CopyFiles,FLCDrv_CopyFiles,License_CopyFiles,UMDF_CopyFiles
+
+[SGXPSW_Device_LC_ServerBuild_17763.NT.HW]
 AddReg = SGXPSW_LC_Device_AddReg
 
 [SGXPSW_LC_Device_AddReg]
 HKR,,"UpperFilters",%REG_MULTI_SZ%,"WUDFRd"
 
-[SGXPSW_LC_Device.Components]
-AddComponent = psw_installer,, PswInstaller_component
-AddComponent = dcap_installer,, SGXDCAP_component
+[SGXPSW_Device_LC_ServerBuild_22000.NT]
+CopyFiles=UMDriver_CopyFiles,FLCDrv_CopyFiles,License_CopyFiles,UMDF_CopyFiles
+Include=WUDFRD.inf
+Needs=WUDFRD_UpperFilter.NT
 
-[SGXPSW_LC_Device.Services]
+[SGXPSW_Device_LC_ServerBuild_22000.NT.HW]
+Include=WUDFRD.inf
+Needs=WUDFRD_UpperFilter.NT.HW
+
+[SGXPSW_Device_LC_ServerBuild_22000.NT.Filters]
+Include=WUDFRD.inf
+Needs=WUDFRD_UpperFilter.NT.Filters
+
+;-------------- Reflector Service installation for Windows 10
+[SGXPSW_Device_LC_ServerBuild_17763.NT.Services]
 AddService = WUDFRd,0x000009f8,WUDFRD_ServiceInstall
 AddService = sgx_lc_msr,%SPSVCINST_ASSOCSERVICE%,SGXLCMSR_Service_Inst
-
-[SGXPSW_LC_Device.Wdf]
-UmdfService      = WinLeProxyUMDF,WinLeProxyUMDF_Install
-UmdfServiceOrder = WinLeProxyUMDF
-
-[WinLeProxyUMDF_Install]
-UmdfLibraryVersion = $UMDFVERSION$
-ServiceBinary      = %13%\sgx_lc.dll
 
 [WUDFRD_ServiceInstall]
 DisplayName    = %WudfRdDisplayName%
@@ -106,6 +118,13 @@ StartType      = 3
 ErrorControl   = 1
 ServiceBinary  = %12%\WUDFRd.sys
 
+;-------------- Reflector Service installation for Windows 11 and Windows Server 2025
+[SGXPSW_Device_LC_ServerBuild_22000.NT.Services]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.Services
+AddService = sgx_lc_msr,%SPSVCINST_ASSOCSERVICE%,SGXLCMSR_Service_Inst
+
+;-------------- SGX LC MSR Service installation
 [SGXLCMSR_Service_Inst]
 DisplayName    = %SGXLCMSR.SVCDESC%
 ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
@@ -114,9 +133,23 @@ ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
 ServiceBinary  = %13%\sgx_lc_msr.sys
 AddReg         = sgx_lc_msr_reg
 
+;-------------- WDF specific section -------------
+[SGXPSW_Device_LC_ServerBuild_17763.NT.Wdf]
+UmdfService=WinLeProxyUMDF, WinLeProxyUMDF_Install
+UmdfServiceOrder=WinLeProxyUMDF
+
+[SGXPSW_Device_LC_ServerBuild_22000.NT.Wdf]
+UmdfService=WinLeProxyUMDF, WinLeProxyUMDF_Install
+UmdfServiceOrder=WinLeProxyUMDF
+
+[WinLeProxyUMDF_Install]
+UmdfLibraryVersion=$UMDFVERSION$
+ServiceBinary=%13%\sgx_lc.dll
+
 [sgx_lc_msr_reg]
 HKR,Parameters,SGX_Launch_Config_Optin,0x00010003,0     ;FLG_ADDREG_TYPE_DWORD|FLG_ADDREG_NOCLOBBER
 
+;---------------- copy files
 [UMDriver_CopyFiles]
 sgx_lc.dll
 
@@ -127,13 +160,28 @@ sgx_lc_msr.sys
 License.txt
 ThirdPartyLicenses.txt
 
-[PswInstaller_component]
-ComponentIds = VEN_INT&DEV_0E0C
+[UMDF_CopyFiles]
+sgx_lc.dll
+
+;---------------- AddSoftwareComponents
+[SGXPSW_Device.NT.Components]
+AddComponent = sgx_pswdcap_installer,, SgxPswDcapInstaller_component
+
+[SGXPSW_Device_LC_ServerBuild_17763.NT.Components]
+AddComponent = sgx_pswdcap_installer,, SgxPswDcapInstaller_component
+AddComponent = sgxmpr_installer,, SGXMPR_component
+
+[SGXPSW_Device_LC_ServerBuild_22000.NT.Components]
+AddComponent = sgx_pswdcap_installer,, SgxPswDcapInstaller_component
+AddComponent = sgxmpr_installer,, SGXMPR_component
+
+[SgxPswDcapInstaller_component]
+ComponentIds = VEN_INT&DEV_0E0C_PSWDCAP
 Description = "Intel(R) Software Guard Extensions Software"
 
-[SGXDCAP_component]
-ComponentIds = VEN_INT&DEV_0E0C_DCAP
-Description = "Intel(R) Software Guard Extensions Software DCAP"
+[SGXMPR_component]
+ComponentIds = VEN_INT&DEV_0E0C_MPR
+Description = "Intel(R) Software Guard Extensions Software Multi-Package Registration"
 
 [Strings]
 INTC                    = "Intel Corporation"

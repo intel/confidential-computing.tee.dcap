@@ -37,12 +37,15 @@ Class=Sample ; TODO: edit Class
 ClassGuid={78A1C341-4539-11d3-B88D-00C04FAD5171} ; TODO: edit ClassGuid
 Provider=%ManufacturerName%
 CatalogFile=WinLeProxyUMDF.cat
-DriverVer= 1.0.0.0
+DriverVer=01/01/2000,1.0.0.0
+PnpLockdown=1
 
 [Manufacturer]
-%ManufacturerName%=Standard,NT$ARCH$
+; Restrict to Windows 10 RS3 (build 16299) and later; %13% (driver store)
+; ServiceBinary is not supported on earlier builds.
+%ManufacturerName%=Standard,NTamd64.10.0...16299
 
-[Standard.NT$ARCH$]
+[Standard.NTamd64.10.0...16299]
 %DeviceName%=MyDevice_Install, Root\WinLeProxyUMDF ; TODO: edit hw-id
 
 [ClassInstall32]
@@ -61,7 +64,6 @@ sgx_lc.dll=1
 ; =================== UMDF Device ==================================
 
 [MyDevice_Install.NT]
-CopyFiles=UMDriverCopy
 
 [MyDevice_Install.NT.hw]
 
@@ -77,7 +79,7 @@ UmdfServiceOrder=WinLeProxyUMDF
 
 [WinLeProxyUMDF_Install]
 UmdfLibraryVersion=$UMDFVERSION$ 
-ServiceBinary=%12%\UMDF\sgx_lc.dll
+ServiceBinary=%13%\sgx_lc.dll
 
 [WUDFRD_ServiceInstall]
 DisplayName = %WudfRdDisplayName%
@@ -90,10 +92,7 @@ ServiceBinary = %12%\WUDFRd.sys
 HKR,,CoInstallers32,0x00010000,"WUDFCoinstaller.dll"
 
 [DestinationDirs]
-UMDriverCopy=12,UMDF ; copy to drivers\umdf
-
-[UMDriverCopy]
-sgx_lc.dll
+DefaultDestDir = 13 ; copy to Driver Store
 
 ; =================== Generic ==================================
 

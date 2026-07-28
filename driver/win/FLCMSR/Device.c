@@ -67,12 +67,10 @@ FLCMSRCreateDevice(
 {
     WDF_PNPPOWER_EVENT_CALLBACKS pnpPowerCallbacks;
     WDF_OBJECT_ATTRIBUTES   deviceAttributes;
-    PDEVICE_CONTEXT deviceContext;
     WDFDEVICE device;
     NTSTATUS status;
 
     PAGED_CODE();
-    UNREFERENCED_PARAMETER(deviceContext);
 
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "%!FUNC! Entry");
 
