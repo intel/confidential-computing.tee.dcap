@@ -77,9 +77,10 @@ Enclave_Link_Flags := $(Enclave_Security_Link_Flags) \
     -Wl,--version-script=qae.lds -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
     -Wl,-pie,-eenclave_entry -Wl,--export-dynamic -Wl,--defsym,__ImageBase=0 -Wl,--gc-sections
 
-WASM_CONFIG ?= -DCMAKE_BUILD_TYPE=Release
+# Explicit for clarity: CMakeLists_minimal.txt (linux-sgx minimal build) does not enable SIMD by default.
+WASM_CONFIG ?= -DCMAKE_BUILD_TYPE=Release -DWAMR_BUILD_SIMD=0
 ifeq ($(DEBUG), 1)
-    WASM_CONFIG := -DCMAKE_BUILD_TYPE=Debug
+    WASM_CONFIG := -DCMAKE_BUILD_TYPE=Debug -DWAMR_BUILD_SIMD=0
 endif
 
 Enclave_Cpp_Files := $(wildcard *.cpp)
