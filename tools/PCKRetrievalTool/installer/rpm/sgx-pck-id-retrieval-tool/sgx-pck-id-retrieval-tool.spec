@@ -60,7 +60,7 @@ sed -i 's#^/etc/rad.conf#%config &#' %{_specdir}/list-%{name}
 ################################################################################
 
 # Install the SGX_PCK_ID_RETRIEVE_TOOL 
-ln -s -f /opt/intel/sgx-pck-id-retrieval-tool/PCKIDRetrievalTool /usr/local/bin/PCKIDRetrievalTool
+ln -s -f /opt/intel/sgx-pck-id-retrieval-tool/PCKIDRetrievalTool %{_bindir}/PCKIDRetrievalTool
 retval=$?
 
 if test $retval -ne 0; then
@@ -68,11 +68,16 @@ if test $retval -ne 0; then
     exit 6
 fi
 
+# DEPRECATED: compat symlink for users upgrading from packages older than 1.27.
+# Planned for removal in release 1.28.
+ln -sf /opt/intel/sgx-pck-id-retrieval-tool/PCKIDRetrievalTool /usr/local/bin/PCKIDRetrievalTool || true
+
 echo -e "Installation succeed!"
 
 %postun
 
-# Removing SGX_PCK_ID_RETRIEVE_TOOL soft link file
+# Removing SGX_PCK_ID_RETRIEVE_TOOL soft link files
+rm -f %{_bindir}/PCKIDRetrievalTool
 rm -f /usr/local/bin/PCKIDRetrievalTool
 
 echo -e "Uninstallation succeed!"

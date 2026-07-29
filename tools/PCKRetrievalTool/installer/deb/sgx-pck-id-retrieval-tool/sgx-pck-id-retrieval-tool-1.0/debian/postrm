@@ -21,9 +21,10 @@ set -e
 
 case "$1" in
     remove|purge)
+	# Packages older than 1.27 placed the symlink in /usr/local/bin and never removed it on upgrade, leaving an orphan.
 	rm -f /usr/local/bin/PCKIDRetrievalTool
- 
-    ;;
+    rm -f /usr/bin/PCKIDRetrievalTool
+	;;
 
     upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
     ;;
