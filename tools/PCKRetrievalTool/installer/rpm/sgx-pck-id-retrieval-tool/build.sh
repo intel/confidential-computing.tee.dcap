@@ -73,6 +73,8 @@ update_spec() {
 	pushd ${SCRIPT_DIR}/${RPM_BUILD_FOLDER}
     sed -i "s#@version@#${SGX_VERSION}#" SPECS/${PCK_ID_RETRIEVAL_TOOL_PACKAGE_NAME}.spec
     sed -i "s#@install_path@#${PCK_ID_RETRIEVAL_TOOL_PACKAGE_PATH}/${PCK_ID_RETRIEVAL_TOOL_PACKAGE_NAME}#" SPECS/${PCK_ID_RETRIEVAL_TOOL_PACKAGE_NAME}.spec
+    BUILD_DATE=$(LC_ALL=C date +"%a %b %d %Y")
+    sed -i "s/@date@/${BUILD_DATE}/" SPECS/${PCK_ID_RETRIEVAL_TOOL_PACKAGE_NAME}.spec
     if [ "${min_version}" != "${cur_version}" ]; then
         sed -i "s/^Recommends:/Requires:  /" SPECS/${PCK_ID_RETRIEVAL_TOOL_PACKAGE_NAME}.spec
     fi

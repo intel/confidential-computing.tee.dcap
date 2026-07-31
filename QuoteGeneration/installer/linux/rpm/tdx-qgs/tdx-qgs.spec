@@ -49,6 +49,13 @@ if [ -x %{_install_path}/cleanup.sh ]; then %{_install_path}/cleanup.sh; fi
 - Release v1.27
   See https://github.com/intel/confidential-computing.tee.dcap/releases/tag/DCAP_1.27 for full release notes.
 
+- Key changes:
+  1. qgsd QCNL collateral cache umask tightened from 022 to 077;
+     the cache directory (/var/opt/qgsd/.dcap-qcnl) is now private to the qgsd
+     service user. Processes reading the cache as a non-qgsd user will fail.
+     Existing directories with a broken mode are repaired automatically during
+     package upgrade.
+
 * Thu Apr 30 2026 Intel Confidential Computing Team <confidential.computing@intel.com> - 1.26.100.1-1
 - Release v1.26
   See https://github.com/intel/confidential-computing.tee.dcap/releases/tag/DCAP_1.26 for full release notes.

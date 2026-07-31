@@ -83,5 +83,16 @@ rm -f /usr/local/bin/PCKIDRetrievalTool
 echo -e "Uninstallation succeed!"
 
 %changelog
-* Mon Apr 28 2020 SGX Team
-- Initial Release
+* @date@ Intel Confidential Computing Team <confidential.computing@intel.com> - @version@-1
+- Release v1.27
+  See https://github.com/intel/confidential-computing.tee.dcap/releases/tag/DCAP_1.27 for full release notes.
+
+- Key changes:
+  1. Primary symlink moved from /usr/local/bin/PCKIDRetrievalTool
+     to /usr/bin/PCKIDRetrievalTool. A deprecated compat symlink at /usr/local/bin
+     is retained for this release and will be removed in 1.28. Update scripts or
+     sudoers entries that hardcode the old path.
+
+* Thu Apr 30 2026 Intel Confidential Computing Team <confidential.computing@intel.com> - 1.26.100.1-1
+- Release v1.26
+  See https://github.com/intel/confidential-computing.tee.dcap/releases/tag/DCAP_1.26 for full release notes.

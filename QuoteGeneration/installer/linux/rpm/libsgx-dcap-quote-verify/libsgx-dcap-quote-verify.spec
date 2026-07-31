@@ -75,6 +75,13 @@ rm -fr %{?buildroot}/%{name}-dev
 - Release v1.27
   See https://github.com/intel/confidential-computing.tee.dcap/releases/tag/DCAP_1.27 for full release notes.
 
+- Key changes:
+  1. sgx_ql_qv_supplemental_t extended to supplemental data minor
+     version 5: three new fields appended (tcb_date_current, tcb_status_current,
+     sa_list_current). Callers that allocate this struct by sizeof() compiled
+     against older headers will receive SGX_QL_ERROR_QVL_QVE_MISMATCH (when using
+     QvE) due to a supplemental data size mismatch. Recompile against the updated headers.
+
 * Thu Apr 30 2026 Intel Confidential Computing Team <confidential.computing@intel.com> - 1.26.100.1-1
 - Release v1.26
   See https://github.com/intel/confidential-computing.tee.dcap/releases/tag/DCAP_1.26 for full release notes.

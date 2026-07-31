@@ -3,6 +3,13 @@ tdx-qgs (9.9.9.9-1) unstable; urgency=low
   * Release v1.27
     See https://github.com/intel/confidential-computing.tee.dcap/releases/tag/DCAP_1.27 for full release notes.
 
+  * Key changes:
+    1. qgsd QCNL collateral cache umask tightened from 022 to 077;
+       the cache directory (/var/opt/qgsd/.dcap-qcnl) is now private to the qgsd
+       service user. Processes reading the cache as a non-qgsd user will fail.
+       Existing directories with a broken mode are repaired automatically during
+       package upgrade.
+
  -- Intel Confidential Computing Team <confidential.computing@intel.com>  Fri, 01 Jan 2100 00:00:00 +0000
 
 tdx-qgs (1.26.100.1-all1) unstable; urgency=low
