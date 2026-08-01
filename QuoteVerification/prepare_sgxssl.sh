@@ -34,17 +34,17 @@ ARG1=${1:-build}
 top_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 sgxssl_dir=$top_dir/sgxssl
 openssl_out_dir=$sgxssl_dir/openssl_source
-openssl_ver_name=openssl-3.1.6
+openssl_ver_name=openssl-3.0.21
 sgxssl_github_archive=https://github.com/intel/intel-sgx-ssl/archive
-sgxssl_file_name=3.1.6_Rev1
+sgxssl_file_name=3.0_Rev5.4
 build_script=$sgxssl_dir/Linux/build_openssl.sh
 server_url_path=https://www.openssl.org/source/
 #server_url_path=https://af01p-igk.devtools.intel.com/artifactory/sgxdcapprerequisites-igk-local/prebuilt/ssl
 full_openssl_url=$server_url_path/$openssl_ver_name.tar.gz
 full_openssl_url_old=$server_url_path/old/3.0/$openssl_ver_name.tar.gz
 
-sgxssl_chksum=8fbacac2612f6117c11d04cd7989f1a035f978683a4626055133b2fbf332d016
-openssl_chksum=5d2be4036b478ef3cb0a854ca9b353072c3a0e26d8a56f8f0ab9fb6ed32d38d7
+sgxssl_chksum=e6891fa0e527de24d241343e593b7ccfb516bd44564415bfbee0228a82387e3e
+openssl_chksum=617e29af8e421f46649484a4937e48c685e47f46488167c982f88bc4ec1d522f
 rm -f check_sum_sgxssl.txt check_sum_openssl.txt
 if [ ! -f $build_script ]; then
   wget $sgxssl_github_archive/$sgxssl_file_name.zip -P $sgxssl_dir/ || exit 1
@@ -77,7 +77,7 @@ fi
 
 if [ ! -f $openssl_out_dir/$openssl_ver_name.tar.gz ]; then
 #  wget $full_openssl_url_old -P $openssl_out_dir || wget $full_openssl_url -P $openssl_out_dir || exit 1
-  wget $full_openssl_url -P $openssl_out_dir --no-check-certificate || exit 1
+  wget $full_openssl_url -P $openssl_out_dir || exit 1
   sha256sum $openssl_out_dir/$openssl_ver_name.tar.gz > $sgxssl_dir/check_sum_openssl.txt
   grep $openssl_chksum $sgxssl_dir/check_sum_openssl.txt
   if [ $? -ne 0 ]; then
@@ -103,5 +103,4 @@ else
   fi
 fi
 popd
-
 
