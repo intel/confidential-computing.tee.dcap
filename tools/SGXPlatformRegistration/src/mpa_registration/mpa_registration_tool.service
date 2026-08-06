@@ -4,7 +4,8 @@ Wants=network-online.target
 After=network.target auditd.service network-online.target
 
 [Service]
-EnvironmentFile=/etc/environment
+EnvironmentFile=-/usr/etc/environment
+EnvironmentFile=-/etc/environment
 ExecStart=@mpa_folder@mpa_registration
 [Install]
 WantedBy=multi-user.target
