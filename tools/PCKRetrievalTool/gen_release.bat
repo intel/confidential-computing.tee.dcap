@@ -7,7 +7,7 @@
 @echo off 
 
 set svn_ver=%1%
-set rel_dir_name=PCKIDRetrievalTool_v1.27.100.1
+set rel_dir_name=PCKIDRetrievalTool_v1.27.101.1
 set TOOLSFOLDER=.\..\..\..\installer_tools\Tools\standalone_build_se\sign
 set SIGNTOOL="%TOOLSFOLDER%\SignFile.exe"
 set flag=0

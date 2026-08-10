@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
   <metadata>
     <id>DCAP_Components</id>
-    <version>1.27.100.1</version>
+    <version>1.27.101.1</version>
     <title>DCAP Components</title>
     <authors>Intel(R) SGX</authors>
     <owners>Intel</owners>

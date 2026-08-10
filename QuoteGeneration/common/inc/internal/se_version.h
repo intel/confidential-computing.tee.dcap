@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#define STRFILEVER    "1.27.100.1"
+#define STRFILEVER    "1.27.101.1"
 #define COPYRIGHT      "Copyright\xA9 2026 Intel Corporation"
-#define FILEVER        1,27,100,1
-#define PRODUCTVER     1,27,100,1
-#define STRPRODUCTVER  "1.27.100.1"
+#define FILEVER        1,27,101,1
+#define PRODUCTVER     1,27,101,1
+#define STRPRODUCTVER  "1.27.101.1"
 #define COMPANYNAME    "Intel Corporation"
 #define PRODUCTNAME    "Intel\xAE Software Guard Extensions"
 
