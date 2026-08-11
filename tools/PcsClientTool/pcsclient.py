@@ -370,7 +370,7 @@ class CollateralFetcher:
                     return False
             else:
                 key_suffix = '_early' if update == 'early' else ''
-                self.output_json["collaterals"][f"{identity_type}identity{key_suffix}"] = identity[0]
+                self.output_json["collaterals"][f"{identity_type}identity{key_suffix}"] = json.loads(identity[0])
                 if identity_type == 'qe':
                     self.output_json["collaterals"]["certificates"][PCS.HDR_Enclave_Identity_Issuer_Chain] = identity[1]
         return True
