@@ -31,8 +31,9 @@ if verification is None:
         import tempfile
         import subprocess
 
-from pypac import PACSession
 from platform import system
+if system() == 'Windows':
+    from pypac import PACSession
 from lib.intelsgx.credential import Credentials
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
