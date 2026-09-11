@@ -75,9 +75,9 @@ ifneq ($(PUBKEY_FILE),)
 	CSS_PUBKEY_FILE = $(shell realpath $(PUBKEY_FILE))
 endif
 
-VERBOSE := @
+CMD := @
 ifeq ($(V),1)
-	VERBOSE :=
+	CMD :=
 endif
 
 SGX_LE_SIGNING_KEY_PATH := sgx_signing_key.pem
@@ -89,47 +89,47 @@ PUBLIC_KEY_PATH := $(shell realpath $(SGX_LE_PUBLIC_KEY_PATH))
 SIGNING_MATERIAL := $(shell realpath $(SGX_LE_SIGNING_MATERIAL))
 
 $(SIGNING_KEY_PATH):
-	$(VERBOSE) openssl genrsa -3 -out $(SIGNING_KEY_PATH) 3072
+	$(CMD) openssl genrsa -3 -out $(SIGNING_KEY_PATH) 3072
 
 $(PUBLIC_KEY_PATH): $(SIGNING_KEY_PATH)
-	$(VERBOSE) openssl rsa -in $(SIGNING_KEY_PATH) -outform PEM -pubout -out $(PUBLIC_KEY_PATH)
+	$(CMD) openssl rsa -in $(SIGNING_KEY_PATH) -outform PEM -pubout -out $(PUBLIC_KEY_PATH)
 
 SGX_LE_C_OBJS := $(addprefix $(TARGET)/,main.o string.o cmac.o)
 SGX_LE_S_OBJS := $(addprefix $(TARGET)/,encl_bootstrap.o)
 
 $(TARGET):
-	$(VERBOSE) mkdir $@
+	$(CMD) mkdir $@
 
 $(SGX_LE_C_OBJS): $(TARGET)/%.o: %.c | $(TARGET)
-	$(VERBOSE) $(CC) -c $(CFLAGS) $(INCLUDES) $< -o $@
+	$(CMD) $(CC) -c $(CFLAGS) $(INCLUDES) $< -o $@
 
 $(SGX_LE_S_OBJS): $(TARGET)/%.o: %.S | $(TARGET)
-	$(VERBOSE) $(CC) -c $(CFLAGS) $(INCLUDES) $< -o $@
+	$(CMD) $(CC) -c $(CFLAGS) $(INCLUDES) $< -o $@
 
 $(TARGET)/sgx_le.elf: sgx_le.lds $(SGX_LE_C_OBJS) $(SGX_LE_S_OBJS)
-	$(VERBOSE) $(LD) $(LDFLAGS) -T $^ -o $@
+	$(CMD) $(LD) $(LDFLAGS) -T $^ -o $@
 
 $(TARGET)/sgx_le.bin: $(TARGET)/sgx_le.elf
-	$(VERBOSE) objcopy --remove-section=.got.plt -O binary $< $@
+	$(CMD) objcopy --remove-section=.got.plt -O binary $< $@
 
 $(TARGET)/sgxsign: sgxsign.c | $(TARGET)
-	$(VERBOSE) $(CC) -Wall $(INCLUDES) -o $@ $< -lcrypto
+	$(CMD) $(CC) -Wall $(INCLUDES) -o $@ $< -lcrypto
 
 $(TARGET)/bin2c: bin2c.c | $(TARGET)
-	$(VERBOSE) $(CC) -Wall $(INCLUDES) -o $@ $<
+	$(CMD) $(CC) -Wall $(INCLUDES) -o $@ $<
 
 sign: $(SIGNING_KEY_PATH) $(TARGET)/sgx_le.bin $(TARGET)/sgxsign $(TARGET)/bin2c
-	$(VERBOSE) $(TARGET)/sgxsign sign $(SIGNING_KEY_PATH) $(TARGET)/sgx_le.bin $(TARGET)/sgx_le.ss $(SIGN_EXTRA)
-	$(VERBOSE) $(TARGET)/bin2c $(TARGET)/sgx_le.bin $(TARGET)/sgx_le_blob.h sgx_le_blob
-	$(VERBOSE) $(TARGET)/bin2c $(TARGET)/sgx_le.ss $(TARGET)/sgx_le_ss.h sgx_le_ss
+	$(CMD) $(TARGET)/sgxsign sign $(SIGNING_KEY_PATH) $(TARGET)/sgx_le.bin $(TARGET)/sgx_le.ss $(SIGN_EXTRA)
+	$(CMD) $(TARGET)/bin2c $(TARGET)/sgx_le.bin $(TARGET)/sgx_le_blob.h sgx_le_blob
+	$(CMD) $(TARGET)/bin2c $(TARGET)/sgx_le.ss $(TARGET)/sgx_le_ss.h sgx_le_ss
 
 gendata: $(TARGET)/sgx_le.bin $(TARGET)/sgxsign
-	$(VERBOSE) $(TARGET)/sgxsign gendata $(TARGET)/sgx_le.bin $(SIGNING_MATERIAL) $(SIGN_EXTRA)
+	$(CMD) $(TARGET)/sgxsign gendata $(TARGET)/sgx_le.bin $(SIGNING_MATERIAL) $(SIGN_EXTRA)
 
 usesig: $(TARGET)/sgx_le.bin $(TARGET)/sgxsign $(TARGET)/bin2c
-	$(VERBOSE) $(TARGET)/sgxsign usesig $(CSS_PUBKEY_FILE) $(TARGET)/sgx_le.bin $(CSS_SIG_FILE) $(TARGET)/sgx_le.ss $(SIGN_EXTRA)
-	$(VERBOSE) $(TARGET)/bin2c $(TARGET)/sgx_le.bin $(TARGET)/sgx_le_blob.h sgx_le_blob
-	$(VERBOSE) $(TARGET)/bin2c $(TARGET)/sgx_le.ss $(TARGET)/sgx_le_ss.h sgx_le_ss
+	$(CMD) $(TARGET)/sgxsign usesig $(CSS_PUBKEY_FILE) $(TARGET)/sgx_le.bin $(CSS_SIG_FILE) $(TARGET)/sgx_le.ss $(SIGN_EXTRA)
+	$(CMD) $(TARGET)/bin2c $(TARGET)/sgx_le.bin $(TARGET)/sgx_le_blob.h sgx_le_blob
+	$(CMD) $(TARGET)/bin2c $(TARGET)/sgx_le.ss $(TARGET)/sgx_le_ss.h sgx_le_ss
 
 clean:
-	$(VERBOSE) rm -vrf $(TARGET) $(SIGNING_MATERIAL)
+	$(CMD) rm -vrf $(TARGET) $(SIGNING_MATERIAL)
